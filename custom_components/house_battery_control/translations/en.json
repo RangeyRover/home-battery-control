@@ -40,7 +40,67 @@
                 "data": {
                     "skip_control": "Skip (Debug / Observation Mode)",
                     "allow_charge_entity": "Allow Grid Charging (Switch)",
-                    "allow_export_entity": "Operation Mode (Select)"
+                    "allow_export_entity": "Operation Mode (Select)",
+                    "script_charge": "Script: Charge from Grid",
+                    "script_charge_stop": "Script: Stop Charging",
+                    "script_discharge": "Script: Discharge to Grid",
+                    "script_discharge_stop": "Script: Stop Discharging"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "House Battery Control Options",
+                "description": "Select a category to configure.",
+                "menu_options": {
+                    "manual": "Telemetry (Power Sensors)",
+                    "energy": "Energy & Metrics",
+                    "control": "Control Services"
+                }
+            },
+            "manual": {
+                "title": "Telemetry (Power Sensors)",
+                "description": "Select the power sensors for your battery system.",
+                "data": {
+                    "battery_soc_entity": "Battery State of Charge",
+                    "battery_power_entity": "Battery Power",
+                    "battery_power_invert": "Invert Battery Power (positive = discharge)",
+                    "solar_entity": "Solar Production Power",
+                    "grid_entity": "Grid Power",
+                    "grid_power_invert": "Invert Grid Power (positive = export)"
+                }
+            },
+            "energy": {
+                "title": "Energy & Metrics",
+                "description": "Configure cumulative energy sensors, load sensitivity, and system constants.",
+                "data": {
+                    "load_today_entity": "Load Today (kWh)",
+                    "import_today_entity": "Grid Import Today (kWh)",
+                    "export_today_entity": "Grid Export Today (kWh)",
+                    "load_high_temp_sensitivity": "Load sensitivity — high temp (kW/°C)",
+                    "load_low_temp_sensitivity": "Load sensitivity — low temp (kW/°C)",
+                    "load_high_temp_threshold": "High temperature threshold (°C)",
+                    "load_low_temp_threshold": "Low temperature threshold (°C)",
+                    "battery_capacity": "Battery Capacity (kWh)",
+                    "battery_rate_max": "Max Charge/Discharge Rate (kW)",
+                    "inverter_limit": "Inverter Limit (kW)",
+                    "import_price_entity": "Import Price (Amber Electric)",
+                    "export_price_entity": "Export Price / Feed-In (Amber Electric)",
+                    "weather_entity": "Weather Entity",
+                    "solcast_today_entity": "Solcast Forecast Today (sensor)",
+                    "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)"
+                }
+            },
+            "control": {
+                "title": "Control Services (Optional)",
+                "description": "Map the scripts used to control the Powerwall.",
+                "data": {
+                    "script_charge": "Script: Charge from Grid",
+                    "script_charge_stop": "Script: Stop Charging",
+                    "script_discharge": "Script: Discharge to Grid",
+                    "script_discharge_stop": "Script: Stop Discharging"
                 }
             }
         }
