@@ -125,7 +125,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "state": state.state if state else "not_found",
                 "available": (
                     state is not None
-                    and state.state not in ("unavailable", "unknown")
+                    and state.state != "unavailable"
                 ),
                 "attributes": dict(state.attributes) if state else {},
             })

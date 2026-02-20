@@ -17,6 +17,7 @@ from custom_components.house_battery_control.const import (
     CONF_SCRIPT_CHARGE_STOP,
     CONF_SCRIPT_DISCHARGE,
     CONF_SCRIPT_DISCHARGE_STOP,
+    CONF_LOAD_TODAY_ENTITY,
 )
 
 
@@ -165,3 +166,27 @@ def test_build_sensor_diagnostics_includes_all_entities():
     assert "script.charge_stop" in reported_entities
     assert "script.discharge" in reported_entities
     assert "script.discharge_stop" in reported_entities
+
+
+def test_build_sensor_diagnostics_unknown_state_is_available():
+    """Spec 2.4: Daily energy sensors frequently hit 'unknown' at midnight or restart.
+    They are technically 'available', just waiting for data. If they return 'unknown',
+    available should be True to avoid red error crosses in the UI."""
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    
+    mock_hass = MagicMock()
+    mock_hass.states.get.return_value = _make_state("unknown")
+    
+    config = {
+        CONF_LOAD_TODAY_ENTITY: "sensor.load_today",
+    }
+    
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.hass = mock_hass
+    coordinator.config = config
+    
+    diagnostics = coordinator._build_sensor_diagnostics()
+    
+    assert len(diagnostics) == 1
+    # Should be True, because unknown is not unavailable.
+    assert diagnostics[0]["available"] is True
