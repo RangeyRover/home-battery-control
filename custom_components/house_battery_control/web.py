@@ -8,12 +8,13 @@ Provides:
 Registers with HA's built-in aiohttp server via hass.http.register_view().
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 import yaml
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 
@@ -41,44 +42,92 @@ def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
     state = data.get("state", "IDLE")
     soc = data.get("soc", 50.0)
 
+    # Pre-parse Solar by Hour
+    solar_by_hour = {}
+    for s in solar_forecast:
+        if not isinstance(s, dict):
+            continue
+        start_str = s.get("period_start") or s.get("start", "")
+        if not start_str:
+            continue
+        try:
+            st = dt_util.parse_datetime(start_str)
+            if st:
+                key = (st.year, st.month, st.day, st.hour)
+                val = float(s.get("pv_estimate", s.get("kw", 0.0)))
+                solar_by_hour[key] = solar_by_hour.get(key, 0.0) + val
+        except (ValueError, TypeError):
+            pass
+
+    # Pre-parse Load
+    parsed_loads = []
+    for lf in load_forecast:
+        if not isinstance(lf, dict):
+            continue
+        start_str = lf.get("start", "")
+        if not start_str:
+            continue
+        try:
+            st = dt_util.parse_datetime(start_str)
+            if st:
+                parsed_loads.append({"start": st, "kw": float(lf.get("kw", 0.0))})
+        except (ValueError, TypeError):
+            pass
+
+    # Pre-parse Weather
+    parsed_weather = []
+    for w in weather:
+        if not isinstance(w, dict):
+            continue
+        if "datetime" in w and isinstance(w["datetime"], datetime):
+            parsed_weather.append(w)
+        else:
+            w_time = w.get("datetime")
+            if isinstance(w_time, str):
+                w_time = dt_util.parse_datetime(w_time)
+            if isinstance(w_time, datetime):
+                parsed_weather.append({"datetime": w_time, "temperature": w.get("temperature")})
+
     table = []
     cumulative = 0.0
 
-    for i, rate in enumerate(rates):
+    for rate in rates:
         start = rate["start"]
+        end = rate.get("end", start + timedelta(minutes=30))
         price = rate.get("import_price", rate.get("price", 0.0))
         export_price = rate.get("export_price", price * 0.8)
 
-        # Solar forecast lookup (by index, matching 5-min intervals)
+        if not isinstance(start, datetime) or not isinstance(end, datetime):
+            continue
+
+        duration_mins = max(1, int((end - start).total_seconds() / 60.0))
+        duration_hours = duration_mins / 60.0
+
+        # Solar forecast lookup by hour chunk
         pv_kw = 0.0
-        if i < len(solar_forecast):
-            pv_kw = solar_forecast[i].get("kw", 0.0) if isinstance(solar_forecast[i], dict) else 0.0
+        key = (start.year, start.month, start.day, start.hour)
+        hourly_total = solar_by_hour.get(key, 0.0)
+        pv_kw = hourly_total * duration_hours
 
-        # Load forecast lookup
+        # Load forecast lookup (average of all overlapping blocks)
         load_kw = 0.0
-        if i < len(load_forecast):
-            load_kw = load_forecast[i] if isinstance(load_forecast[i], (int, float)) else 0.0
+        matched_loads = [lf["kw"] for lf in parsed_loads if start <= lf["start"] < end]
+        if matched_loads:
+            load_kw = sum(matched_loads) / len(matched_loads)
 
-        # Temperature forecast lookup (nearest hour match)
+        # Temperature lookup (nearest neighbor)
         temp_c = None
-        if weather and isinstance(start, datetime):
-            closest = weather[0]
-            min_diff = abs((start - closest["datetime"]).total_seconds()) if "datetime" in closest else float("inf")
-            for w in weather:
-                if "datetime" in w:
-                    diff = abs((start - w["datetime"]).total_seconds())
-                    if diff < min_diff:
-                        min_diff = diff
-                        closest = w
+        if parsed_weather:
+            closest = min(parsed_weather, key=lambda w: abs((start - w["datetime"]).total_seconds()))
             temp_c = closest.get("temperature")
 
-        # Net power flow for interval cost (5 min = 1/12 hour)
+        # Net power flow for interval cost
         net_import_kw = load_kw - pv_kw  # positive = importing
-        interval_kwh = net_import_kw * (5.0 / 60.0)
+        interval_kwh = net_import_kw * duration_hours
         interval_cost = interval_kwh * price / 100.0  # price is c/kWh → dollars
 
         # SoC forecast (simplified: linear projection based on net flow)
-        soc_delta = (net_import_kw * -1.0) * (5.0 / 60.0) / capacity * 100.0
+        soc_delta = (net_import_kw * -1.0) * duration_hours / capacity * 100.0
         soc = max(0.0, min(100.0, soc + soc_delta))
 
         cumulative += interval_cost
@@ -89,7 +138,7 @@ def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
         table.append({
             "Time": start.strftime("%H:%M") if isinstance(start, datetime) else str(start),
             "Import Rate": f"{price:.1f}",
-            "Export Rate": f"{export_price:.1f}",  # Actual export rate from Amber
+            "Export Rate": f"{export_price:.1f}",
             "FSM State": state,
             "Inverter Limit": f"{inverter_pct:.0f}%",
             "PV Forecast": f"{pv_kw:.2f}",

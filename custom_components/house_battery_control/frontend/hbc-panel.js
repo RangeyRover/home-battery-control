@@ -193,35 +193,27 @@ class HBCPanel extends LitElement {
         ? new Date(row_start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         : "—";
 
-      const imp = (r.import_price || r.price || 0).toFixed(2);
-      const exp = (r.export_price || 0).toFixed(2);
+      const imp = (r.import_price || r.price || 0).toFixed(1);
+      const exp = (r.export_price || (r.import_price || r.price || 0) * 0.8).toFixed(1);
 
-      let pv = "—";
-      let ld = "—";
+      let pv = "0.00";
+      let ld = "0.00";
       let temp = "—";
+      let cost = "0.0000";
 
       if (row_start && row_end) {
-        const duration_mins = Math.round((row_end - row_start) / 60000);
+        const duration_mins = Math.max(1, Math.round((row_end - row_start) / 60000));
+        const duration_hours = duration_mins / 60.0;
 
         // --- Solar Interpolation ---
         const d = new Date(row_start);
         const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}-${d.getUTCHours()}`;
         if (key in _solarByHour) {
           const hourly_total = _solarByHour[key];
-          // Proportional interpolation: hourly total divided by slices
-          if (duration_mins === 5) {
-            pv = (hourly_total / 12).toFixed(1);
-          } else if (duration_mins === 30) {
-            pv = (hourly_total / 2).toFixed(1);
-          } else {
-            // Fallback for weird durations
-            pv = (hourly_total * (duration_mins / 60)).toFixed(1);
-          }
-        } else {
-          pv = "0.0";
+          pv = (hourly_total * duration_hours).toFixed(2);
         }
 
-        // --- Load Interpolation ---
+        // --- Load Interpolation (Average Overlap) ---
         let load_sum = 0;
         let load_count = 0;
         for (const lf of loadFc) {
@@ -233,10 +225,10 @@ class HBCPanel extends LitElement {
           }
         }
         if (load_count > 0) {
-          ld = (load_sum / load_count).toFixed(1);
+          ld = (load_sum / load_count).toFixed(2);
         }
 
-        // --- Weather / Temp Lookup ---
+        // --- Weather / Temp Lookup (Nearest Neighbor) ---
         let minDiff = Infinity;
         let matchedTemp = null;
         for (const w of weather) {
@@ -249,25 +241,35 @@ class HBCPanel extends LitElement {
           }
         }
         if (matchedTemp !== null) {
-          temp = matchedTemp.toFixed(0);
+          temp = matchedTemp.toFixed(1) + "°C";
         }
+
+        // --- Financial Projection ---
+        const net_import_kw = parseFloat(ld) - parseFloat(pv); // Positive = importing
+        const interval_kwh = net_import_kw * duration_hours;
+        const interval_cost = (interval_kwh * (r.import_price || r.price || 0)) / 100.0;
+
+        cumulative += interval_cost;
+        cost = interval_cost.toFixed(4);
       }
 
-      const interval_energy_kwh = (parseFloat(imp) / 100) * 0.083;
-      cumulative += interval_energy_kwh;
+      // Compute Inverter Percentage
+      const net_abs = Math.abs(parseFloat(ld) - parseFloat(pv));
+      const inverter_limit = 10.0;
+      const pct = Math.min(100, (net_abs / inverter_limit) * 100).toFixed(0);
 
       return {
         time,
         imp,
         exp,
         state: this._data.state || "—",
-        limit: "100%",
+        limit: `${pct}%`,
         pv,
         ld,
         temp,
         soc: "—",
-        cost: interval_energy_kwh.toFixed(3),
-        total: cumulative.toFixed(2),
+        cost: `$${cost}`,
+        total: `$${cumulative.toFixed(2)}`,
       };
     });
 
