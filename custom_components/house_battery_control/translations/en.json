@@ -27,13 +27,14 @@
                     "battery_capacity": "Battery Capacity (kWh)",
                     "battery_rate_max": "Max Charge/Discharge Rate (kW)",
                     "inverter_limit": "Inverter Limit (kW)",
-                    "tariff_entity": "Tariff Sensor (Amber Electric)",
+                    "import_price_entity": "Import Price (Amber Electric)",
+                    "export_price_entity": "Export Price / Feed-In (Amber Electric)",
                     "weather_entity": "Weather Entity"
                 }
             },
             "control": {
-                "title": "Control Services",
-                "description": "Map the entities used to control the Powerwall.",
+                "title": "Control Services (Optional)",
+                "description": "Map the entities used to control the Powerwall. Leave blank for debug/observation mode.",
                 "data": {
                     "allow_charge_entity": "Allow Grid Charging (Switch)",
                     "allow_export_entity": "Operation Mode (Select)"

@@ -1,7 +1,8 @@
 """Test the House Battery Control config flow.
 
-NOTE: Full config flow integration tests require a real HA instance.
-These tests validate the flow schema and step structure using mocks.
+Tests written FIRST per @speckit.implement TDD.
+Spec 3.1: Split import/export price entities.
+Spec 3.6: Control step is optional (debug mode).
 """
 
 from custom_components.house_battery_control.const import (
@@ -12,14 +13,15 @@ from custom_components.house_battery_control.const import (
     CONF_BATTERY_POWER_ENTITY,
     CONF_BATTERY_POWER_INVERT,
     CONF_BATTERY_SOC_ENTITY,
+    CONF_EXPORT_PRICE_ENTITY,
     CONF_EXPORT_TODAY_ENTITY,
     CONF_GRID_ENTITY,
     CONF_GRID_POWER_INVERT,
+    CONF_IMPORT_PRICE_ENTITY,
     CONF_IMPORT_TODAY_ENTITY,
     CONF_INVERTER_LIMIT_MAX,
     CONF_LOAD_TODAY_ENTITY,
     CONF_SOLAR_ENTITY,
-    CONF_TARIFF_ENTITY,
     CONF_WEATHER_ENTITY,
 )
 
@@ -39,7 +41,8 @@ def test_all_config_keys_are_strings():
         CONF_BATTERY_CAPACITY,
         CONF_BATTERY_CHARGE_RATE_MAX,
         CONF_INVERTER_LIMIT_MAX,
-        CONF_TARIFF_ENTITY,
+        CONF_IMPORT_PRICE_ENTITY,
+        CONF_EXPORT_PRICE_ENTITY,
         CONF_WEATHER_ENTITY,
         CONF_ALLOW_CHARGE_FROM_GRID_ENTITY,
         CONF_ALLOW_EXPORT_ENTITY,
@@ -63,7 +66,8 @@ def test_config_keys_are_unique():
         CONF_BATTERY_CAPACITY,
         CONF_BATTERY_CHARGE_RATE_MAX,
         CONF_INVERTER_LIMIT_MAX,
-        CONF_TARIFF_ENTITY,
+        CONF_IMPORT_PRICE_ENTITY,
+        CONF_EXPORT_PRICE_ENTITY,
         CONF_WEATHER_ENTITY,
         CONF_ALLOW_CHARGE_FROM_GRID_ENTITY,
         CONF_ALLOW_EXPORT_ENTITY,
@@ -83,3 +87,10 @@ def test_config_flow_has_three_steps():
     assert hasattr(ConfigFlow, "async_step_user")
     assert hasattr(ConfigFlow, "async_step_energy")
     assert hasattr(ConfigFlow, "async_step_control")
+
+
+def test_no_tariff_entity_constant():
+    """CONF_TARIFF_ENTITY should no longer exist (replaced by split rates)."""
+    from custom_components.house_battery_control import const
+    assert not hasattr(const, "CONF_TARIFF_ENTITY"), \
+        "CONF_TARIFF_ENTITY should be removed — replaced by CONF_IMPORT/EXPORT_PRICE_ENTITY"

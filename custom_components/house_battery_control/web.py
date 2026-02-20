@@ -45,7 +45,8 @@ def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
 
     for i, rate in enumerate(rates):
         start = rate["start"]
-        price = rate.get("price", 0.0)
+        price = rate.get("import_price", rate.get("price", 0.0))
+        export_price = rate.get("export_price", price * 0.8)
 
         # Solar forecast lookup (by index, matching 5-min intervals)
         pv_kw = 0.0
@@ -87,7 +88,7 @@ def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
         table.append({
             "Time": start.strftime("%H:%M") if isinstance(start, datetime) else str(start),
             "Import Rate": f"{price:.1f}",
-            "Export Rate": f"{price * 0.8:.1f}",  # Simplified: export = 80% of import
+            "Export Rate": f"{export_price:.1f}",  # Actual export rate from Amber
             "FSM State": state,
             "Inverter Limit": f"{inverter_pct:.0f}%",
             "PV Forecast": f"{pv_kw:.2f}",
@@ -183,7 +184,7 @@ class HBCDashboardView(HomeAssistantView):
 
     url = "/hbc"
     name = "hbc:dashboard"
-    requires_auth = False
+    requires_auth = True
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
@@ -244,7 +245,7 @@ class HBCPlanView(HomeAssistantView):
 
     url = "/hbc/plan"
     name = "hbc:plan"
-    requires_auth = False
+    requires_auth = True
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
@@ -264,7 +265,8 @@ class HBCPlanView(HomeAssistantView):
         headers = "".join(f"<th>{c}</th>" for c in [
             "Time", "Import Rate", "Export Rate", "FSM State",
             "Inverter Limit", "PV Forecast", "Load Forecast",
-            "SoC Forecast", "Interval Cost", "Cumulative Total",
+            "Air Temp Forecast", "SoC Forecast", "Interval Cost",
+            "Cumulative Total",
         ])
 
         html = f"""<!DOCTYPE html>

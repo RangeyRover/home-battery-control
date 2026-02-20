@@ -10,68 +10,111 @@ _LOGGER = logging.getLogger(__name__)
 class RateInterval(TypedDict):
     start: datetime
     end: datetime
-    price: float # c/kWh
-    type: str # ACTUAL or FORECAST
+    import_price: float  # c/kWh
+    export_price: float  # c/kWh
+    type: str  # ACTUAL or FORECAST
 
 class RatesManager:
-    """Manages fetching and processing tariff rates."""
+    """Manages fetching and processing tariff rates from Amber Electric."""
 
-    def __init__(self, hass: HomeAssistant, entity_id: str):
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        import_entity_id: str,
+        export_entity_id: str,
+    ):
         self._hass = hass
-        self._entity_id = entity_id
+        self._import_entity_id = import_entity_id
+        self._export_entity_id = export_entity_id
         self._rates: List[RateInterval] = []
 
     def update(self) -> None:
-        """Fetch latest rates from the sensor."""
-        state = self._hass.states.get(self._entity_id)
-        if not state:
-            _LOGGER.warning(f"Tariff entity {self._entity_id} not found")
-            return
+        """Fetch latest rates from both import and export sensors."""
+        import_rates = self._parse_entity(self._import_entity_id, "import")
+        export_rates = self._parse_entity(self._export_entity_id, "export")
 
-        # Amber Electric Sensor exposes 'future_prices' and 'current_price'
-        # We handle the 'variable_intervals' or 'future_prices' attribute
-        raw_data = state.attributes.get("future_prices") or state.attributes.get("variable_intervals")
+        # Merge by matching start times
+        merged = {}
+        for r in import_rates:
+            key = r["start"]
+            merged[key] = {
+                "start": r["start"],
+                "end": r["end"],
+                "import_price": r["price"],
+                "export_price": 0.0,
+                "type": r["type"],
+            }
+        for r in export_rates:
+            key = r["start"]
+            if key in merged:
+                merged[key]["export_price"] = r["price"]
+            else:
+                merged[key] = {
+                    "start": r["start"],
+                    "end": r["end"],
+                    "import_price": 0.0,
+                    "export_price": r["price"],
+                    "type": r["type"],
+                }
+
+        self._rates = sorted(merged.values(), key=lambda x: x["start"])
+        _LOGGER.debug(f"Loaded {len(self._rates)} rate intervals")
+
+    def _parse_entity(self, entity_id: str, label: str) -> list:
+        """Parse rate intervals from an Amber sensor entity."""
+        state = self._hass.states.get(entity_id)
+        if not state:
+            _LOGGER.warning(f"{label} price entity {entity_id} not found")
+            return []
+
+        raw_data = (
+            state.attributes.get("forecasts")
+            or state.attributes.get("future_prices")
+            or state.attributes.get("variable_intervals")
+        )
 
         if not raw_data:
-            _LOGGER.warning(f"No future_prices found in {self._entity_id}")
-            return
+            _LOGGER.warning(f"No forecast data in {entity_id}")
+            return []
 
-        parsed_rates = []
+        parsed = []
         for interval in raw_data:
             try:
-                # Parse timestamps (ISO 8601)
-                start_ts = dt_util.parse_datetime(interval["periodStart"])
-                end_ts = dt_util.parse_datetime(interval["periodEnd"])
+                start_ts = dt_util.parse_datetime(interval.get("start_time") or interval.get("periodStart", ""))
+                end_ts = dt_util.parse_datetime(interval.get("end_time") or interval.get("periodEnd", ""))
 
                 if not start_ts or not end_ts:
                     continue
 
-                # Amber prices are often in c/kWh directly or $/kWh.
-                # The schema example shows 25.5 (c/kWh). We assume c/kWh.
-                price = float(interval.get("perKwh", 0))
+                price = float(interval.get("per_kwh") or interval.get("perKwh", 0))
 
-                parsed_rates.append({
+                parsed.append({
                     "start": start_ts,
                     "end": end_ts,
                     "price": price,
-                    "type": interval.get("periodType", "UNKNOWN")
+                    "type": interval.get("type") or interval.get("periodType", "UNKNOWN"),
                 })
             except (ValueError, KeyError) as e:
-                _LOGGER.error(f"Error parsing rate interval: {e}")
+                _LOGGER.error(f"Error parsing {label} rate interval: {e}")
                 continue
 
-        # Sort by start time
-        parsed_rates.sort(key=lambda x: x["start"])
-        self._rates = parsed_rates
-        _LOGGER.debug(f"Loaded {len(self._rates)} rate intervals")
+        parsed.sort(key=lambda x: x["start"])
+        return parsed
 
     def get_rates(self) -> List[RateInterval]:
         """Return the processed list of rates."""
         return self._rates
 
-    def get_price_at(self, time: datetime) -> float:
-        """Get the price for a specific time."""
+    def get_import_price_at(self, time: datetime) -> float:
+        """Get the import price for a specific time."""
         for rate in self._rates:
             if rate["start"] <= time < rate["end"]:
-                return rate["price"]
-        return 0.0 # Default or fallback?
+                return rate["import_price"]
+        return 0.0
+
+    def get_export_price_at(self, time: datetime) -> float:
+        """Get the export price for a specific time."""
+        for rate in self._rates:
+            if rate["start"] <= time < rate["end"]:
+                return rate["export_price"]
+        return 0.0

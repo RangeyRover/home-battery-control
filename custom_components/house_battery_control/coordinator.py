@@ -15,9 +15,11 @@ from .const import (
     CONF_BATTERY_POWER_ENTITY,
     CONF_BATTERY_POWER_INVERT,
     CONF_BATTERY_SOC_ENTITY,
+    CONF_EXPORT_PRICE_ENTITY,
     CONF_EXPORT_TODAY_ENTITY,
     CONF_GRID_ENTITY,
     CONF_GRID_POWER_INVERT,
+    CONF_IMPORT_PRICE_ENTITY,
     CONF_IMPORT_TODAY_ENTITY,
     CONF_INVERTER_LIMIT_MAX,
     CONF_LOAD_HIGH_TEMP_THRESHOLD,
@@ -26,7 +28,6 @@ from .const import (
     CONF_LOAD_SENSITIVITY_LOW_TEMP,
     CONF_LOAD_TODAY_ENTITY,
     CONF_SOLAR_ENTITY,
-    CONF_TARIFF_ENTITY,
     CONF_WEATHER_ENTITY,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -61,7 +62,11 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         self.config = config
 
         # Initialize Managers
-        self.rates = RatesManager(hass, config[CONF_TARIFF_ENTITY])
+        self.rates = RatesManager(
+            hass,
+            config.get(CONF_IMPORT_PRICE_ENTITY, ""),
+            config.get(CONF_EXPORT_PRICE_ENTITY, ""),
+        )
         self.weather = WeatherManager(hass, config[CONF_WEATHER_ENTITY])
         self.load_predictor = LoadPredictor(hass)
 
@@ -134,7 +139,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
             # Build FSM context and run decision logic
-            current_price = self.rates.get_price_at(dt_util.now())
+            current_price = self.rates.get_import_price_at(dt_util.now())
 
             fsm_context = FSMContext(
                 soc=soc,
