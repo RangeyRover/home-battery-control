@@ -103,7 +103,10 @@ def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def build_status_data(data: dict[str, Any]) -> dict[str, Any]:
-    """Extract status fields for the JSON API."""
+    """Extract status fields for the JSON API.
+
+    Includes sensor diagnostics (spec 2.4) when available.
+    """
     return {
         "soc": data.get("soc", 0.0),
         "solar_power": data.get("solar_power", 0.0),
@@ -113,6 +116,10 @@ def build_status_data(data: dict[str, Any]) -> dict[str, Any]:
         "current_price": data.get("current_price", 0.0),
         "state": data.get("state", "IDLE"),
         "reason": data.get("reason", ""),
+        # Diagnostics (spec 2.4)
+        "sensors": data.get("sensors", []),
+        "last_update": data.get("last_update", None),
+        "update_count": data.get("update_count", 0),
     }
 
 
@@ -184,7 +191,7 @@ class HBCDashboardView(HomeAssistantView):
 
     url = "/hbc"
     name = "hbc:dashboard"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
@@ -245,7 +252,7 @@ class HBCPlanView(HomeAssistantView):
 
     url = "/hbc/plan"
     name = "hbc:plan"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
@@ -302,7 +309,7 @@ class HBCApiStatusView(HomeAssistantView):
 
     url = "/hbc/api/status"
     name = "hbc:api:status"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]

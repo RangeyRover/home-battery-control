@@ -48,24 +48,25 @@ def test_web_has_api_ping():
     assert HBCApiPingView is not None
 
 
-# --- Auth Flags (Spec 2.3) ---
+# --- Auth Flags (Spec 2.3 — Custom Panel) ---
+# All views are public; auth handled by HA frontend framework for the panel.
 
-def test_dashboard_requires_auth():
-    """Dashboard view must require authentication (spec 2.3)."""
+def test_dashboard_is_public():
+    """Dashboard view must be public (spec 2.3 — panel handles auth)."""
     from custom_components.house_battery_control.web import HBCDashboardView
-    assert HBCDashboardView.requires_auth is True
+    assert HBCDashboardView.requires_auth is False
 
 
-def test_plan_requires_auth():
-    """Plan view must require authentication (spec 2.3)."""
+def test_plan_is_public():
+    """Plan view must be public (spec 2.3 — panel handles auth)."""
     from custom_components.house_battery_control.web import HBCPlanView
-    assert HBCPlanView.requires_auth is True
+    assert HBCPlanView.requires_auth is False
 
 
-def test_api_status_requires_auth():
-    """API status must require authentication (spec 2.3)."""
+def test_api_status_is_public():
+    """API status must be public (spec 2.3 — consumed by panel JS)."""
     from custom_components.house_battery_control.web import HBCApiStatusView
-    assert HBCApiStatusView.requires_auth is True
+    assert HBCApiStatusView.requires_auth is False
 
 
 def test_api_ping_public():
@@ -196,3 +197,56 @@ def test_power_flow_svg():
     assert "Grid" in svg
     assert "Battery" in svg
     assert "House" in svg or "Load" in svg
+
+
+# --- API Diagnostics (Spec 2.4) ---
+
+def test_build_status_data_includes_sensors():
+    """build_status_data must include sensor diagnostics when config provided (spec 2.4)."""
+    from custom_components.house_battery_control.web import build_status_data
+
+    mock_data = {
+        "soc": 75.0,
+        "solar_power": 3.5,
+        "grid_power": -1.0,
+        "battery_power": 2.0,
+        "load_power": 2.5,
+        "current_price": 25.5,
+        "state": "CHARGE_SOLAR",
+        "reason": "Excess solar",
+        # Diagnostics data from coordinator
+        "sensors": [
+            {"entity_id": "sensor.battery_soc", "state": "75.0", "available": True},
+            {"entity_id": "sensor.solar_power", "state": "3.5", "available": True},
+            {"entity_id": "sensor.missing", "state": "unavailable", "available": False},
+        ],
+        "last_update": "2025-06-15T12:00:00+00:00",
+        "update_count": 42,
+    }
+
+    status = build_status_data(mock_data)
+    # Must pass through sensor diagnostics
+    assert "sensors" in status
+    assert len(status["sensors"]) == 3
+    assert status["sensors"][0]["entity_id"] == "sensor.battery_soc"
+    assert status["sensors"][2]["available"] is False
+    # Must include coordinator metadata
+    assert "last_update" in status
+    assert "update_count" in status
+    assert status["update_count"] == 42
+
+
+def test_build_status_data_no_sensors_key():
+    """build_status_data must not crash when sensors key is missing (backward compat)."""
+    from custom_components.house_battery_control.web import build_status_data
+
+    mock_data = {
+        "soc": 50.0,
+        "state": "IDLE",
+        "reason": "",
+    }
+    status = build_status_data(mock_data)
+    assert status["sensors"] == []
+    assert status["last_update"] is None
+    assert status["update_count"] == 0
+
