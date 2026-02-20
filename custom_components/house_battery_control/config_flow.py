@@ -37,10 +37,14 @@ from .const import (
     CONF_LOAD_SENSITIVITY_LOW_TEMP,
     CONF_LOAD_TODAY_ENTITY,
     CONF_SOLAR_ENTITY,
+    CONF_SOLCAST_TODAY_ENTITY,
+    CONF_SOLCAST_TOMORROW_ENTITY,
     CONF_WEATHER_ENTITY,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_RATE_MAX,
     DEFAULT_INVERTER_LIMIT,
+    DEFAULT_SOLCAST_TODAY,
+    DEFAULT_SOLCAST_TOMORROW,
     DOMAIN,
 )
 
@@ -135,6 +139,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ),
                     vol.Required(CONF_WEATHER_ENTITY): EntitySelector(
                         EntitySelectorConfig(domain="weather")
+                    ),
+                    vol.Required(CONF_SOLCAST_TODAY_ENTITY, default=DEFAULT_SOLCAST_TODAY): EntitySelector(
+                        EntitySelectorConfig(domain="sensor")
+                    ),
+                    vol.Required(CONF_SOLCAST_TOMORROW_ENTITY, default=DEFAULT_SOLCAST_TOMORROW): EntitySelector(
+                        EntitySelectorConfig(domain="sensor")
                     ),
                 }
             ),

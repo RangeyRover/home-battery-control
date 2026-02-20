@@ -28,8 +28,12 @@ from .const import (
     CONF_LOAD_SENSITIVITY_LOW_TEMP,
     CONF_LOAD_TODAY_ENTITY,
     CONF_SOLAR_ENTITY,
+    CONF_SOLCAST_TODAY_ENTITY,
+    CONF_SOLCAST_TOMORROW_ENTITY,
     CONF_WEATHER_ENTITY,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SOLCAST_TODAY,
+    DEFAULT_SOLCAST_TOMORROW,
     DOMAIN,
 )
 from .execute import PowerwallExecutor
@@ -71,7 +75,11 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         self.load_predictor = LoadPredictor(hass)
 
         # Solar Provider (reads from Solcast HA integration entities)
-        self.solar = SolcastSolar(hass)
+        self.solar = SolcastSolar(
+            hass,
+            forecast_today_entity=config.get(CONF_SOLCAST_TODAY_ENTITY, DEFAULT_SOLCAST_TODAY),
+            forecast_tomorrow_entity=config.get(CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW),
+        )
 
         # FSM + Executor
         self.fsm = DefaultBatteryStateMachine()

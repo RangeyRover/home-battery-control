@@ -71,6 +71,9 @@ class SolcastSolar(SolarForecastProvider):
                     if not period_start:
                         continue
 
+                    # Ensure timezone-aware (spec 4: TZ safety)
+                    period_start = dt_util.as_utc(period_start)
+
                     # pv_estimate is in kW (mean power over period)
                     pv_kw = float(item.get("pv_estimate", 0))
 

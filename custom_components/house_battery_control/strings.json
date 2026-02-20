@@ -29,7 +29,9 @@
                     "inverter_limit": "Inverter Limit (kW)",
                     "import_price_entity": "Import Price (Amber Electric)",
                     "export_price_entity": "Export Price / Feed-In (Amber Electric)",
-                    "weather_entity": "Weather Entity"
+                    "weather_entity": "Weather Entity",
+                    "solcast_today_entity": "Solcast Forecast Today (sensor)",
+                    "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)"
                 }
             },
             "control": {

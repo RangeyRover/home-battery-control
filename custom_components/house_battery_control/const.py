@@ -12,6 +12,8 @@ CONF_GRID_POWER_INVERT = "grid_power_invert"
 CONF_IMPORT_PRICE_ENTITY = "import_price_entity"
 CONF_EXPORT_PRICE_ENTITY = "export_price_entity"
 CONF_WEATHER_ENTITY = "weather_entity"
+CONF_SOLCAST_TODAY_ENTITY = "solcast_today_entity"
+CONF_SOLCAST_TOMORROW_ENTITY = "solcast_tomorrow_entity"
 CONF_LOAD_TODAY_ENTITY = "load_today_entity"
 CONF_IMPORT_TODAY_ENTITY = "import_today_entity"
 CONF_EXPORT_TODAY_ENTITY = "export_today_entity"
@@ -38,6 +40,8 @@ DEFAULT_INVERTER_LIMIT = 10.0
 DEFAULT_CURRENCY = "c/kWh"
 DEFAULT_SCAN_INTERVAL = 300
 # 5 minutes
+DEFAULT_SOLCAST_TODAY = "sensor.solcast_pv_forecast_today"
+DEFAULT_SOLCAST_TOMORROW = "sensor.solcast_pv_forecast_tomorrow"
 
 # States (match System Requirements)
 STATE_IDLE = "IDLE"

@@ -86,6 +86,10 @@ class RatesManager:
                 if not start_ts or not end_ts:
                     continue
 
+                # Ensure timezone-aware (spec 4: TZ safety)
+                start_ts = dt_util.as_utc(start_ts)
+                end_ts = dt_util.as_utc(end_ts)
+
                 price = float(interval.get("per_kwh") or interval.get("perKwh", 0))
 
                 parsed.append({
