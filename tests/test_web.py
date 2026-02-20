@@ -58,9 +58,49 @@ def test_dashboard_is_public():
 
 
 def test_plan_is_public():
-    """Plan view must be public (spec 2.3 — panel handles auth)."""
+    """Plan view must be public."""
     from custom_components.house_battery_control.web import HBCPlanView
     assert HBCPlanView.requires_auth is False
+
+
+# --- YAML Config Endpoint (Spec 4.1) ---
+
+def test_web_has_config_yaml_view():
+    """web.py should have a YAML config export view (S2)."""
+    import custom_components.house_battery_control.web as web
+    assert hasattr(web, "HBCConfigYamlView"), "Missing HBCConfigYamlView for YAML export"
+
+
+# --- Retroactive JS Data Structure Tests (S3) ---
+
+def test_js_plan_data_structures():
+    """Verify the data structures expected by the JS Plan tab are maintained (S3)."""
+    # The JS expects:
+    # rates: [{start: "toISOString", import_price: 10.0, export_price: 5.0}, ...]
+    # solar_forecast: [{start: "toISOString", kw: 2.5}, ...]
+    # We test the web.py build_status_data passthrough does not mangle these if they exist.
+    from custom_components.house_battery_control.web import build_status_data
+
+    # Mock coordinator output that satisfies JS expectations
+    mock_data = {
+        "rates": [
+            {"start": "2026-02-19T13:30:00+00:00", "import_price": 25.0, "export_price": 8.0}
+        ],
+        "solar_forecast": [
+            {"start": "2026-02-19T13:30:00+00:00", "kw": 3.4}
+        ]
+    }
+    status = build_status_data(mock_data)
+
+    # Assert JS requirements are preserved
+    assert len(status["rates"]) == 1
+    assert "start" in status["rates"][0]
+    assert "import_price" in status["rates"][0]
+    assert "export_price" in status["rates"][0]
+
+    assert len(status["solar_forecast"]) == 1
+    assert "start" in status["solar_forecast"][0]
+    assert "kw" in status["solar_forecast"][0]
 
 
 def test_api_status_is_public():

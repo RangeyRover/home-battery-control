@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 import voluptuous as vol
+import yaml
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import (
@@ -14,6 +15,8 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
 )
 
 from .const import (
@@ -62,13 +65,52 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
+        """Step 0: Choose configuration method."""
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["manual", "yaml"],
+        )
+
+    async def async_step_yaml(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure using YAML (S2)."""
+        errors = {}
+        if user_input is not None:
+            try:
+                yaml_data = yaml.safe_load(user_input["yaml_config"])
+                if not isinstance(yaml_data, dict):
+                    raise ValueError("YAML must be a dictionary")
+
+                # Dump to log for future reference
+                _LOGGER.info("HBC YAML Config imported directly:\n%s", yaml.dump(yaml_data, sort_keys=True))
+                return self.async_create_entry(title="House Battery Control", data=yaml_data)
+            except Exception as e:
+                _LOGGER.error("YAML config error: %s", e)
+                errors["base"] = "invalid_yaml"
+
+        return self.async_show_form(
+            step_id="yaml",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("yaml_config"): TextSelector(
+                        TextSelectorConfig(multiline=True)
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_manual(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Step 1: Telemetry (Power)."""
         if user_input is not None:
             self._data.update(user_input)
             return await self.async_step_energy()
 
         return self.async_show_form(
-            step_id="user",
+            step_id="manual",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_BATTERY_SOC_ENTITY): EntitySelector(
@@ -157,12 +199,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # If skip is checked, create entry without control entities
             if user_input.get("skip_control", False):
+                _LOGGER.info("HBC Config final YAML:\n%s", yaml.dump(self._data, sort_keys=True))
                 return self.async_create_entry(
                     title="House Battery Control", data=self._data
                 )
             self._data.update(user_input)
             # Remove the skip flag from stored data
             self._data.pop("skip_control", None)
+
+            _LOGGER.info("HBC Config final YAML:\n%s", yaml.dump(self._data, sort_keys=True))
             return self.async_create_entry(title="House Battery Control", data=self._data)
 
         return self.async_show_form(

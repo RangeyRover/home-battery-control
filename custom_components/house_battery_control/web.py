@@ -11,6 +11,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
+import yaml
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
@@ -328,3 +329,25 @@ class HBCApiPingView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         return self.json({"status": "ok"})
+
+
+class HBCConfigYamlView(HomeAssistantView):
+    """YAML Config Export API (S2)."""
+
+    url = "/hbc/api/config-yaml"
+    name = "hbc:api:config-yaml"
+    requires_auth = False
+
+    async def get(self, request: web.Request) -> web.Response:
+        hass = request.app["hass"]
+
+        # Get config from the first entry we find
+        config_data = {}
+        domain_data = hass.data.get(DOMAIN, {})
+        for entry_data in domain_data.values():
+            if "config" in entry_data:
+                config_data = entry_data["config"]
+                break
+
+        yaml_text = yaml.dump(config_data, default_flow_style=False, sort_keys=True)
+        return web.Response(text=yaml_text, content_type="text/yaml")

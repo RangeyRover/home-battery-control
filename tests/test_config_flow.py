@@ -87,10 +87,12 @@ def test_config_flow_class_exists():
     assert ConfigFlow is not None
 
 
-def test_config_flow_has_three_steps():
-    """ConfigFlow should have user, energy, and control steps."""
+def test_config_flow_has_menu_and_steps():
+    """ConfigFlow should have menu, manual, yaml, energy, and control steps (S2)."""
     from custom_components.house_battery_control.config_flow import ConfigFlow
     assert hasattr(ConfigFlow, "async_step_user")
+    assert hasattr(ConfigFlow, "async_step_manual")
+    assert hasattr(ConfigFlow, "async_step_yaml")
     assert hasattr(ConfigFlow, "async_step_energy")
     assert hasattr(ConfigFlow, "async_step_control")
 

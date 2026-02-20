@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 from .coordinator import HBCDataUpdateCoordinator
-from .web import HBCApiPingView, HBCApiStatusView, HBCDashboardView, HBCPlanView
+from .web import HBCApiPingView, HBCApiStatusView, HBCConfigYamlView, HBCDashboardView, HBCPlanView
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register API views (consumed by panel JS)
     hass.http.register_view(HBCApiStatusView())
     hass.http.register_view(HBCApiPingView())
+    hass.http.register_view(HBCConfigYamlView())
 
     # Legacy HTML views (kept for backward compat)
     hass.http.register_view(HBCDashboardView())
