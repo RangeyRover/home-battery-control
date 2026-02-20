@@ -183,7 +183,7 @@ class HBCDashboardView(HomeAssistantView):
 
     url = "/hbc"
     name = "hbc:dashboard"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
@@ -244,7 +244,7 @@ class HBCPlanView(HomeAssistantView):
 
     url = "/hbc/plan"
     name = "hbc:plan"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]

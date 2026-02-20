@@ -38,7 +38,8 @@ class HBCSensorBase(CoordinatorEntity[HBCDataUpdateCoordinator], SensorEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry_id)},
             "name": "House Battery Control",
-            "manufacturer": "Antigravity",
+            "manufacturer": "HBC",
+            "model": "Deterministic FSM",
         }
 
 class HBCStateSensor(HBCSensorBase):
