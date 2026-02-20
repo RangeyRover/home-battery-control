@@ -195,7 +195,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             fsm_result = self.fsm.calculate_next_state(fsm_context)
 
             # Apply state to Powerwall
-            self.executor.apply_state(fsm_result.state, fsm_result.limit_kw)
+            await self.executor.apply_state(fsm_result.state, fsm_result.limit_kw)
 
             # Return data for sensors and dashboard
             self._update_count += 1

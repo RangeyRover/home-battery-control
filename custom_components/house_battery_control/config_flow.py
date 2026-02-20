@@ -255,7 +255,6 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
         self._data = dict(config_entry.data)
         # In HA, options override data over time. We'll simply merge them into the config data in the options property if available.
         # But this integration relies heavily on replacing full config, so we will re-save the config entry data.
