@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -14,6 +15,9 @@ from .web import HBCApiPingView, HBCApiStatusView, HBCDashboardView, HBCPlanView
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
+
+FRONTEND_DIR = Path(__file__).parent / "frontend"
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up House Battery Control from a config entry."""
@@ -31,11 +35,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Register web dashboard views
-    hass.http.register_view(HBCDashboardView())
-    hass.http.register_view(HBCPlanView())
+    # Register API views (consumed by panel JS)
     hass.http.register_view(HBCApiStatusView())
     hass.http.register_view(HBCApiPingView())
+
+    # Legacy HTML views (kept for backward compat)
+    hass.http.register_view(HBCDashboardView())
+    hass.http.register_view(HBCPlanView())
+
+    # Register custom panel (spec 2.2)
+    hass.http.register_static_path(
+        "/hbc/frontend", str(FRONTEND_DIR), cache_headers=False
+    )
+
+    try:
+        await hass.components.frontend.async_register_built_in_panel(
+            component_name="custom",
+            sidebar_title="HBC",
+            sidebar_icon="mdi:battery-charging",
+            frontend_url_path="hbc-panel",
+            config={
+                "_panel_custom": {
+                    "name": "hbc-panel",
+                    "module_url": "/hbc/frontend/hbc-panel.js",
+                }
+            },
+        )
+    except Exception:
+        _LOGGER.warning("Could not register HBC panel — may already be registered")
 
     return True
 

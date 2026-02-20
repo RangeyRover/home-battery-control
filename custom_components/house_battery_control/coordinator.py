@@ -64,6 +64,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         )
         self.entry_id = entry_id
         self.config = config
+        self._update_count = 0
 
         # Initialize Managers
         self.rates = RatesManager(
@@ -96,6 +97,31 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         except (ValueError, TypeError):
             _LOGGER.error(f"Could not convert {entity_id} state '{state.state}' to float")
             return 0.0
+
+    def _build_sensor_diagnostics(self) -> list[dict[str, Any]]:
+        """Build sensor availability report for API diagnostics (spec 2.4)."""
+        sensor_keys = [
+            CONF_BATTERY_SOC_ENTITY, CONF_BATTERY_POWER_ENTITY,
+            CONF_SOLAR_ENTITY, CONF_GRID_ENTITY,
+            CONF_IMPORT_PRICE_ENTITY, CONF_EXPORT_PRICE_ENTITY,
+            CONF_WEATHER_ENTITY, CONF_LOAD_TODAY_ENTITY,
+            CONF_IMPORT_TODAY_ENTITY, CONF_EXPORT_TODAY_ENTITY,
+        ]
+        diagnostics = []
+        for key in sensor_keys:
+            entity_id = self.config.get(key, "")
+            if not entity_id:
+                continue
+            state = self.hass.states.get(entity_id)
+            diagnostics.append({
+                "entity_id": entity_id,
+                "state": state.state if state else "not_found",
+                "available": (
+                    state is not None
+                    and state.state not in ("unavailable", "unknown")
+                ),
+            })
+        return diagnostics
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via library."""
@@ -163,6 +189,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             self.executor.apply_state(fsm_result.state, fsm_result.limit_kw)
 
             # Return data for sensors and dashboard
+            self._update_count += 1
             return {
                 "soc": soc,
                 "solar_power": solar_p,
@@ -186,6 +213,10 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "reason": fsm_result.reason,
                 "limit_kw": fsm_result.limit_kw,
                 "plan_html": self.executor.get_command_summary(),
+                # Diagnostics (spec 2.4)
+                "sensors": self._build_sensor_diagnostics(),
+                "last_update": dt_util.utcnow().isoformat(),
+                "update_count": self._update_count,
             }
         except Exception as err:
             raise UpdateFailed(f"Error in HBC update cycle: {err}")
