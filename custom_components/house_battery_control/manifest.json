@@ -1,0 +1,16 @@
+{
+    "domain": "house_battery_control",
+    "name": "House Battery Control",
+    "codeowners": [],
+    "config_flow": true,
+    "dependencies": [
+        "http",
+        "sensor",
+        "weather"
+    ],
+    "documentation": "https://github.com/markn/house_battery_control",
+    "iot_class": "local_polling",
+    "issue_tracker": "https://github.com/markn/house_battery_control/issues",
+    "requirements": [],
+    "version": "1.0.0"
+}

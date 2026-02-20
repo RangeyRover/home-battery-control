@@ -1,0 +1,11 @@
+force_charge:
+  name: Force Charge
+  description: Manually trigger grid charging.
+  
+force_discharge:
+  name: Force Discharge
+  description: Manually trigger grid export.
+  
+force_idle:
+  name: Force Idle
+  description: Disable automation and hold state.

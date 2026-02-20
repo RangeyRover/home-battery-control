@@ -1,0 +1,44 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Telemetry (Power Sensors)",
+                "description": "Select the power sensors for your battery system.",
+                "data": {
+                    "battery_soc_entity": "Battery State of Charge",
+                    "battery_power_entity": "Battery Power",
+                    "battery_power_invert": "Invert Battery Power (positive = discharge)",
+                    "solar_entity": "Solar Production Power",
+                    "grid_entity": "Grid Power",
+                    "grid_power_invert": "Invert Grid Power (positive = export)"
+                }
+            },
+            "energy": {
+                "title": "Energy & Metrics",
+                "description": "Configure cumulative energy sensors, load sensitivity, and system constants.",
+                "data": {
+                    "load_today_entity": "Load Today (kWh)",
+                    "import_today_entity": "Grid Import Today (kWh)",
+                    "export_today_entity": "Grid Export Today (kWh)",
+                    "load_high_temp_sensitivity": "Load sensitivity — high temp (kW/°C)",
+                    "load_low_temp_sensitivity": "Load sensitivity — low temp (kW/°C)",
+                    "load_high_temp_threshold": "High temperature threshold (°C)",
+                    "load_low_temp_threshold": "Low temperature threshold (°C)",
+                    "battery_capacity": "Battery Capacity (kWh)",
+                    "battery_rate_max": "Max Charge/Discharge Rate (kW)",
+                    "inverter_limit": "Inverter Limit (kW)",
+                    "tariff_entity": "Tariff Sensor (Amber Electric)",
+                    "weather_entity": "Weather Entity"
+                }
+            },
+            "control": {
+                "title": "Control Services",
+                "description": "Map the entities used to control the Powerwall.",
+                "data": {
+                    "allow_charge_entity": "Allow Grid Charging (Switch)",
+                    "allow_export_entity": "Operation Mode (Select)"
+                }
+            }
+        }
+    }
+}
