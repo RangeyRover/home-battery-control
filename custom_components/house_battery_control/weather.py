@@ -69,6 +69,9 @@ class WeatherManager:
                 if not dt:
                     continue
 
+                # Ensure timezone-aware (spec 4: TZ safety)
+                dt = dt_util.as_utc(dt)
+
                 parsed_data.append({
                     "datetime": dt,
                     "temperature": float(item.get("temperature", 0.0)),

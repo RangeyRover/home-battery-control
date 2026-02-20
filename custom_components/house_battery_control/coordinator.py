@@ -71,7 +71,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             config.get(CONF_IMPORT_PRICE_ENTITY, ""),
             config.get(CONF_EXPORT_PRICE_ENTITY, ""),
         )
-        self.weather = WeatherManager(hass, config[CONF_WEATHER_ENTITY])
+        self.weather = WeatherManager(hass, config.get(CONF_WEATHER_ENTITY, ""))
         self.load_predictor = LoadPredictor(hass)
 
         # Solar Provider (reads from Solcast HA integration entities)
@@ -105,20 +105,20 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             await self.weather.async_update()
 
             # Fetch Current Telemetry with Inversion Logic
-            soc = self._get_sensor_value(self.config[CONF_BATTERY_SOC_ENTITY])
+            soc = self._get_sensor_value(self.config.get(CONF_BATTERY_SOC_ENTITY, ""))
 
-            raw_battery_p = self._get_sensor_value(self.config[CONF_BATTERY_POWER_ENTITY])
+            raw_battery_p = self._get_sensor_value(self.config.get(CONF_BATTERY_POWER_ENTITY, ""))
             battery_p = raw_battery_p * (-1.0 if self.config.get(CONF_BATTERY_POWER_INVERT) else 1.0)
 
-            solar_p = self._get_sensor_value(self.config[CONF_SOLAR_ENTITY])
+            solar_p = self._get_sensor_value(self.config.get(CONF_SOLAR_ENTITY, ""))
 
-            raw_grid_p = self._get_sensor_value(self.config[CONF_GRID_ENTITY])
+            raw_grid_p = self._get_sensor_value(self.config.get(CONF_GRID_ENTITY, ""))
             grid_p = raw_grid_p * (-1.0 if self.config.get(CONF_GRID_POWER_INVERT) else 1.0)
 
             # Cumulative Today
-            load_today = self._get_sensor_value(self.config[CONF_LOAD_TODAY_ENTITY])
-            import_today = self._get_sensor_value(self.config[CONF_IMPORT_TODAY_ENTITY])
-            export_today = self._get_sensor_value(self.config[CONF_EXPORT_TODAY_ENTITY])
+            load_today = self._get_sensor_value(self.config.get(CONF_LOAD_TODAY_ENTITY, ""))
+            import_today = self._get_sensor_value(self.config.get(CONF_IMPORT_TODAY_ENTITY, ""))
+            export_today = self._get_sensor_value(self.config.get(CONF_EXPORT_TODAY_ENTITY, ""))
 
             # Derive House Load (Instantaneous)
             # Load = Solar + Grid - Battery

@@ -88,3 +88,33 @@ async def test_weather_missing_entity(mock_hass):
 
     await manager.async_update()
     assert manager.get_forecast() == []
+
+
+# --- REGRESSION: TZ-naive weather datetimes (Production 2026-02-20) ---
+
+@pytest.mark.asyncio
+async def test_weather_forecast_datetimes_are_utc_aware(mock_hass):
+    """REGRESSION: Parsed weather datetimes must be timezone-aware.
+
+    Production crash: 'can't subtract offset-naive and offset-aware datetimes'
+    Caused by load.py comparing aware start_time (from dt_util.now()) with
+    naive weather forecast datetime (from parse_datetime without as_utc).
+    """
+    manager = WeatherManager(mock_hass, "weather.hewett_hourly")
+
+    # Service returns timestamps WITHOUT explicit timezone (naive parse scenario)
+    mock_hass.services.async_call.return_value = {
+        "weather.hewett_hourly": {
+            "forecast": [
+                {"datetime": "2025-06-15T12:00:00", "temperature": 25.0, "condition": "sunny"},
+            ]
+        }
+    }
+
+    await manager.async_update()
+    forecast = manager.get_forecast()
+
+    assert len(forecast) == 1
+    # The datetime MUST have timezone info (not None)
+    assert forecast[0]["datetime"].tzinfo is not None
+
