@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -44,8 +45,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.http.register_view(HBCPlanView())
 
     # Register custom panel (spec 2.2)
-    hass.http.register_static_path(
-        "/hbc/frontend", str(FRONTEND_DIR), cache_headers=False
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig("/hbc/frontend", str(FRONTEND_DIR), False)]
     )
 
     try:
