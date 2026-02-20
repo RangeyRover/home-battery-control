@@ -70,10 +70,8 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         self.weather = WeatherManager(hass, config[CONF_WEATHER_ENTITY])
         self.load_predictor = LoadPredictor(hass)
 
-        # Solar Provider
-        api_key = config.get("api_key", "")
-        site_id = config.get("solcast_site_id", "")
-        self.solar = SolcastSolar(hass, api_key, site_id)
+        # Solar Provider (reads from Solcast HA integration entities)
+        self.solar = SolcastSolar(hass)
 
         # FSM + Executor
         self.fsm = DefaultBatteryStateMachine()
@@ -96,7 +94,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             # Update Managed Inputs
             self.rates.update()
-            self.weather.update()
+            await self.weather.async_update()
 
             # Fetch Current Telemetry with Inversion Logic
             soc = self._get_sensor_value(self.config[CONF_BATTERY_SOC_ENTITY])

@@ -1,3 +1,4 @@
+"""Manages fetching weather forecasts from Home Assistant."""
 import logging
 from datetime import datetime
 from typing import List, TypedDict
@@ -20,24 +21,47 @@ class WeatherManager:
         self._entity_id = entity_id
         self._forecast: List[WeatherInterval] = []
 
-    def update(self) -> None:
-        """Fetch latest forecast from the weather entity."""
+    async def async_update(self) -> None:
+        """Fetch latest forecast using HA weather.get_forecasts service (2023.9+)."""
+        try:
+            # Modern HA method: call the service
+            result = await self._hass.services.async_call(
+                "weather",
+                "get_forecasts",
+                {"entity_id": self._entity_id, "type": "hourly"},
+                blocking=True,
+                return_response=True,
+            )
+
+            if not result or self._entity_id not in result:
+                _LOGGER.warning(f"No forecast result for {self._entity_id}")
+                # Fallback to attribute
+                self._try_attribute_fallback()
+                return
+
+            raw_forecast = result[self._entity_id].get("forecast", [])
+            self._parse_forecast(raw_forecast)
+
+        except Exception as e:
+            _LOGGER.debug(f"Service call failed ({e}), trying attribute fallback")
+            self._try_attribute_fallback()
+
+    def _try_attribute_fallback(self) -> None:
+        """Fallback: try reading forecast from state attributes (legacy HA)."""
         state = self._hass.states.get(self._entity_id)
         if not state:
             _LOGGER.warning(f"Weather entity {self._entity_id} not found")
             return
 
-        # Standard HA Weather entity "forecast" attribute
         raw_forecast = state.attributes.get("forecast")
-
         if not raw_forecast:
-             # Try new service method if attribute is missing (HA 2023.9+)
-             # For now, stick to attribute as it's simpler for initial scaffold
-             # and widely supported in custom integrations wrapping APIs.
-             # If strictly modern HA, we might need to call `weather.get_forecasts` service.
-             _LOGGER.warning(f"No forecast attribute in {self._entity_id}")
-             return
+            _LOGGER.warning(f"No forecast attribute in {self._entity_id}")
+            return
 
+        self._parse_forecast(raw_forecast)
+
+    def _parse_forecast(self, raw_forecast: list) -> None:
+        """Parse forecast data into WeatherInterval list."""
         parsed_data = []
         for item in raw_forecast:
             try:

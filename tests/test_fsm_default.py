@@ -244,3 +244,98 @@ def test_result_reason_is_not_empty(fsm):
     ctx = _make_context()
     result = fsm.calculate_next_state(ctx)
     assert len(result.reason) > 0
+
+
+# ============================================================
+# 9. IMPORT_PRICE KEY COMPATIBILITY (Spec 3.1 + 3.4)
+# ============================================================
+
+def _make_import_price_forecast(prices: list[float], start=None, interval_min=5) -> list[dict]:
+    """Build a price forecast using the new import_price/export_price keys."""
+    start = start or datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+    result = []
+    for i, price in enumerate(prices):
+        result.append({
+            "start": start + timedelta(minutes=i * interval_min),
+            "end": start + timedelta(minutes=(i + 1) * interval_min),
+            "import_price": price,
+            "export_price": price * 0.3,
+        })
+    return result
+
+
+def test_fsm_works_with_import_price_key(fsm):
+    """FSM must handle forecast_price dicts with import_price key (spec 3.1)."""
+    prices = [5.0] * 6 + [30.0] * 6 + [35.0] * 6
+    ctx = _make_context(
+        current_price=5.0,
+        soc=30.0,
+        forecast_price=_make_import_price_forecast(prices),
+    )
+    result = fsm.calculate_next_state(ctx)
+    assert result.state == STATE_CHARGE_GRID
+
+
+def test_peak_detection_with_import_price_key(fsm):
+    """Peak detection must work with import_price format."""
+    prices = [10.0] * 12 + [60.0] * 12
+    ctx = _make_context(
+        current_price=50.0,
+        soc=70.0,
+        load_power=2.0,
+        solar_production=0.0,
+        forecast_price=_make_import_price_forecast(prices),
+    )
+    result = fsm.calculate_next_state(ctx)
+    assert result.state == STATE_DISCHARGE_HOME
+
+
+def test_peak_coming_soon_with_import_price_key(fsm):
+    """_peak_coming_soon must work with import_price format."""
+    prices = [10.0] * 6 + [25.0] * 6 + [60.0] * 12
+    ctx = _make_context(
+        soc=80.0,
+        current_price=25.0,
+        solar_production=0.0,
+        load_power=1.0,
+        forecast_price=_make_import_price_forecast(prices),
+    )
+    result = fsm.calculate_next_state(ctx)
+    assert result.state in (STATE_PRESERVE, STATE_IDLE)
+
+
+# ============================================================
+# 10. REGRESSION: KeyError 'price' (Production Crash 2026-02-20)
+# ============================================================
+
+def test_no_keyerror_when_price_key_missing(fsm):
+    """REGRESSION: FSM must NOT crash with KeyError when forecast dicts
+    have 'import_price' but NO 'price' key.
+
+    This was the exact production failure:
+      Error in HBC update cycle: 'price'
+    Caused by coordinator passing rates from RatesManager (which uses
+    import_price/export_price) to FSM helpers that did p['price'].
+    """
+    # Build forecast dicts with ONLY import_price — no 'price' key at all
+    forecast = [
+        {
+            "start": datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc) + timedelta(minutes=i * 5),
+            "end": datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc) + timedelta(minutes=(i + 1) * 5),
+            "import_price": 25.0 + i,
+            "export_price": 8.0,
+            # NO "price" key — this is what caused the crash
+        }
+        for i in range(24)
+    ]
+
+    ctx = _make_context(
+        current_price=25.0,
+        soc=50.0,
+        forecast_price=forecast,
+    )
+
+    # This MUST NOT raise KeyError
+    result = fsm.calculate_next_state(ctx)
+    assert isinstance(result, FSMResult)
+    assert isinstance(result.state, str)

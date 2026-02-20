@@ -143,21 +143,30 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_control(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Step 3: Control Services (Optional — leave blank for debug mode)."""
+        """Step 3: Control Services (Optional — skip for debug mode)."""
         if user_input is not None:
+            # If skip is checked, create entry without control entities
+            if user_input.get("skip_control", False):
+                return self.async_create_entry(
+                    title="House Battery Control", data=self._data
+                )
             self._data.update(user_input)
+            # Remove the skip flag from stored data
+            self._data.pop("skip_control", None)
             return self.async_create_entry(title="House Battery Control", data=self._data)
 
         return self.async_show_form(
             step_id="control",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_ALLOW_CHARGE_FROM_GRID_ENTITY, default=""): EntitySelector(
+                    vol.Required("skip_control", default=True): BooleanSelector(),
+                    vol.Optional(CONF_ALLOW_CHARGE_FROM_GRID_ENTITY): EntitySelector(
                         EntitySelectorConfig(domain=["switch", "script"])
                     ),
-                    vol.Optional(CONF_ALLOW_EXPORT_ENTITY, default=""): EntitySelector(
+                    vol.Optional(CONF_ALLOW_EXPORT_ENTITY): EntitySelector(
                         EntitySelectorConfig(domain=["select", "script"])
                     ),
                 }
             ),
         )
+

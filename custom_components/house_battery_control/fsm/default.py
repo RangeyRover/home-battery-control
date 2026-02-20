@@ -141,7 +141,7 @@ class DefaultBatteryStateMachine(BatteryStateMachine):
         Returns the price at the CHEAP_PRICE_PERCENTILE of the forecast."""
         if not forecast_price:
             return None
-        prices = sorted([p["price"] for p in forecast_price])
+        prices = sorted([p.get("import_price", p.get("price", 0)) for p in forecast_price])
         idx = max(0, int(len(prices) * CHEAP_PRICE_PERCENTILE / 100) - 1)
         return prices[idx]
 
@@ -151,7 +151,7 @@ class DefaultBatteryStateMachine(BatteryStateMachine):
             return True
         if not forecast_price:
             return False
-        prices = sorted([p["price"] for p in forecast_price])
+        prices = sorted([p.get("import_price", p.get("price", 0)) for p in forecast_price])
         idx = min(len(prices) - 1, int(len(prices) * PEAK_PRICE_PERCENTILE / 100))
         return current_price >= prices[idx]
 
@@ -166,7 +166,7 @@ class DefaultBatteryStateMachine(BatteryStateMachine):
     def _peak_coming_soon(self, forecast_price: List[dict]) -> bool:
         """Check if peak pricing is expected within next 2 hours."""
         for slot in forecast_price[:24]:  # 24 * 5min = 2 hours
-            if slot.get("price", 0) >= PEAK_PRICE_ABSOLUTE:
+            if slot.get("import_price", slot.get("price", 0)) >= PEAK_PRICE_ABSOLUTE:
                 return True
         return False
 

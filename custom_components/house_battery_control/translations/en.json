@@ -36,6 +36,7 @@
                 "title": "Control Services (Optional)",
                 "description": "Map the entities used to control the Powerwall. Leave blank for debug/observation mode.",
                 "data": {
+                    "skip_control": "Skip (Debug / Observation Mode)",
                     "allow_charge_entity": "Allow Grid Charging (Switch)",
                     "allow_export_entity": "Operation Mode (Select)"
                 }
