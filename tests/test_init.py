@@ -37,6 +37,12 @@ def test_static_path_config_importable():
     assert StaticPathConfig is not None
 
 
+def test_async_register_built_in_panel_importable():
+    """async_register_built_in_panel must be directly importable (not via deprecated hass.components)."""
+    from homeassistant.components.frontend import async_register_built_in_panel
+    assert callable(async_register_built_in_panel)
+
+
 def test_platforms_includes_sensor():
     """PLATFORMS must include sensor."""
     from custom_components.house_battery_control import PLATFORMS

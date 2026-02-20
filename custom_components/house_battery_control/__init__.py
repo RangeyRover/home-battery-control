@@ -50,7 +50,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     try:
-        await hass.components.frontend.async_register_built_in_panel(
+        from homeassistant.components.frontend import (
+            async_register_built_in_panel,
+        )
+        async_register_built_in_panel(
+            hass,
             component_name="custom",
             sidebar_title="HBC",
             sidebar_icon="mdi:battery-charging",
@@ -62,8 +66,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 }
             },
         )
-    except Exception:
-        _LOGGER.warning("Could not register HBC panel — may already be registered")
+    except Exception as exc:
+        _LOGGER.warning("Could not register HBC panel: %s", exc, exc_info=True)
 
     return True
 
