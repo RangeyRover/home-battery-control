@@ -103,24 +103,17 @@ def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def build_status_data(data: dict[str, Any]) -> dict[str, Any]:
-    """Extract status fields for the JSON API.
+    """Pass through ALL coordinator data for API diagnostics (spec 2.4).
 
-    Includes sensor diagnostics (spec 2.4) when available.
+    Returns the full coordinator dict with safe defaults for
+    sensors, last_update, and update_count.
     """
-    return {
-        "soc": data.get("soc", 0.0),
-        "solar_power": data.get("solar_power", 0.0),
-        "grid_power": data.get("grid_power", 0.0),
-        "battery_power": data.get("battery_power", 0.0),
-        "load_power": data.get("load_power", 0.0),
-        "current_price": data.get("current_price", 0.0),
-        "state": data.get("state", "IDLE"),
-        "reason": data.get("reason", ""),
-        # Diagnostics (spec 2.4)
-        "sensors": data.get("sensors", []),
-        "last_update": data.get("last_update", None),
-        "update_count": data.get("update_count", 0),
-    }
+    result = dict(data)
+    # Ensure diagnostic defaults for backward compat
+    result.setdefault("sensors", [])
+    result.setdefault("last_update", None)
+    result.setdefault("update_count", 0)
+    return result
 
 
 def build_power_flow_svg(

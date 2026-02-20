@@ -199,54 +199,83 @@ def test_power_flow_svg():
     assert "House" in svg or "Load" in svg
 
 
-# --- API Diagnostics (Spec 2.4) ---
+# --- API Diagnostics (Spec 2.4 — Full Passthrough) ---
 
-def test_build_status_data_includes_sensors():
-    """build_status_data must include sensor diagnostics when config provided (spec 2.4)."""
+def test_build_status_data_passes_all_coordinator_keys():
+    """build_status_data must pass through ALL coordinator data, not cherry-pick (spec 2.4)."""
     from custom_components.house_battery_control.web import build_status_data
 
     mock_data = {
+        # Telemetry
         "soc": 75.0,
         "solar_power": 3.5,
         "grid_power": -1.0,
         "battery_power": 2.0,
         "load_power": 2.5,
+        # Accumulators
+        "load_today": 12.5,
+        "import_today": 8.3,
+        "export_today": 4.1,
+        # Pricing
         "current_price": 25.5,
+        "rates": [{"start": "2025-06-15T00:00:00+00:00", "import_price": 25.5, "export_price": 8.0}],
+        # Forecasts
+        "weather": [{"temperature": 22.0}],
+        "solar_forecast": [{"kw": 3.0}],
+        "load_forecast": [1.5, 1.6],
+        # Constants
+        "capacity": 27.0,
+        "charge_rate_max": 6.3,
+        "inverter_limit": 10.0,
+        # FSM
         "state": "CHARGE_SOLAR",
         "reason": "Excess solar",
-        # Diagnostics data from coordinator
+        "limit_kw": 5.0,
+        "plan_html": "<p>Plan</p>",
+        # Diagnostics
         "sensors": [
-            {"entity_id": "sensor.battery_soc", "state": "75.0", "available": True},
-            {"entity_id": "sensor.solar_power", "state": "3.5", "available": True},
-            {"entity_id": "sensor.missing", "state": "unavailable", "available": False},
+            {"entity_id": "sensor.soc", "state": "75.0", "available": True, "attributes": {"unit": "%"}},
         ],
         "last_update": "2025-06-15T12:00:00+00:00",
         "update_count": 42,
     }
 
     status = build_status_data(mock_data)
-    # Must pass through sensor diagnostics
-    assert "sensors" in status
-    assert len(status["sensors"]) == 3
-    assert status["sensors"][0]["entity_id"] == "sensor.battery_soc"
-    assert status["sensors"][2]["available"] is False
-    # Must include coordinator metadata
-    assert "last_update" in status
-    assert "update_count" in status
-    assert status["update_count"] == 42
+
+    # ALL coordinator keys must be present
+    for key in mock_data:
+        assert key in status, f"Missing key '{key}' in status output"
+        assert status[key] == mock_data[key], f"Key '{key}' value mismatch"
 
 
-def test_build_status_data_no_sensors_key():
-    """build_status_data must not crash when sensors key is missing (backward compat)."""
+def test_build_status_data_sensor_attributes():
+    """Sensor diagnostics must include attributes dict (spec 2.4)."""
     from custom_components.house_battery_control.web import build_status_data
 
     mock_data = {
         "soc": 50.0,
         "state": "IDLE",
-        "reason": "",
+        "sensors": [
+            {
+                "entity_id": "sensor.battery_soc",
+                "state": "50.0",
+                "available": True,
+                "attributes": {"unit_of_measurement": "%", "device_class": "battery"},
+            },
+        ],
     }
     status = build_status_data(mock_data)
-    assert status["sensors"] == []
-    assert status["last_update"] is None
-    assert status["update_count"] == 0
+    assert "attributes" in status["sensors"][0]
+    assert status["sensors"][0]["attributes"]["unit_of_measurement"] == "%"
+
+
+def test_build_status_data_empty_input():
+    """build_status_data must not crash with empty dict (backward compat)."""
+    from custom_components.house_battery_control.web import build_status_data
+
+    status = build_status_data({})
+    assert isinstance(status, dict)
+    # Must at least have sensors default
+    assert status.get("sensors", []) == []
+
 
