@@ -169,13 +169,14 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             if not start_time:
                 start_time = dt_util.now()
 
-            load_forecast = self.load_predictor.predict(
+            load_forecast = await self.load_predictor.async_predict(
                 start_time=start_time,
                 temp_forecast=self.weather.get_forecast(),
                 high_sensitivity=self.config.get(CONF_LOAD_SENSITIVITY_HIGH_TEMP, 0.2),
                 low_sensitivity=self.config.get(CONF_LOAD_SENSITIVITY_LOW_TEMP, 0.3),
                 high_threshold=self.config.get(CONF_LOAD_HIGH_TEMP_THRESHOLD, 25.0),
                 low_threshold=self.config.get(CONF_LOAD_LOW_TEMP_THRESHOLD, 15.0),
+                load_entity_id=self.config.get(CONF_LOAD_TODAY_ENTITY, ""),  # Ideally an instant load sensor, using what's available
             )
 
             # Build FSM context and run decision logic

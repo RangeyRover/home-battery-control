@@ -346,7 +346,7 @@ class HBCConfigYamlView(HomeAssistantView):
         domain_data = hass.data.get(DOMAIN, {})
         for entry_data in domain_data.values():
             if "config" in entry_data:
-                config_data = entry_data["config"]
+                config_data = dict(entry_data["config"])
                 break
 
         yaml_text = yaml.dump(config_data, default_flow_style=False, sort_keys=True)

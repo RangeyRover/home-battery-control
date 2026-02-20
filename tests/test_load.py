@@ -14,34 +14,38 @@ def mock_hass():
 
 # --- Existing behaviour (revalidated) ---
 
-def test_load_predict_basic(mock_hass):
+@pytest.mark.asyncio
+async def test_load_predict_basic(mock_hass):
     """Base load at midday should be 0.5 kW."""
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 12, 0, 0)
-    prediction = predictor.predict(start, duration_hours=1)
+    prediction = await predictor.async_predict(start, duration_hours=1)
     assert len(prediction) == 12
     assert prediction[0] == 0.5
 
 
-def test_load_predict_evening_peak(mock_hass):
+@pytest.mark.asyncio
+async def test_load_predict_evening_peak(mock_hass):
     """Evening peak (18:00) should be 2.5 kW base."""
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 18, 0, 0)
-    prediction = predictor.predict(start, duration_hours=1)
+    prediction = await predictor.async_predict(start, duration_hours=1)
     assert prediction[0] == 2.5
 
 
-def test_load_predict_morning_peak(mock_hass):
+@pytest.mark.asyncio
+async def test_load_predict_morning_peak(mock_hass):
     """Morning peak (08:00) should be 1.5 kW base."""
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 8, 0, 0)
-    prediction = predictor.predict(start, duration_hours=1)
+    prediction = await predictor.async_predict(start, duration_hours=1)
     assert prediction[0] == 1.5
 
 
 # --- Temperature sensitivity (new) ---
 
-def test_load_high_temp_increases_load(mock_hass):
+@pytest.mark.asyncio
+async def test_load_high_temp_increases_load(mock_hass):
     """Load should increase when temperature exceeds high threshold."""
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 12, 0, 0)
@@ -51,7 +55,7 @@ def test_load_high_temp_increases_load(mock_hass):
         {"datetime": start, "temperature": 35.0, "condition": "sunny"}
     ]
 
-    prediction = predictor.predict(
+    prediction = await predictor.async_predict(
         start,
         temp_forecast=temp_forecast,
         high_sensitivity=0.2,  # 0.2 kW per degree
@@ -63,7 +67,8 @@ def test_load_high_temp_increases_load(mock_hass):
     assert prediction[0] == pytest.approx(2.5, abs=0.01)
 
 
-def test_load_low_temp_increases_load(mock_hass):
+@pytest.mark.asyncio
+async def test_load_low_temp_increases_load(mock_hass):
     """Load should increase when temperature drops below low threshold."""
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 12, 0, 0)
@@ -73,7 +78,7 @@ def test_load_low_temp_increases_load(mock_hass):
         {"datetime": start, "temperature": 5.0, "condition": "cloudy"}
     ]
 
-    prediction = predictor.predict(
+    prediction = await predictor.async_predict(
         start,
         temp_forecast=temp_forecast,
         low_sensitivity=0.3,  # 0.3 kW per degree
@@ -85,12 +90,13 @@ def test_load_low_temp_increases_load(mock_hass):
     assert prediction[0] == pytest.approx(3.5, abs=0.01)
 
 
-def test_load_no_forecast_defaults_mild(mock_hass):
+@pytest.mark.asyncio
+async def test_load_no_forecast_defaults_mild(mock_hass):
     """With no forecast, temp defaults to 20°C (no adjustment)."""
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 12, 0, 0)
 
-    prediction = predictor.predict(
+    prediction = await predictor.async_predict(
         start,
         temp_forecast=None,
         high_sensitivity=0.5,
@@ -104,10 +110,49 @@ def test_load_no_forecast_defaults_mild(mock_hass):
     assert prediction[0] == 0.5
 
 
-def test_load_never_negative(mock_hass):
+@pytest.mark.asyncio
+async def test_load_never_negative(mock_hass):
     """Load prediction must never be negative."""
     predictor = LoadPredictor(mock_hass)
     # Night time (base 0.5) with mild weather — should stay positive
     start = datetime(2025, 2, 20, 3, 0, 0)
-    prediction = predictor.predict(start, duration_hours=1)
+    prediction = await predictor.async_predict(start, duration_hours=1)
     assert all(v >= 0.0 for v in prediction)
+
+
+# --- History Data Tests (New) ---
+
+@pytest.mark.asyncio
+async def test_load_predict_uses_past_week_history(mock_hass):
+    """Spec 3.4: load predictor uses history from exact same time 7 days ago."""
+    from unittest.mock import patch, AsyncMock
+    from homeassistant.core import State
+    import datetime as dt
+
+    predictor = LoadPredictor(mock_hass)
+    
+    # Mock executor job to just await what's passed if it's async, or call it
+    async def mock_add_executor_job(func, *args):
+        return func(*args)
+        
+    mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
+
+    start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
+    
+    # Mock history returns state objects
+    mock_states = [
+        State("sensor.load", "1.75", last_updated=start - dt.timedelta(days=7)),
+    ]
+    
+    with patch(
+        "custom_components.house_battery_control.load.history.get_significant_states",
+        return_value={"sensor.load": mock_states}
+    ):
+        prediction = await predictor.async_predict(
+            start,
+            duration_hours=1,
+            load_entity_id="sensor.load"
+        )
+    
+    # Base load from history = 1.75
+    assert prediction[0] == 1.75

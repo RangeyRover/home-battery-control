@@ -6,6 +6,7 @@ Spec 2.3: Authentication flags.
 Spec 3.1: Separate import/export rates in plan table.
 """
 from datetime import datetime, timezone
+import pytest
 
 # --- Plan Table Requirements (from system_requirements.md 2.2) ---
 
@@ -69,6 +70,31 @@ def test_web_has_config_yaml_view():
     """web.py should have a YAML config export view (S2)."""
     import custom_components.house_battery_control.web as web
     assert hasattr(web, "HBCConfigYamlView"), "Missing HBCConfigYamlView for YAML export"
+
+@pytest.mark.asyncio
+async def test_config_yaml_handles_mappingproxytype():
+    """config-yaml endpoint must handle MappingProxyType without throwing an error (fixes 500)."""
+    from types import MappingProxyType
+    from unittest.mock import MagicMock
+    from custom_components.house_battery_control.web import HBCConfigYamlView
+    from custom_components.house_battery_control.const import DOMAIN
+
+    view = HBCConfigYamlView()
+    
+    mock_request = MagicMock()
+    mock_hass = MagicMock()
+    mock_hass.data = {
+        DOMAIN: {
+            "entry_1": {
+                "config": MappingProxyType({"foo": "bar", "capacity": 27.0})
+            }
+        }
+    }
+    mock_request.app = {"hass": mock_hass}
+    
+    response = await view.get(mock_request)
+    assert response.content_type == "text/yaml"
+    assert "foo: bar" in response.text
 
 
 # --- Retroactive JS Data Structure Tests (S3) ---
