@@ -278,7 +278,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             self._data.update(user_input)
             self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data=self._data)
 
         return self.async_show_form(
             step_id="manual",
@@ -309,7 +309,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             self._data.update(user_input)
             self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data=self._data)
 
         return self.async_show_form(
             step_id="energy",
@@ -371,7 +371,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             self._data.update(user_input)
             self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data=self._data)
 
         return self.async_show_form(
             step_id="control",
