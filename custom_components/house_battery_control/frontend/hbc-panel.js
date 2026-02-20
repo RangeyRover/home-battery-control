@@ -1,71 +1,71 @@
 import {
-    LitElement,
-    html,
-    css,
+  LitElement,
+  html,
+  css,
 } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 class HBCPanel extends LitElement {
-    static get properties() {
-        return {
-            hass: { type: Object },
-            narrow: { type: Boolean },
-            panel: { type: Object },
-            _activeTab: { type: String },
-            _data: { type: Object },
-            _error: { type: String },
-            _loading: { type: Boolean },
-        };
+  static get properties() {
+    return {
+      hass: { type: Object },
+      narrow: { type: Boolean },
+      panel: { type: Object },
+      _activeTab: { type: String },
+      _data: { type: Object },
+      _error: { type: String },
+      _loading: { type: Boolean },
+    };
+  }
+
+  constructor() {
+    super();
+    this._activeTab = "dashboard";
+    this._data = {};
+    this._error = "";
+    this._loading = true;
+    this._interval = null;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._fetchData();
+    this._interval = setInterval(() => this._fetchData(), 30000);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._interval) clearInterval(this._interval);
+  }
+
+  async _fetchData() {
+    try {
+      const resp = await fetch("/hbc/api/status");
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      this._data = await resp.json();
+      this._error = "";
+    } catch (e) {
+      this._error = e.message;
     }
+    this._loading = false;
+  }
 
-    constructor() {
-        super();
-        this._activeTab = "dashboard";
-        this._data = {};
-        this._error = "";
-        this._loading = true;
-        this._interval = null;
-    }
+  _switchTab(tab) {
+    this._activeTab = tab;
+  }
 
-    connectedCallback() {
-        super.connectedCallback();
-        this._fetchData();
-        this._interval = setInterval(() => this._fetchData(), 30000);
-    }
+  // ── Dashboard Tab ──────────────────────────────────────
+  _renderDashboard() {
+    const d = this._data;
+    const soc = (d.soc || 0).toFixed(0);
+    const solar = (d.solar_power || 0).toFixed(1);
+    const grid = (d.grid_power || 0).toFixed(1);
+    const load = (d.load_power || 0).toFixed(1);
+    const battery = (d.battery_power || 0).toFixed(1);
+    const price = (d.current_price || 0).toFixed(1);
+    const state = d.state || "IDLE";
+    const reason = d.reason || "";
 
-    disconnectedCallback() {
-        super.disconnectedCallback();
-        if (this._interval) clearInterval(this._interval);
-    }
-
-    async _fetchData() {
-        try {
-            const resp = await fetch("/hbc/api/status");
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            this._data = await resp.json();
-            this._error = "";
-        } catch (e) {
-            this._error = e.message;
-        }
-        this._loading = false;
-    }
-
-    _switchTab(tab) {
-        this._activeTab = tab;
-    }
-
-    // ── Dashboard Tab ──────────────────────────────────────
-    _renderDashboard() {
-        const d = this._data;
-        const soc = (d.soc || 0).toFixed(0);
-        const solar = (d.solar_power || 0).toFixed(1);
-        const grid = (d.grid_power || 0).toFixed(1);
-        const load = (d.load_power || 0).toFixed(1);
-        const battery = (d.battery_power || 0).toFixed(1);
-        const price = (d.current_price || 0).toFixed(1);
-        const state = d.state || "IDLE";
-        const reason = d.reason || "";
-
-        return html`
+    return html`
       <div class="card">
         <h2>Power Flow</h2>
         <div class="flow-grid">
@@ -109,21 +109,21 @@ class HBCPanel extends LitElement {
       </div>
       ${this._renderSensors()}
     `;
-    }
+  }
 
-    // ── Sensor Diagnostics (Spec 2.4) ─────────────────────
-    _renderSensors() {
-        const sensors = this._data.sensors || [];
-        if (sensors.length === 0) return html``;
+  // ── Sensor Diagnostics (Spec 2.4) ─────────────────────
+  _renderSensors() {
+    const sensors = this._data.sensors || [];
+    if (sensors.length === 0) return html``;
 
-        return html`
+    return html`
       <div class="card">
         <h2>Sensor Status</h2>
         <table>
           <thead><tr><th>Entity</th><th>State</th><th>Status</th></tr></thead>
           <tbody>
             ${sensors.map(
-            (s) => html`
+      (s) => html`
                 <tr>
                   <td>${s.entity_id}</td>
                   <td>${s.state}</td>
@@ -134,7 +134,7 @@ class HBCPanel extends LitElement {
                   </td>
                 </tr>
               `
-        )}
+    )}
           </tbody>
         </table>
         <div class="meta">
@@ -143,74 +143,89 @@ class HBCPanel extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  // ── Plan Tab ───────────────────────────────────────────
+  _renderPlan() {
+    const rates = this._data.rates || [];
+    const solar = this._data.solar_forecast || [];
+    const loadFc = this._data.load_forecast || [];
+    const weather = this._data.weather || [];
+
+    if (rates.length === 0) {
+      return html`<div class="card"><p>No rate data available yet.</p></div>`;
     }
 
-    // ── Plan Tab ───────────────────────────────────────────
-    _renderPlan() {
-        const rates = this._data.rates || [];
-        const solar = this._data.solar_forecast || [];
-        const loadFc = this._data.load_forecast || [];
-        const weather = this._data.weather || [];
+    const cols = [
+      "Time",
+      "Import",
+      "Export",
+      "State",
+      "Limit",
+      "PV",
+      "Load",
+      "Temp",
+      "SoC",
+      "Cost",
+      "Total",
+    ];
 
-        if (rates.length === 0) {
-            return html`<div class="card"><p>No rate data available yet.</p></div>`;
+    // Build a time-lookup map for solar forecast (5-min intervals → aggregate to nearest rate slot)
+    const _solarByHour = {};
+    for (const s of solar) {
+      if (!s.start) continue;
+      const d = new Date(s.start);
+      const key = `${d.getUTCHours()}:${d.getUTCMinutes() < 30 ? "00" : "30"}`;
+      _solarByHour[key] = (_solarByHour[key] || 0) + (s.kw || 0);
+    }
+
+    let cumulative = 0;
+    const rows = rates.map((r, i) => {
+      const start = r.start ? new Date(r.start) : null;
+      const time = start
+        ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : "—";
+      const imp = (
+        r.import_price ||
+        r.price ||
+        0
+      ).toFixed(2);
+      const exp = (r.export_price || 0).toFixed(2);
+
+      // PV: match solar forecast to rate timeslot
+      let pv = "—";
+      if (start && solar.length > 0) {
+        const key = `${start.getUTCHours()}:${start.getUTCMinutes() < 30 ? "00" : "30"}`;
+        if (key in _solarByHour) {
+          pv = _solarByHour[key].toFixed(1);
         }
+      }
 
-        const cols = [
-            "Time",
-            "Import",
-            "Export",
-            "State",
-            "Limit",
-            "PV",
-            "Load",
-            "Temp",
-            "SoC",
-            "Cost",
-            "Total",
-        ];
+      // Load: placeholder until prediction is active
+      const ld = i < loadFc.length ? loadFc[i].toFixed(1) : "—";
 
-        let cumulative = 0;
-        const rows = rates.map((r, i) => {
-            const start = r.start ? new Date(r.start) : null;
-            const time = start
-                ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : "—";
-            const imp = (
-                r.import_price ||
-                r.price ||
-                0
-            ).toFixed(1);
-            const exp = (r.export_price || 0).toFixed(1);
-            const pv =
-                i < solar.length
-                    ? typeof solar[i] === "object"
-                        ? (solar[i].kw || 0).toFixed(1)
-                        : "0.0"
-                    : "—";
-            const ld = i < loadFc.length ? loadFc[i].toFixed(1) : "—";
-            const temp =
-                i < weather.length ? (weather[i].temperature || 0).toFixed(0) : "—";
+      const temp =
+        i < weather.length ? (weather[i].temperature || 0).toFixed(0) : "—";
 
-            const interval_energy_kwh = (parseFloat(imp) / 100) * 0.083;
-            cumulative += interval_energy_kwh;
+      const interval_energy_kwh = (parseFloat(imp) / 100) * 0.083;
+      cumulative += interval_energy_kwh;
 
-            return {
-                time,
-                imp,
-                exp,
-                state: this._data.state || "—",
-                limit: "100%",
-                pv,
-                ld,
-                temp,
-                soc: "—",
-                cost: interval_energy_kwh.toFixed(3),
-                total: cumulative.toFixed(2),
-            };
-        });
+      return {
+        time,
+        imp,
+        exp,
+        state: this._data.state || "—",
+        limit: "100%",
+        pv,
+        ld,
+        temp,
+        soc: "—",
+        cost: interval_energy_kwh.toFixed(3),
+        total: cumulative.toFixed(2),
+      };
+    });
 
-        return html`
+    return html`
       <div class="card table-card">
         <h2>24-Hour Plan</h2>
         <div class="table-wrap">
@@ -222,7 +237,7 @@ class HBCPanel extends LitElement {
             </thead>
             <tbody>
               ${rows.map(
-            (r) => html`
+      (r) => html`
                   <tr>
                     <td>${r.time}</td>
                     <td>${r.imp}</td>
@@ -237,23 +252,23 @@ class HBCPanel extends LitElement {
                     <td>${r.total}</td>
                   </tr>
                 `
-        )}
+    )}
             </tbody>
           </table>
         </div>
       </div>
     `;
+  }
+
+  render() {
+    if (this._loading) {
+      return html`<div class="root"><p>Loading...</p></div>`;
+    }
+    if (this._error) {
+      return html`<div class="root"><div class="card err-card">Error: ${this._error}</div></div>`;
     }
 
-    render() {
-        if (this._loading) {
-            return html`<div class="root"><p>Loading...</p></div>`;
-        }
-        if (this._error) {
-            return html`<div class="root"><div class="card err-card">Error: ${this._error}</div></div>`;
-        }
-
-        return html`
+    return html`
       <div class="root">
         <div class="header">
           <h1>⚡ House Battery Control</h1>
@@ -273,14 +288,14 @@ class HBCPanel extends LitElement {
           </div>
         </div>
         ${this._activeTab === "dashboard"
-                ? this._renderDashboard()
-                : this._renderPlan()}
+        ? this._renderDashboard()
+        : this._renderPlan()}
       </div>
     `;
-    }
+  }
 
-    static get styles() {
-        return css`
+  static get styles() {
+    return css`
       :host {
         display: block;
         background: #0f0f23;
@@ -467,7 +482,7 @@ class HBCPanel extends LitElement {
         color: #666688;
       }
     `;
-    }
+  }
 }
 
 customElements.define("hbc-panel", HBCPanel);
