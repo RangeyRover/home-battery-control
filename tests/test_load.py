@@ -21,7 +21,9 @@ async def test_load_predict_basic(mock_hass):
     start = datetime(2025, 2, 20, 12, 0, 0)
     prediction = await predictor.async_predict(start, duration_hours=1)
     assert len(prediction) == 12
-    assert prediction[0] == 0.5
+    assert prediction[0]["kw"] == 0.5
+    assert "start" in prediction[0]
+    assert prediction[0]["start"] == start.isoformat()
 
 
 @pytest.mark.asyncio
@@ -30,7 +32,7 @@ async def test_load_predict_evening_peak(mock_hass):
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 18, 0, 0)
     prediction = await predictor.async_predict(start, duration_hours=1)
-    assert prediction[0] == 2.5
+    assert prediction[0]["kw"] == 2.5
 
 
 @pytest.mark.asyncio
@@ -39,7 +41,7 @@ async def test_load_predict_morning_peak(mock_hass):
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 8, 0, 0)
     prediction = await predictor.async_predict(start, duration_hours=1)
-    assert prediction[0] == 1.5
+    assert prediction[0]["kw"] == 1.5
 
 
 # --- Temperature sensitivity (new) ---
@@ -64,7 +66,7 @@ async def test_load_high_temp_increases_load(mock_hass):
     )
 
     # Base 0.5 + (35-25)*0.2 = 0.5 + 2.0 = 2.5
-    assert prediction[0] == pytest.approx(2.5, abs=0.01)
+    assert prediction[0]["kw"] == pytest.approx(2.5, abs=0.01)
 
 
 @pytest.mark.asyncio
@@ -87,7 +89,7 @@ async def test_load_low_temp_increases_load(mock_hass):
     )
 
     # Base 0.5 + (15-5)*0.3 = 0.5 + 3.0 = 3.5
-    assert prediction[0] == pytest.approx(3.5, abs=0.01)
+    assert prediction[0]["kw"] == pytest.approx(3.5, abs=0.01)
 
 
 @pytest.mark.asyncio
@@ -107,7 +109,7 @@ async def test_load_no_forecast_defaults_mild(mock_hass):
     )
 
     # 20°C is between thresholds, so no adjustment: base 0.5
-    assert prediction[0] == 0.5
+    assert prediction[0]["kw"] == 0.5
 
 
 @pytest.mark.asyncio
@@ -117,7 +119,7 @@ async def test_load_never_negative(mock_hass):
     # Night time (base 0.5) with mild weather — should stay positive
     start = datetime(2025, 2, 20, 3, 0, 0)
     prediction = await predictor.async_predict(start, duration_hours=1)
-    assert all(v >= 0.0 for v in prediction)
+    assert all(v["kw"] >= 0.0 for v in prediction)
 
 
 # --- History Data Tests (New) ---
@@ -155,4 +157,4 @@ async def test_load_predict_uses_past_week_history(mock_hass):
         )
     
     # Base load from history = 1.75
-    assert prediction[0] == 1.75
+    assert prediction[0]["kw"] == 1.75

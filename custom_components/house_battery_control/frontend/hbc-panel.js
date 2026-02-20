@@ -170,42 +170,88 @@ class HBCPanel extends LitElement {
       "Total",
     ];
 
-    // Build a time-lookup map for solar forecast (5-min intervals → aggregate to nearest rate slot)
+    // Build a time-lookup map for solar forecast (hourly chunks)
     const _solarByHour = {};
     for (const s of solar) {
-      if (!s.start) continue;
-      const d = new Date(s.start);
-      const key = `${d.getUTCHours()}:${d.getUTCMinutes() < 30 ? "00" : "30"}`;
-      _solarByHour[key] = (_solarByHour[key] || 0) + (s.kw || 0);
+      if (!s.period_start && !s.start) continue; // handle different solcast formats
+      const startStr = s.period_start || s.start;
+      const d = new Date(startStr);
+      // Group by hour block (e.g. "08:00")
+      const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}-${d.getUTCHours()}`;
+      // Sum the kw or pv_estimate across the hour
+      const kw = s.pv_estimate !== undefined ? s.pv_estimate : (s.kw || 0);
+      _solarByHour[key] = (_solarByHour[key] || 0) + kw;
     }
 
     let cumulative = 0;
-    const rows = rates.map((r, i) => {
-      const start = r.start ? new Date(r.start) : null;
-      const time = start
-        ? start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    const rows = rates.map((r) => {
+      const row_start = r.start ? Date.parse(r.start) : null;
+      // Default to 30 mins if end not specified
+      const row_end = r.end ? Date.parse(r.end) : (row_start ? row_start + (30 * 60000) : null);
+
+      const time = row_start
+        ? new Date(row_start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         : "—";
-      const imp = (
-        r.import_price ||
-        r.price ||
-        0
-      ).toFixed(2);
+
+      const imp = (r.import_price || r.price || 0).toFixed(2);
       const exp = (r.export_price || 0).toFixed(2);
 
-      // PV: match solar forecast to rate timeslot
       let pv = "—";
-      if (start && solar.length > 0) {
-        const key = `${start.getUTCHours()}:${start.getUTCMinutes() < 30 ? "00" : "30"}`;
+      let ld = "—";
+      let temp = "—";
+
+      if (row_start && row_end) {
+        const duration_mins = Math.round((row_end - row_start) / 60000);
+
+        // --- Solar Interpolation ---
+        const d = new Date(row_start);
+        const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}-${d.getUTCHours()}`;
         if (key in _solarByHour) {
-          pv = _solarByHour[key].toFixed(1);
+          const hourly_total = _solarByHour[key];
+          // Proportional interpolation: hourly total divided by slices
+          if (duration_mins === 5) {
+            pv = (hourly_total / 12).toFixed(1);
+          } else if (duration_mins === 30) {
+            pv = (hourly_total / 2).toFixed(1);
+          } else {
+            // Fallback for weird durations
+            pv = (hourly_total * (duration_mins / 60)).toFixed(1);
+          }
+        } else {
+          pv = "0.0";
+        }
+
+        // --- Load Interpolation ---
+        let load_sum = 0;
+        let load_count = 0;
+        for (const lf of loadFc) {
+          if (!lf.start) continue;
+          const lf_time = Date.parse(lf.start);
+          if (lf_time >= row_start && lf_time < row_end) {
+            load_sum += (lf.kw || 0);
+            load_count++;
+          }
+        }
+        if (load_count > 0) {
+          ld = (load_sum / load_count).toFixed(1);
+        }
+
+        // --- Weather / Temp Lookup ---
+        let minDiff = Infinity;
+        let matchedTemp = null;
+        for (const w of weather) {
+          if (!w.datetime) continue;
+          const wTime = Date.parse(w.datetime);
+          const diff = Math.abs(wTime - row_start);
+          if (diff < minDiff) {
+            minDiff = diff;
+            matchedTemp = w.temperature;
+          }
+        }
+        if (matchedTemp !== null) {
+          temp = matchedTemp.toFixed(0);
         }
       }
-
-      // Load: placeholder until prediction is active
-      const ld = i < loadFc.length ? loadFc[i].toFixed(1) : "—";
-
-      const temp =
-        i < weather.length ? (weather[i].temperature || 0).toFixed(0) : "—";
 
       const interval_energy_kwh = (parseFloat(imp) / 100) * 0.083;
       cumulative += interval_energy_kwh;

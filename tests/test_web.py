@@ -218,6 +218,68 @@ def test_plan_table_time_format():
     assert re.match(r"\d{2}:\d{2}", table[0]["Time"])
 
 
+def test_plan_table_interpolates_mixed_intervals():
+    """Plan table must interpolate solcast, average load, and map weather strictly by UTC timestamp."""
+    from custom_components.house_battery_control.web import build_plan_table
+    import datetime as dt
+    
+    start_time = dt.datetime(2025, 6, 15, 12, 0, tzinfo=dt.timezone.utc)
+    
+    # 1st row: 5 min. 2nd row: 30 min.
+    rates = [
+        {"start": start_time, "end": start_time + dt.timedelta(minutes=5), "price": 10.0},
+        {"start": start_time + dt.timedelta(minutes=5), "end": start_time + dt.timedelta(minutes=35), "price": 12.0}
+    ]
+    
+    # PV: Hourly block "12:00" = 6.0 kW total. 
+    solar_forecast = [
+        {"period_start": start_time.isoformat(), "pv_estimate": 3.0}, # First 30 mins
+        {"period_start": (start_time + dt.timedelta(minutes=30)).isoformat(), "pv_estimate": 3.0} # Second 30 mins
+    ]
+    
+    # Load: 5 min blocks
+    load_forecast = [
+        {"start": start_time.isoformat(), "kw": 1.0}, # 12:00 - 12:05
+        {"start": (start_time + dt.timedelta(minutes=5)).isoformat(), "kw": 2.0}, # 12:05 - 12:10
+        {"start": (start_time + dt.timedelta(minutes=10)).isoformat(), "kw": 4.0}, # 12:10 - 12:15
+        # Avg for the 30-min row (assuming these 2 match inside it, others missing/0) = 3.0
+    ]
+    
+    # Weather
+    weather = [
+        {"datetime": start_time - dt.timedelta(minutes=10), "temperature": 15.0}, # Closest to 12:00 row
+        {"datetime": start_time + dt.timedelta(minutes=40), "temperature": 20.0}  # Closest to 12:05 (30min) row? Diff to 12:05 is 35min. Diff from 15.0 to 12:05 is 15min. So 15.0 should win!
+    ]
+    
+    data = _make_plan_data(
+        rates=rates,
+        solar_forecast=solar_forecast,
+        load_forecast=load_forecast,
+        weather=weather
+    )
+    
+    table = build_plan_table(data)
+    row_5m = table[0]
+    row_30m = table[1]
+    
+    # 1. Weather: Nearest neighbor to 12:00 is 11:50 (15.0). 
+    assert row_5m["Air Temp Forecast"] == "15.0°C"
+    # Nearest neighbor to 12:05 is 11:50 (15 min difference) vs 12:40 (35 min difference).
+    assert row_30m["Air Temp Forecast"] == "15.0°C"
+    
+    # 2. PV Interpolation: Hourly total is 6.0 kW.
+    # 5 min row = 6.0 / 12 = 0.50
+    # 30 min row = 6.0 / 2 = 3.00
+    assert row_5m["PV Forecast"] == "0.50"
+    assert row_30m["PV Forecast"] == "3.00"
+    
+    # 3. Load average
+    # 5 min row (12:00-12:05) matches only the first load block (1.0). Total avg = 1.0
+    assert row_5m["Load Forecast"] == "1.00"
+    # 30 min row (12:05-12:35) matches the next two load blocks (2.0 and 4.0). Avg = 3.0
+    assert row_30m["Load Forecast"] == "3.00"
+
+
 # --- API Status ---
 
 def test_api_status_returns_dict():

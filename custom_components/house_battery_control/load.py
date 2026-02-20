@@ -23,7 +23,7 @@ class LoadPredictor:
         low_threshold: float = 15.0,
         duration_hours: int = 24,
         load_entity_id: str = None,
-    ) -> List[float]:
+    ) -> List[dict]:
         """
         Predict load for the next N hours in 5-minute intervals.
         Adjusts base load based on temperature forecast.
@@ -103,7 +103,7 @@ class LoadPredictor:
             elif temp < low_threshold:
                 val += (low_threshold - temp) * low_sensitivity
 
-            prediction.append(max(0.0, val)) # Never negative load
+            prediction.append({"start": current.isoformat(), "kw": max(0.0, val)}) # Never negative load
             current += timedelta(minutes=5)
 
         return prediction
