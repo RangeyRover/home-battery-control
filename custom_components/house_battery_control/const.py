@@ -33,6 +33,12 @@ CONF_INVERTER_LIMIT_MAX = "inverter_limit"
 CONF_ALLOW_CHARGE_FROM_GRID_ENTITY = "allow_charge_entity"
 CONF_ALLOW_EXPORT_ENTITY = "allow_export_entity"
 
+# Scripts (Spec 3.6)
+CONF_SCRIPT_CHARGE = "script_charge"
+CONF_SCRIPT_CHARGE_STOP = "script_charge_stop"
+CONF_SCRIPT_DISCHARGE = "script_discharge"
+CONF_SCRIPT_DISCHARGE_STOP = "script_discharge_stop"
+
 # Default Values
 DEFAULT_BATTERY_CAPACITY = 27.0
 DEFAULT_BATTERY_RATE_MAX = 6.3

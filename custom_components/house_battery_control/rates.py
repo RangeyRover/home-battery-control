@@ -68,7 +68,8 @@ class RatesManager:
             return []
 
         raw_data = (
-            state.attributes.get("forecasts")
+            state.attributes.get("forecast")
+            or state.attributes.get("forecasts")
             or state.attributes.get("future_prices")
             or state.attributes.get("variable_intervals")
         )

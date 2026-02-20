@@ -10,6 +10,13 @@ from unittest.mock import MagicMock
 from custom_components.house_battery_control.const import (
     CONF_BATTERY_POWER_INVERT,
     CONF_GRID_POWER_INVERT,
+    CONF_BATTERY_SOC_ENTITY,
+    CONF_SOLCAST_TODAY_ENTITY,
+    CONF_SOLCAST_TOMORROW_ENTITY,
+    CONF_SCRIPT_CHARGE,
+    CONF_SCRIPT_CHARGE_STOP,
+    CONF_SCRIPT_DISCHARGE,
+    CONF_SCRIPT_DISCHARGE_STOP,
 )
 
 
@@ -119,3 +126,42 @@ def test_load_derivation_clamped_to_zero():
     if load_p < 0:
         load_p = 0.0
     assert load_p == 0.0
+
+
+# --- Diagnostics tests ---
+
+def test_build_sensor_diagnostics_includes_all_entities():
+    """Spec 2.4: Diagnostics must include Solcast and the 4 control scripts."""
+    # We can test this without full init by just mocking the config and the method itself if we instantiate.
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    
+    mock_hass = MagicMock()
+    mock_hass.states.get.return_value = _make_state("test")
+    
+    config = {
+        CONF_BATTERY_SOC_ENTITY: "sensor.soc",
+        CONF_SOLCAST_TODAY_ENTITY: "sensor.solcast_today",
+        CONF_SOLCAST_TOMORROW_ENTITY: "sensor.solcast_tomorrow",
+        CONF_SCRIPT_CHARGE: "script.charge",
+        CONF_SCRIPT_CHARGE_STOP: "script.charge_stop",
+        CONF_SCRIPT_DISCHARGE: "script.discharge",
+        CONF_SCRIPT_DISCHARGE_STOP: "script.discharge_stop",
+    }
+    
+    # Bypass init requirements that hit the event loop
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.hass = mock_hass
+    coordinator.config = config
+    
+    diagnostics = coordinator._build_sensor_diagnostics()
+    
+    # Extract entity IDs from the result
+    reported_entities = [d["entity_id"] for d in diagnostics]
+    
+    assert "sensor.soc" in reported_entities
+    assert "sensor.solcast_today" in reported_entities
+    assert "sensor.solcast_tomorrow" in reported_entities
+    assert "script.charge" in reported_entities
+    assert "script.charge_stop" in reported_entities
+    assert "script.discharge" in reported_entities
+    assert "script.discharge_stop" in reported_entities

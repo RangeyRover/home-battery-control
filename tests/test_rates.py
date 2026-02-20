@@ -30,10 +30,10 @@ def test_rates_manager_init_dual_entity(mock_hass):
 
 # --- Update with merged rates ---
 
-def _make_amber_state(prices):
-    """Helper: build a mock state with future_prices attribute."""
+def _make_amber_state(prices, key="future_prices"):
+    """Helper: build a mock state with the given attribute key containing prices."""
     state = MagicMock()
-    state.attributes = {"future_prices": prices}
+    state.attributes = {key: prices}
     return state
 
 
@@ -57,8 +57,8 @@ def test_rates_update_merges_import_export(mock_hass):
     ]
 
     mock_hass.states.get.side_effect = lambda eid: {
-        "sensor.amber_import": _make_amber_state(import_prices),
-        "sensor.amber_export": _make_amber_state(export_prices),
+        "sensor.amber_import": _make_amber_state(import_prices, key="forecast"),
+        "sensor.amber_export": _make_amber_state(export_prices, key="forecast"),
     }.get(eid)
 
     manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export")
@@ -134,4 +134,29 @@ def test_price_lookup_with_utc_aware_time(mock_hass):
     query_time = datetime(2025, 6, 15, 12, 10, tzinfo=timezone.utc)
     result = manager.get_import_price_at(query_time)
     assert result == 30.0
+
+
+def test_rates_update_parses_amber_forecast_attribute(mock_hass):
+    """Spec 3.1: Must explicitly parse the `forecast` attribute for Amber compatibility."""
+    prices = [
+        {
+            "periodType": "FORECAST",
+            "periodStart": "2025-02-20T12:00:00+00:00",
+            "periodEnd": "2025-02-20T12:30:00+00:00",
+            "perKwh": 10.0,
+        },
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(prices, key="forecast"),
+        "sensor.amber_export": _make_amber_state([], key="forecast"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export")
+    manager.update()
+
+    rates = manager.get_rates()
+    assert len(rates) == 1
+    assert rates[0]["import_price"] == 10.0
+    assert rates[0]["type"] == "FORECAST"
 

@@ -25,6 +25,10 @@ from custom_components.house_battery_control.const import (
     CONF_SOLCAST_TODAY_ENTITY,
     CONF_SOLCAST_TOMORROW_ENTITY,
     CONF_WEATHER_ENTITY,
+    CONF_SCRIPT_CHARGE,
+    CONF_SCRIPT_CHARGE_STOP,
+    CONF_SCRIPT_DISCHARGE,
+    CONF_SCRIPT_DISCHARGE_STOP,
 )
 
 
@@ -50,6 +54,10 @@ def test_all_config_keys_are_strings():
         CONF_SOLCAST_TOMORROW_ENTITY,
         CONF_ALLOW_CHARGE_FROM_GRID_ENTITY,
         CONF_ALLOW_EXPORT_ENTITY,
+        CONF_SCRIPT_CHARGE,
+        CONF_SCRIPT_CHARGE_STOP,
+        CONF_SCRIPT_DISCHARGE,
+        CONF_SCRIPT_DISCHARGE_STOP,
     ]
     for key in keys:
         assert isinstance(key, str), f"{key} is not a string"
@@ -77,6 +85,10 @@ def test_config_keys_are_unique():
         CONF_SOLCAST_TOMORROW_ENTITY,
         CONF_ALLOW_CHARGE_FROM_GRID_ENTITY,
         CONF_ALLOW_EXPORT_ENTITY,
+        CONF_SCRIPT_CHARGE,
+        CONF_SCRIPT_CHARGE_STOP,
+        CONF_SCRIPT_DISCHARGE,
+        CONF_SCRIPT_DISCHARGE_STOP,
     ]
     assert len(keys) == len(set(keys)), "Duplicate config keys detected"
 
@@ -95,6 +107,12 @@ def test_config_flow_has_menu_and_steps():
     assert hasattr(ConfigFlow, "async_step_yaml")
     assert hasattr(ConfigFlow, "async_step_energy")
     assert hasattr(ConfigFlow, "async_step_control")
+
+
+def test_config_flow_has_options():
+    """ConfigFlow should support OptionsFlow for runtime reconfiguration (Spec 3.8)."""
+    from custom_components.house_battery_control.config_flow import ConfigFlow
+    assert hasattr(ConfigFlow, "async_get_options_flow"), "Options flow not implemented"
 
 
 def test_no_tariff_entity_constant():
