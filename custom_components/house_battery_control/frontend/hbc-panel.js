@@ -147,13 +147,10 @@ class HBCPanel extends LitElement {
 
   // ── Plan Tab ───────────────────────────────────────────
   _renderPlan() {
-    const rates = this._data.rates || [];
-    const solar = this._data.solar_forecast || [];
-    const loadFc = this._data.load_forecast || [];
-    const weather = this._data.weather || [];
+    const plan = this._data.plan || [];
 
-    if (rates.length === 0) {
-      return html`<div class="card"><p>No rate data available yet.</p></div>`;
+    if (plan.length === 0) {
+      return html`<div class="card"><p>No plan data available yet.</p></div>`;
     }
 
     const cols = [
@@ -170,106 +167,19 @@ class HBCPanel extends LitElement {
       "Total",
     ];
 
-    // Build a time-lookup map for solar forecast (hourly chunks)
-    const _solarByHour = {};
-    for (const s of solar) {
-      if (!s.period_start && !s.start) continue; // handle different solcast formats
-      const startStr = s.period_start || s.start;
-      const d = new Date(startStr);
-      // Group by hour block (e.g. "08:00")
-      const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}-${d.getUTCHours()}`;
-      // Sum the kw or pv_estimate across the hour
-      const kw = s.pv_estimate !== undefined ? s.pv_estimate : (s.kw || 0);
-      _solarByHour[key] = (_solarByHour[key] || 0) + kw;
-    }
-
-    let cumulative = 0;
-    const rows = rates.map((r) => {
-      const row_start = r.start ? Date.parse(r.start) : null;
-      // Default to 30 mins if end not specified
-      const row_end = r.end ? Date.parse(r.end) : (row_start ? row_start + (30 * 60000) : null);
-
-      const time = row_start
-        ? new Date(row_start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        : "—";
-
-      const imp = (r.import_price || r.price || 0).toFixed(1);
-      const exp = (r.export_price || (r.import_price || r.price || 0) * 0.8).toFixed(1);
-
-      let pv = "0.00";
-      let ld = "0.00";
-      let temp = "—";
-      let cost = "0.0000";
-
-      if (row_start && row_end) {
-        const duration_mins = Math.max(1, Math.round((row_end - row_start) / 60000));
-        const duration_hours = duration_mins / 60.0;
-
-        // --- Solar Interpolation ---
-        const d = new Date(row_start);
-        const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}-${d.getUTCHours()}`;
-        if (key in _solarByHour) {
-          const hourly_total = _solarByHour[key];
-          pv = (hourly_total * duration_hours).toFixed(2);
-        }
-
-        // --- Load Interpolation (Average Overlap) ---
-        let load_sum = 0;
-        let load_count = 0;
-        for (const lf of loadFc) {
-          if (!lf.start) continue;
-          const lf_time = Date.parse(lf.start);
-          if (lf_time >= row_start && lf_time < row_end) {
-            load_sum += (lf.kw || 0);
-            load_count++;
-          }
-        }
-        if (load_count > 0) {
-          ld = (load_sum / load_count).toFixed(2);
-        }
-
-        // --- Weather / Temp Lookup (Nearest Neighbor) ---
-        let minDiff = Infinity;
-        let matchedTemp = null;
-        for (const w of weather) {
-          if (!w.datetime) continue;
-          const wTime = Date.parse(w.datetime);
-          const diff = Math.abs(wTime - row_start);
-          if (diff < minDiff) {
-            minDiff = diff;
-            matchedTemp = w.temperature;
-          }
-        }
-        if (matchedTemp !== null) {
-          temp = matchedTemp.toFixed(1) + "°C";
-        }
-
-        // --- Financial Projection ---
-        const net_import_kw = parseFloat(ld) - parseFloat(pv); // Positive = importing
-        const interval_kwh = net_import_kw * duration_hours;
-        const interval_cost = (interval_kwh * (r.import_price || r.price || 0)) / 100.0;
-
-        cumulative += interval_cost;
-        cost = interval_cost.toFixed(4);
-      }
-
-      // Compute Inverter Percentage
-      const net_abs = Math.abs(parseFloat(ld) - parseFloat(pv));
-      const inverter_limit = 10.0;
-      const pct = Math.min(100, (net_abs / inverter_limit) * 100).toFixed(0);
-
+    const rows = plan.map((r) => {
       return {
-        time,
-        imp,
-        exp,
-        state: this._data.state || "—",
-        limit: `${pct}%`,
-        pv,
-        ld,
-        temp,
-        soc: "—",
-        cost: `$${cost}`,
-        total: `$${cumulative.toFixed(2)}`,
+        time: r["Time"] || "—",
+        imp: r["Import Rate"] || "0.0",
+        exp: r["Export Rate"] || "0.0",
+        state: r["FSM State"] || "—",
+        limit: r["Inverter Limit"] || "0%",
+        pv: r["PV Forecast"] || "0.00",
+        ld: r["Load Forecast"] || "0.00",
+        temp: r["Air Temp Forecast"] || "—",
+        soc: r["SoC Forecast"] || "—",
+        cost: r["Interval Cost"] || "$0.0000",
+        total: r["Cumulative Total"] || "$0.00",
       };
     });
 
