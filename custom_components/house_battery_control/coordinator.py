@@ -288,9 +288,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 next_soc = simulated_soc
 
             table.append({
-                "Time": start.strftime("%H:%M") if hasattr(start, "strftime") else str(start),
-                "Import Rate": f"{price:.1f}",
-                "Export Rate": f"{export_price:.1f}",
+                "Time": dt_util.as_local(start).strftime("%H:%M") if hasattr(start, "strftime") else str(start),
+                "Import Rate": f"{price:.2f}",
+                "Export Rate": f"{export_price:.2f}",
                 "FSM State": state,
                 "Inverter Limit": f"{limit_pct:.0f}%",
                 "PV Forecast": f"{pv_kwh:.2f}",

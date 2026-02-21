@@ -214,8 +214,8 @@ def test_plan_table_uses_actual_export_rate():
 
     table = _build_test_table(_make_plan_data())
     row = table[0]
-    assert row["Export Rate"] == "8.0", \
-        f"Export Rate should be 8.0 from data, got {row['Export Rate']}"
+    assert row["Export Rate"] == "8.00", \
+        f"Export Rate should be 8.00 from data, got {row['Export Rate']}"
 
 
 def test_plan_table_time_format():
