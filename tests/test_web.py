@@ -8,6 +8,13 @@ Spec 3.1: Separate import/export rates in plan table.
 from datetime import datetime, timezone
 
 import pytest
+from unittest.mock import MagicMock
+from homeassistant.core import HomeAssistant
+
+@pytest.fixture
+def mock_hass():
+    """Mock HomeAssistant fixture."""
+    return MagicMock(spec=HomeAssistant)
 
 # --- Plan Table Requirements (from system_requirements.md 2.2) ---
 
@@ -142,6 +149,12 @@ def test_api_ping_public():
     """Ping endpoint must be public (spec 2.3)."""
     from custom_components.house_battery_control.web import HBCApiPingView
     assert HBCApiPingView.requires_auth is False
+
+
+def test_load_history_api_public():
+    """Load history API must be public."""
+    from custom_components.house_battery_control.web import HBCLoadHistoryView
+    assert HBCLoadHistoryView.requires_auth is False
 
 
 # --- Plan Table ---
@@ -446,3 +459,38 @@ def test_plan_html_includes_local_time_column():
 
     assert '"Local Time"' in source, \
         "HBCPlanView.get() must include 'Local Time' in its column list"
+
+
+@pytest.mark.asyncio
+async def test_load_history_api_returns_data(mock_hass):
+    """Verify HBCLoadHistoryView returns both raw and derived data."""
+    from unittest.mock import MagicMock
+    from custom_components.house_battery_control.const import DOMAIN
+    from custom_components.house_battery_control.web import HBCLoadHistoryView
+
+    view = HBCLoadHistoryView()
+
+    mock_request = MagicMock()
+    mock_request.app = {"hass": mock_hass}
+
+    # Mock coordinator with load_predictor
+    mock_predictor = MagicMock()
+    mock_predictor.last_history = [{"state": "10.0"}]
+    mock_predictor.last_history_derived = [{"kw": 1.2}]
+
+    mock_hass.data = {
+        DOMAIN: {
+            "entry_1": {
+                "coordinator": MagicMock(load_predictor=mock_predictor)
+            }
+        }
+    }
+
+    response = await view.get(mock_request)
+    import json
+    data = json.loads(response.text)
+
+    assert "raw_states" in data
+    assert "derived_forecast" in data
+    assert data["raw_states"][0]["state"] == "10.0"
+    assert data["derived_forecast"][0]["kw"] == 1.2

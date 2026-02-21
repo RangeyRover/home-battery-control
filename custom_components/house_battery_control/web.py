@@ -277,3 +277,29 @@ class HBCConfigYamlView(HomeAssistantView):
 
         yaml_text = yaml.dump(config_data, default_flow_style=False, sort_keys=True)
         return web.Response(text=yaml_text, content_type="text/yaml")
+
+
+class HBCLoadHistoryView(HomeAssistantView):
+    """JSON API: detailed load history (Phase 16)."""
+
+    url = "/hbc/api/load-history"
+    name = "hbc:api:load-history"
+    requires_auth = False
+
+    async def get(self, request: web.Request) -> web.Response:
+        hass = request.app["hass"]
+        domain_data = hass.data.get(DOMAIN, {})
+        
+        history_data = {
+            "raw_states": [],
+            "derived_forecast": []
+        }
+        
+        for entry_data in domain_data.values():
+            coord = entry_data.get("coordinator")
+            if coord and hasattr(coord, "load_predictor"):
+                history_data["raw_states"] = coord.load_predictor.last_history
+                history_data["derived_forecast"] = getattr(coord.load_predictor, "last_history_derived", [])
+                break
+
+        return self.json(history_data)

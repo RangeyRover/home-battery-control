@@ -159,3 +159,46 @@ async def test_load_predict_uses_past_week_history(mock_hass):
 
     # Base load from history = 1.75
     assert prediction[0]["kw"] == 1.75
+
+
+@pytest.mark.asyncio
+async def test_load_derives_power_from_energy_deltas(mock_hass):
+    """Verify that LoadPredictor derives kW from kWh deltas (kWh_diff * 12)."""
+    import datetime as dt
+    from unittest.mock import AsyncMock, patch
+    from homeassistant.core import State
+
+    predictor = LoadPredictor(mock_hass)
+
+    async def mock_add_executor_job(func, *args):
+        return func(*args)
+    mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
+
+    start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
+    base_past = start - dt.timedelta(days=7)
+
+    # Mock energy states: 10.0 at T, 10.1 at T+5m... 
+    # Use slightly BEFORE interval end to ensure lookup catches it
+    mock_states = [
+        State("sensor.energy", "10.0", last_updated=base_past),
+        State("sensor.energy", "10.1", last_updated=base_past + dt.timedelta(minutes=4.99)),
+        State("sensor.energy", "10.3", last_updated=base_past + dt.timedelta(minutes=9.99)),
+    ]
+
+    with patch(
+        "custom_components.house_battery_control.load.history.get_significant_states",
+        return_value={"sensor.energy": mock_states}
+    ):
+        prediction = await predictor.async_predict(
+            start,
+            duration_hours=1,
+            load_entity_id="sensor.energy"
+        )
+
+    # 1st interval (12:00-12:05): Uses state at 12:00 (10.0) -> No delta yet if naive, 
+    # but our spec says it must divide by interval.
+    # Actually, current implementation just returns 10.0 (The insane 20kW bug)
+    # The fix should find the NEXT state to calculate delta.
+    
+    assert prediction[0]["kw"] == pytest.approx(1.2, abs=0.1)
+    assert prediction[1]["kw"] == pytest.approx(2.4, abs=0.1)
