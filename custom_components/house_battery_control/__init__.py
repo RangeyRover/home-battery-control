@@ -6,7 +6,7 @@ from pathlib import Path
 
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+from homeassistant.const import Platform, EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
@@ -41,6 +41,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Defer a refresh until HA is fully started to ensure all peripheral integrations (Solcast, Weather) are ready
+    async def _force_refresh_on_startup(_event):
+        _LOGGER.info("Home Assistant started, triggering deferred HBC refresh")
+        await coordinator.async_request_refresh()
+
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _force_refresh_on_startup)
 
     # Register API views (consumed by panel JS)
     hass.http.register_view(HBCApiStatusView())
