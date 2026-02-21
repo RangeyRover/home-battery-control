@@ -171,11 +171,35 @@ def _make_plan_data(**overrides):
     return base
 
 
+def _build_test_table(data):
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    from unittest.mock import MagicMock
+    from types import SimpleNamespace
+    
+    coord = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coord.fsm = MagicMock()
+    coord.fsm.calculate_next_state.return_value = SimpleNamespace(
+        state=data.get("state", "IDLE"), 
+        limit_kw=0.0, 
+        reason="Test"
+    )
+    coord.capacity_kwh = data.get("capacity", 27.0)
+    coord.inverter_limit_kw = data.get("inverter_limit", 10.0)
+    
+    return coord._build_diagnostic_plan_table(
+        rates=data.get("rates", []),
+        solar_forecast=data.get("solar_forecast", []),
+        load_forecast=data.get("load_forecast", []),
+        weather=data.get("weather", []),
+        current_soc=data.get("soc", 50.0),
+        current_state=data.get("state", "IDLE")
+    )
+
+
 def test_plan_table_has_required_columns():
     """Plan table generator must include all system-required columns."""
-    from custom_components.house_battery_control.web import build_plan_table
 
-    table = build_plan_table(_make_plan_data())
+    table = _build_test_table(_make_plan_data())
 
     assert isinstance(table, list)
     assert len(table) >= 1
@@ -187,9 +211,8 @@ def test_plan_table_has_required_columns():
 
 def test_plan_table_uses_actual_export_rate():
     """Plan table must use actual export rate from data, not hardcoded (spec 3.1)."""
-    from custom_components.house_battery_control.web import build_plan_table
 
-    table = build_plan_table(_make_plan_data())
+    table = _build_test_table(_make_plan_data())
     row = table[0]
     assert row["Export Rate"] == "8.0", \
         f"Export Rate should be 8.0 from data, got {row['Export Rate']}"
@@ -198,8 +221,6 @@ def test_plan_table_uses_actual_export_rate():
 def test_plan_table_time_format():
     """Time column should be HH:MM format."""
     import re
-
-    from custom_components.house_battery_control.web import build_plan_table
 
     data = _make_plan_data(
         rates=[{
@@ -214,13 +235,12 @@ def test_plan_table_time_format():
         ],
     )
 
-    table = build_plan_table(data)
+    table = _build_test_table(data)
     assert re.match(r"\d{2}:\d{2}", table[0]["Time"])
 
 
 def test_plan_table_interpolates_mixed_intervals():
     """Plan table must interpolate solcast, average load, and map weather strictly by UTC timestamp."""
-    from custom_components.house_battery_control.web import build_plan_table
     import datetime as dt
     
     start_time = dt.datetime(2025, 6, 15, 12, 0, tzinfo=dt.timezone.utc)
@@ -258,7 +278,7 @@ def test_plan_table_interpolates_mixed_intervals():
         weather=weather
     )
     
-    table = build_plan_table(data)
+    table = _build_test_table(data)
     row_5m = table[0]
     row_30m = table[1]
     

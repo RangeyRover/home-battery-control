@@ -96,12 +96,12 @@ class RatesManager:
                 # Phase 8: Force chunking all intervals into 5-minute ticks
                 chunk_duration = timedelta(minutes=5)
                 current_ts = start_ts
-                
+
                 while current_ts < end_ts:
                     next_ts = current_ts + chunk_duration
                     if next_ts > end_ts:
                         next_ts = end_ts
-                        
+
                     parsed.append({
                         "start": current_ts,
                         "end": next_ts,
@@ -109,7 +109,7 @@ class RatesManager:
                         "type": interval.get("type") or interval.get("periodType", "UNKNOWN"),
                     })
                     current_ts = next_ts
-                    
+
             except (ValueError, KeyError) as e:
                 _LOGGER.error(f"Error parsing {label} rate interval: {e}")
                 continue

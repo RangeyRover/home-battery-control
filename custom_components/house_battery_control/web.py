@@ -8,14 +8,12 @@ Provides:
 Registers with HA's built-in aiohttp server via hass.http.register_view().
 """
 import logging
-from datetime import datetime, timedelta
 from typing import Any
 
 import yaml
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import callback
-from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 
@@ -25,139 +23,6 @@ _LOGGER = logging.getLogger(__name__)
 # ============================================================
 # DATA HELPERS (pure functions, tested independently)
 # ============================================================
-
-def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Build a plan table from coordinator data.
-
-    Returns a list of row dicts with columns matching system_requirements.md 2.2:
-    Time, Import Rate, Export Rate, FSM State, Inverter Limit,
-    PV Forecast, Load Forecast, Air Temp Forecast, SoC Forecast,
-    Interval Cost, Cumulative Total.
-    """
-    rates = data.get("rates", [])
-    solar_forecast = data.get("solar_forecast", [])
-    load_forecast = data.get("load_forecast", [])
-    weather = data.get("weather", [])
-    capacity = data.get("capacity", 27.0)
-    inverter_limit = data.get("inverter_limit", 10.0)
-    state = data.get("state", "IDLE")
-    soc = data.get("soc", 50.0)
-
-    # Pre-parse Solar by Hour
-    solar_by_hour = {}
-    for s in solar_forecast:
-        if not isinstance(s, dict):
-            continue
-        start_str = s.get("period_start") or s.get("start", "")
-        if not start_str:
-            continue
-        try:
-            st = dt_util.parse_datetime(start_str)
-            if st:
-                key = (st.year, st.month, st.day, st.hour)
-                val = float(s.get("pv_estimate", s.get("kw", 0.0)))
-                solar_by_hour[key] = solar_by_hour.get(key, 0.0) + val
-        except (ValueError, TypeError):
-            pass
-
-    # Pre-parse Load
-    parsed_loads = []
-    for lf in load_forecast:
-        if not isinstance(lf, dict):
-            continue
-        start_str = lf.get("start", "")
-        if not start_str:
-            continue
-        try:
-            st = dt_util.parse_datetime(start_str)
-            if st:
-                parsed_loads.append({"start": st, "kw": float(lf.get("kw", 0.0))})
-        except (ValueError, TypeError):
-            pass
-
-    # Pre-parse Weather
-    parsed_weather = []
-    for w in weather:
-        if not isinstance(w, dict):
-            continue
-        if "datetime" in w and isinstance(w["datetime"], datetime):
-            parsed_weather.append(w)
-        else:
-            w_time = w.get("datetime")
-            if isinstance(w_time, str):
-                w_time = dt_util.parse_datetime(w_time)
-            if isinstance(w_time, datetime):
-                parsed_weather.append({"datetime": w_time, "temperature": w.get("temperature")})
-
-    table = []
-    cumulative = 0.0
-
-    for rate in rates:
-        start = rate["start"]
-        end = rate.get("end", start + timedelta(minutes=30))
-        price = rate.get("import_price", rate.get("price", 0.0))
-        export_price = rate.get("export_price", price * 0.8)
-
-        if not isinstance(start, datetime) or not isinstance(end, datetime):
-            continue
-
-        duration_mins = max(1, int((end - start).total_seconds() / 60.0))
-        duration_hours = duration_mins / 60.0
-
-        # Solar forecast lookup (average of all overlapping blocks)
-        matched_solar = [
-            float(s.get("pv_estimate", s.get("kw", 0.0)))
-            for s in solar_forecast
-            if isinstance(s, dict)
-            and dt_util.parse_datetime(s.get("period_start", "") if isinstance(s.get("period_start", ""), str) else (s.get("period_start").isoformat() if s.get("period_start") else s.get("start", "").isoformat() if not isinstance(s.get("start", ""), str) else s.get("start", "")))
-            and start <= dt_util.parse_datetime(s.get("period_start", "") if isinstance(s.get("period_start", ""), str) else (s.get("period_start").isoformat() if s.get("period_start") else s.get("start", "").isoformat() if not isinstance(s.get("start", ""), str) else s.get("start", ""))) < end
-        ]
-        
-        # Determine average power in kW for this row
-        pv_kw_avg = sum(matched_solar) / len(matched_solar) if matched_solar else 0.0
-        
-        # Calculate true energy in kWh for this row
-        pv_kwh = pv_kw_avg * duration_hours
-
-        # Load forecast lookup (average of all overlapping blocks)
-        matched_loads = [lf["kw"] for lf in parsed_loads if start <= lf["start"] < end]
-        load_kw_avg = sum(matched_loads) / len(matched_loads) if matched_loads else 0.0
-
-        # Temperature lookup (nearest neighbor)
-        temp_c = None
-        if parsed_weather:
-            closest = min(parsed_weather, key=lambda w: abs((start - w["datetime"]).total_seconds()))
-            temp_c = closest.get("temperature")
-
-        # Net power flow for interval cost
-        net_import_kw = load_kw_avg - pv_kw_avg  # positive = importing
-        interval_kwh = net_import_kw * duration_hours
-        interval_cost = interval_kwh * price / 100.0  # price is c/kWh → dollars
-
-        # SoC forecast (simplified: linear projection based on net flow)
-        soc_delta = (net_import_kw * -1.0) * duration_hours / capacity * 100.0
-        soc = max(0.0, min(100.0, soc + soc_delta))
-
-        cumulative += interval_cost
-
-        # Inverter limit as % of max
-        inverter_pct = min(100.0, (abs(net_import_kw) / inverter_limit) * 100.0) if inverter_limit > 0 else 0.0
-
-        table.append({
-            "Time": start.strftime("%H:%M") if isinstance(start, datetime) else str(start),
-            "Import Rate": f"{price:.1f}",
-            "Export Rate": f"{export_price:.1f}",
-            "FSM State": state,
-            "Inverter Limit": f"{inverter_pct:.0f}%",
-            "PV Forecast": f"{pv_kwh:.2f}",
-            "Load Forecast": f"{load_kw_avg:.2f}",
-            "Air Temp Forecast": f"{temp_c:.1f}°C" if temp_c is not None else "—",
-            "SoC Forecast": f"{soc:.1f}%",
-            "Interval Cost": f"${interval_cost:.4f}",
-            "Cumulative Total": f"${cumulative:.2f}",
-        })
-
-    return table
 
 
 def build_status_data(data: dict[str, Any]) -> dict[str, Any]:
@@ -312,7 +177,7 @@ class HBCPlanView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
         data = self._get_coordinator_data(hass)
-        table = build_plan_table(data)
+        table = data.get("plan", [])
 
         rows_html = ""
         for row in table:

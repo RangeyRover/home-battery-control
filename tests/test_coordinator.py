@@ -283,3 +283,59 @@ def test_coordinator_rounded_outputs():
         assert result["import_today"] == 5.55
         assert result["export_today"] == 5.55
         assert result["soc"] == 5.6  # SOC is rounded to 1 decimal
+
+def test_pv_interpolation():
+    """Spec: Simulate a PV input from Solcast and check that it gets properly chopped into its 5 min rows."""
+    from datetime import datetime, timedelta, timezone
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    from unittest.mock import MagicMock
+    
+    mock_hass = MagicMock()
+    # Need a coordinator to test its (upcoming) interpolation method
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.hass = mock_hass
+    
+    now = datetime(2025, 2, 20, 12, 0, tzinfo=timezone.utc)
+    
+    # 30-minute Solcast block at 6.0 kW
+    solar_forecast = [
+        {"period_start": now.isoformat(), "pv_estimate": 6.0}
+    ]
+    
+    # Six 5-minute rate intervals covering the same 30-minute period
+    rates = []
+    for i in range(6):
+        rates.append({
+            "start": now + timedelta(minutes=5 * i),
+            "end": now + timedelta(minutes=5 * (i + 1)),
+            "import_price": 10.0,
+            "export_price": 5.0
+        })
+        
+    # We will invoke the (soon to be implemented) diagnostic plan builder
+    # _build_diagnostic_plan_table(rates, solar_forecast, load_forecast, weather, current_soc, current_state)
+    coordinator.fsm = MagicMock()
+    # Mock the FSM to just return an IDLE state
+    from types import SimpleNamespace
+    coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(state="IDLE", limit_kw=0.0, reason="Test")
+    coordinator.capacity_kwh = 27.0
+    coordinator.inverter_limit_kw = 10.0
+    
+    table = coordinator._build_diagnostic_plan_table(
+        rates=rates,
+        solar_forecast=solar_forecast,
+        load_forecast=[],
+        weather=[],
+        current_soc=50.0,
+        current_state="IDLE"
+    )
+    
+    assert len(table) == 6
+    for i, row in enumerate(table):
+        # We expect the 5-min row duration to yield average kW of 6.0, 
+        # meaning energy = 6.0 kW * (5/60) h = 0.50 kWh per row.
+        # The web table expects 'PV Forecast' nicely formatted as string "0.50"
+        assert row["PV Forecast"] == "0.50", f"Row {i} failed PV interpolation"
+        # The string time should match
+        expected_time_str = (now + timedelta(minutes=5 * i)).strftime("%H:%M")
+        assert row["Time"] == expected_time_str
