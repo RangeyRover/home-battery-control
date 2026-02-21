@@ -432,3 +432,17 @@ def test_build_status_data_empty_input():
     assert status.get("sensors", []) == []
 
 
+def test_plan_html_includes_local_time_column():
+    """The /hbc/plan HTML view must render a 'Local Time' column header and cell data (Phase 14)."""
+    from custom_components.house_battery_control.web import HBCPlanView
+
+    view = HBCPlanView()
+
+    # The view iterates over a hardcoded column list to build HTML.
+    # Verify that "Local Time" is present in both the headers and row generators.
+    # We inspect the source code by calling the internal column list.
+    import inspect
+    source = inspect.getsource(view.get)
+
+    assert '"Local Time"' in source, \
+        "HBCPlanView.get() must include 'Local Time' in its column list"

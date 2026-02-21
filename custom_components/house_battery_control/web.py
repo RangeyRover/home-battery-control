@@ -182,7 +182,7 @@ class HBCPlanView(HomeAssistantView):
         rows_html = ""
         for row in table:
             cells = "".join(f"<td>{row[c]}</td>" for c in [
-                "Time", "Import Rate", "Export Rate", "FSM State",
+                "Time", "Local Time", "Import Rate", "Export Rate", "FSM State",
                 "Inverter Limit", "PV Forecast", "Load Forecast",
                 "Air Temp Forecast", "SoC Forecast", "Interval Cost",
                 "Cumulative Total",
@@ -190,7 +190,7 @@ class HBCPlanView(HomeAssistantView):
             rows_html += f"<tr>{cells}</tr>\n"
 
         headers = "".join(f"<th>{c}</th>" for c in [
-            "Time", "Import Rate", "Export Rate", "FSM State",
+            "Time", "Local Time", "Import Rate", "Export Rate", "FSM State",
             "Inverter Limit", "PV Forecast", "Load Forecast",
             "Air Temp Forecast", "SoC Forecast", "Interval Cost",
             "Cumulative Total",
