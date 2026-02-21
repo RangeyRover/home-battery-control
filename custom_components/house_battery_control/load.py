@@ -46,6 +46,14 @@ class LoadPredictor:
             )
             historic_states = states_dict.get(load_entity_id, [])
 
+        # Robustly detect if this is an energy sensor (kWh) or power sensor (kW)
+        is_energy_sensor = False
+        current_state = self._hass.states.get(load_entity_id)
+        if current_state:
+            unit = current_state.attributes.get("unit_of_measurement", "").lower()
+            if "wh" in unit: # kWh, Wh, mWh
+                is_energy_sensor = True
+
         self.last_history = [{"state": s.state, "last_changed": s.last_changed.isoformat()} for s in historic_states]
         self.last_history_derived = []
 
@@ -100,23 +108,22 @@ class LoadPredictor:
             if val_start is not None and val_end is not None:
                 if val_end >= val_start:
                     delta = val_end - val_start
-                    # If delta is small but the absolute values are large, it's kWh.
-                    # 10kW load for 5 mins is ~0.83kWh. 
-                    # If delta is < 1.0 but absolute is > 5.0, it's definitely energy derivative.
-                    if val_start > 5.0 and delta < 2.0:
+                    if is_energy_sensor:
+                        # Cumulative kWh -> Power kW
                         derived_kw = delta * 12.0
                     else:
-                        # Fallback: maybe it IS power? No, let's stick to energy logic if it looks like energy
+                        # Raw kW -> Power kW
                         derived_kw = val_start
+                else:
+                    # Counter reset or negative fluctuation in raw power
+                    derived_kw = val_start
 
             if derived_kw is None:
                 # Fallback to pure state lookup or dummy profile if same
                 hist_val = val_start
                 if hist_val is not None:
-                    # If it's the 20kW bug, we still have the bug here unless we force division.
-                    # Given the user's "insane" comment, we MUST force division if value is high.
-                    if hist_val > 5.0:
-                         # We don't have a delta, so we guess 0.5kW base or use dummy
+                    # If we don't have a delta, but it's an energy sensor, we can't trust the absolute value
+                    if is_energy_sensor:
                          derived_kw = None 
                     else:
                          derived_kw = hist_val

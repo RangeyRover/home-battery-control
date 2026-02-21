@@ -9,7 +9,9 @@ from homeassistant.core import HomeAssistant
 
 @pytest.fixture
 def mock_hass():
-    return MagicMock(spec=HomeAssistant)
+    mock = MagicMock(spec=HomeAssistant)
+    mock.states = MagicMock()
+    return mock
 
 
 # --- Existing behaviour (revalidated) ---
@@ -176,6 +178,11 @@ async def test_load_derives_power_from_energy_deltas(mock_hass):
 
     start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
     base_past = start - dt.timedelta(days=7)
+
+    # Mock the current state of the entity to have kWh unit
+    mock_hass.states.get.return_value = MagicMock(
+        attributes={"unit_of_measurement": "kWh"}
+    )
 
     # Mock energy states: 10.0 at T, 10.1 at T+5m... 
     # Use slightly BEFORE interval end to ensure lookup catches it
