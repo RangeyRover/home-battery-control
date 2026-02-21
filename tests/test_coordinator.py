@@ -18,6 +18,11 @@ from custom_components.house_battery_control.const import (
     CONF_SCRIPT_DISCHARGE,
     CONF_SCRIPT_DISCHARGE_STOP,
     CONF_LOAD_TODAY_ENTITY,
+    CONF_BATTERY_POWER_ENTITY,
+    CONF_GRID_ENTITY,
+    CONF_SOLAR_ENTITY,
+    CONF_IMPORT_TODAY_ENTITY,
+    CONF_EXPORT_TODAY_ENTITY,
 )
 
 
@@ -190,3 +195,91 @@ def test_build_sensor_diagnostics_unknown_state_is_available():
     assert len(diagnostics) == 1
     # Should be True, because unknown is not unavailable.
     assert diagnostics[0]["available"] is True
+
+
+def test_coordinator_tracks_state_changes_on_init():
+    """Spec: Trigger a plan update immediately on entity change so that any change is reflected straight away."""
+    import sys
+    from unittest.mock import patch
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    
+    mock_hass = MagicMock()
+    
+    config = {
+        CONF_BATTERY_SOC_ENTITY: "sensor.battery_soc",
+        CONF_BATTERY_POWER_ENTITY: "sensor.battery_power",
+        CONF_SOLAR_ENTITY: "sensor.solar_power",
+        CONF_GRID_ENTITY: "sensor.grid_power",
+        CONF_LOAD_TODAY_ENTITY: "sensor.load_power"
+    }
+
+    with patch("custom_components.house_battery_control.coordinator.async_track_state_change_event") as mock_track, \
+         patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None):
+        coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config)
+        coordinator.hass = mock_hass
+        
+        # Test that async_track_state_change_event was called to register listeners
+        mock_track.assert_called_once()
+        
+        # Assert it tracks the correct telemetry entities
+        args, kwargs = mock_track.call_args
+        tracked_entities = args[1]
+        
+        assert "sensor.battery_soc" in tracked_entities
+        assert "sensor.battery_power" in tracked_entities
+        assert "sensor.solar_power" in tracked_entities
+        assert "sensor.grid_power" in tracked_entities
+        assert "sensor.load_power" in tracked_entities
+
+
+def test_coordinator_rounded_outputs():
+    """Spec requirement: Ensure all floating point energies and powers are rounded to 2 decimal places."""
+    import asyncio
+    from unittest.mock import patch, AsyncMock
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    
+    mock_hass = MagicMock()
+    mock_hass.states.get.return_value = _make_state("5.555")
+    
+    config = {
+        CONF_BATTERY_SOC_ENTITY: "sensor.soc",
+        CONF_BATTERY_POWER_ENTITY: "sensor.battery",
+        CONF_SOLAR_ENTITY: "sensor.solar",
+        CONF_GRID_ENTITY: "sensor.grid",
+        CONF_LOAD_TODAY_ENTITY: "sensor.load",
+        CONF_IMPORT_TODAY_ENTITY: "sensor.import",
+        CONF_EXPORT_TODAY_ENTITY: "sensor.export",
+    }
+    
+    with patch("custom_components.house_battery_control.coordinator.async_track_state_change_event"), \
+         patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None):
+        coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config)
+        coordinator.hass = mock_hass
+        coordinator._update_count = 0
+        coordinator.rates = MagicMock()
+        coordinator.rates.get_import_price_at.return_value = 0.25
+        coordinator.rates.get_rates.return_value = []
+        coordinator.weather = MagicMock()
+        coordinator.weather.get_forecast.return_value = []
+        coordinator.solar = MagicMock()
+        coordinator.solar.async_get_forecast = AsyncMock(return_value=[])
+        coordinator.load_predictor = MagicMock()
+        coordinator.load_predictor.async_predict = AsyncMock(return_value=[])
+        coordinator.fsm = MagicMock()
+        coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(state="standby", reason="test", limit_kw=0.0)
+        coordinator.executor = MagicMock()
+        coordinator.executor.apply_state = AsyncMock()
+        coordinator.executor.get_command_summary.return_value = ""
+        
+        # Override the update methods to avoid crashing
+        coordinator.rates.update = MagicMock()
+        coordinator.weather.async_update = AsyncMock()
+        
+        result = asyncio.run(coordinator._async_update_data())
+        
+        assert result["solar_power"] == 5.55
+        assert result["grid_power"] == 5.55
+        assert result["battery_power"] == 5.55
+        assert result["import_today"] == 5.55
+        assert result["export_today"] == 5.55
+        assert result["soc"] == 5.6  # SOC is rounded to 1 decimal

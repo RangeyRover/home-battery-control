@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -90,6 +91,28 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         self.fsm = DefaultBatteryStateMachine()
         self.executor = PowerwallExecutor(hass, config)
 
+        # Set up state tracking for immediate FSM recalculation
+        telemetry_entities = [
+            self.config.get(CONF_BATTERY_SOC_ENTITY),
+            self.config.get(CONF_BATTERY_POWER_ENTITY),
+            self.config.get(CONF_SOLAR_ENTITY),
+            self.config.get(CONF_GRID_ENTITY),
+            self.config.get(CONF_LOAD_TODAY_ENTITY),
+        ]
+        
+        self._tracked_entities = [entity for entity in telemetry_entities if entity]
+        
+        if self._tracked_entities:
+            async_track_state_change_event(
+                hass,
+                self._tracked_entities,
+                self._async_on_state_change
+            )
+
+    async def _async_on_state_change(self, event) -> None:
+        """Trigger an immediate plan update when a vital telemetry entity changes state."""
+        await self.async_request_refresh()
+
     def _get_sensor_value(self, entity_id: str) -> float:
         """Get float value from a sensor entity."""
         state = self.hass.states.get(entity_id)
@@ -134,9 +157,16 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via library."""
         try:
-            # Update Managed Inputs
-            self.rates.update()
-            await self.weather.async_update()
+            # Update Managed Inputs gracefully to prevent peripheral crashes from halting the core FSM tick
+            try:
+                self.rates.update()
+            except Exception as e:
+                _LOGGER.warning("Rates plugin not ready on boot: %s", e)
+                
+            try:
+                await self.weather.async_update()
+            except Exception as e:
+                _LOGGER.warning("Weather plugin not ready on boot: %s", e)
 
             # Fetch Current Telemetry with Inversion Logic
             soc = self._get_sensor_value(self.config.get(CONF_BATTERY_SOC_ENTITY, ""))
@@ -161,8 +191,12 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             if load_p < 0:
                 load_p = 0.0
 
-            # Fetch Solar Forecast
-            solar_forecast = await self.solar.async_get_forecast()
+            # Fetch Solar Forecast gracefully
+            solar_forecast = []
+            try:
+                solar_forecast = await self.solar.async_get_forecast()
+            except Exception as e:
+                _LOGGER.warning("Solcast plugin not ready on boot: %s", e)
 
             # Predict Load
             start_time = self.rates.get_rates()[0]["start"] if self.rates.get_rates() else None
@@ -200,14 +234,14 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             # Return data for sensors and dashboard
             self._update_count += 1
             return {
-                "soc": soc,
-                "solar_power": solar_p,
-                "grid_power": grid_p,
-                "battery_power": battery_p,
-                "load_power": load_p,
-                "load_today": load_today,
-                "import_today": import_today,
-                "export_today": export_today,
+                "soc": round(soc, 1),
+                "solar_power": round(solar_p, 2),
+                "grid_power": round(grid_p, 2),
+                "battery_power": round(battery_p, 2),
+                "load_power": round(load_p, 2),
+                "load_today": round(load_today, 2),
+                "import_today": round(import_today, 2),
+                "export_today": round(export_today, 2),
                 "current_price": current_price,
                 "rates": self.rates.get_rates(),
                 "weather": self.weather.get_forecast(),
