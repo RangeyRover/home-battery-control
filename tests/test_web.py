@@ -477,8 +477,7 @@ async def test_load_history_api_returns_data(mock_hass):
 
     # Mock coordinator with load_predictor
     mock_predictor = MagicMock()
-    mock_predictor.last_history = [{"state": "10.0"}]
-    mock_predictor.last_history_derived = [{"kw": 1.2}]
+    mock_predictor.last_history_raw = [[{"state": "10.0"}]]
 
     mock_hass.data = {
         DOMAIN: {
@@ -492,7 +491,7 @@ async def test_load_history_api_returns_data(mock_hass):
     import json
     data = json.loads(response.text)
 
-    assert "raw_states" in data
-    assert "derived_forecast" in data
-    assert data["raw_states"][0]["state"] == "10.0"
-    assert data["derived_forecast"][0]["kw"] == 1.2
+    # Asserts testing the REST-equivalent 2D array payload schema
+    assert isinstance(data, list)
+    assert isinstance(data[0], list)
+    assert data[0][0]["state"] == "10.0"

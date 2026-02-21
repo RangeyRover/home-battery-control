@@ -288,3 +288,97 @@ async def test_load_derives_history_payload_schema(mock_hass):
     assert attrs["state_class"] == "total_increasing"
     assert attrs["device_class"] == "energy"
 
+@pytest.mark.asyncio
+async def test_load_linear_interpolation(mock_hass):
+    """Phase 19: Verify linear interpolation logic across a time gap."""
+    import datetime as dt
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from homeassistant.core import State
+    
+    predictor = LoadPredictor(mock_hass)
+    
+    async def mock_add_executor_job(func, *args):
+        return func(*args)
+    mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
+    
+    start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
+    base_past = start - dt.timedelta(days=1)
+    
+    mock_hass.states.get.return_value = MagicMock(
+        attributes={"unit_of_measurement": "kWh"}
+    )
+    
+    # 10.0 at base_past, 11.0 at base_past + 10 mins.
+    # At base_past + 5 mins, value should exactly be 10.5
+    mock_states = [
+        State("sensor.energy", "10.0", last_updated=base_past, last_changed=base_past),
+        State("sensor.energy", "11.0", last_updated=base_past + dt.timedelta(minutes=10), last_changed=base_past + dt.timedelta(minutes=10))
+    ]
+    
+    with patch(
+        "homeassistant.components.recorder.history.get_significant_states",
+        return_value={"sensor.energy": mock_states}
+    ):
+        prediction = await predictor.async_predict(
+            start,
+            duration_hours=1,
+            load_entity_id="sensor.energy",
+            max_load_kw=10.0,
+        )
+    
+    # prediction[0] predicts 12:00 -> 12:05 based on yesterday 12:00 -> 12:05.
+    # val_start = interpolate(12:00) = 10.0
+    # val_end = interpolate(12:05) = 10.5
+    # usage = 0.5 kWh over 5 mins
+    # power = 0.5 * 12 = 6.0 kW
+    assert prediction[0]["kw"] == pytest.approx(6.0, abs=0.1)
+
+@pytest.mark.asyncio
+async def test_load_midnight_reset_anomaly(mock_hass):
+    """Phase 19: Verify negative deltas (midnight reset) fallback to prev usage instead of calculating negative power."""
+    import datetime as dt
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from homeassistant.core import State
+    
+    predictor = LoadPredictor(mock_hass)
+    
+    async def mock_add_executor_job(func, *args):
+        return func(*args)
+    mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
+    
+    start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
+    base_past = start - dt.timedelta(days=1)
+    
+    mock_hass.states.get.return_value = MagicMock(
+        attributes={"unit_of_measurement": "kWh"}
+    )
+    
+    # Creates a situation where:
+    # 12:00 -> 10.0
+    # 12:05 -> 10.5 (usage 0.5 kWh, 6.0 kW)
+    # 12:10 -> 0.0 (midnight reset! usage -10.5. System should override to previous 0.5)
+    mock_states = [
+        State("sensor.energy", "10.0", last_updated=base_past, last_changed=base_past),
+        State("sensor.energy", "10.5", last_updated=base_past + dt.timedelta(minutes=5), last_changed=base_past + dt.timedelta(minutes=5)),
+        State("sensor.energy", "0.0", last_updated=base_past + dt.timedelta(minutes=10), last_changed=base_past + dt.timedelta(minutes=10))
+    ]
+    
+    with patch(
+        "homeassistant.components.recorder.history.get_significant_states",
+        return_value={"sensor.energy": mock_states}
+    ):
+        prediction = await predictor.async_predict(
+            start,
+            duration_hours=1,
+            load_entity_id="sensor.energy",
+            max_load_kw=10.0,
+        )
+    
+    # Int1: 12:00 -> 12:05
+    # usage: 0.5 kWh -> 6.0 kW
+    assert prediction[0]["kw"] == pytest.approx(6.0, abs=0.1)
+    
+    # Int2: 12:05 -> 12:10
+    # usage raw = -10.5 kWh. Fallback should grab prev_usage = 0.5 kWh -> 6.0 kW
+    assert prediction[1]["kw"] == pytest.approx(6.0, abs=0.1)
+
