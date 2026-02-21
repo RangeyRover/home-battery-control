@@ -14,6 +14,7 @@ from typing import Any
 import yaml
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.core import callback
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
@@ -243,6 +244,7 @@ class HBCDashboardView(HomeAssistantView):
     name = "hbc:dashboard"
     requires_auth = False
 
+    @callback
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
         data = self._get_coordinator_data(hass)
@@ -289,11 +291,13 @@ nav a:hover {{ text-decoration: underline; }}
         return web.Response(text=html, content_type="text/html")
 
     def _get_coordinator_data(self, hass) -> dict:
-        domain_data = hass.data.get(DOMAIN, {})
-        for entry_data in domain_data.values():
-            coord = entry_data.get("coordinator")
-            if coord and coord.data:
-                return coord.data
+        if DOMAIN not in hass.data or not hass.data[DOMAIN]:
+            return {}
+        # Fetch the most recently injected/reloaded entry to bypass ghost instances
+        entry_data = list(hass.data[DOMAIN].values())[-1]
+        coord = entry_data.get("coordinator")
+        if coord and coord.data:
+            return coord.data
         return {}
 
 
@@ -304,6 +308,7 @@ class HBCPlanView(HomeAssistantView):
     name = "hbc:plan"
     requires_auth = False
 
+    @callback
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
         data = self._get_coordinator_data(hass)

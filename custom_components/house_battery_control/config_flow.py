@@ -276,7 +276,8 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
         """Update Telemetry (Power) options."""
         if user_input is not None:
             self._data.update(user_input)
-            return self.async_create_entry(title="", data=self._data)
+            self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
+            return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
             step_id="manual",
@@ -306,7 +307,8 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
         """Update Energy & Metrics (Cumulative)."""
         if user_input is not None:
             self._data.update(user_input)
-            return self.async_create_entry(title="", data=self._data)
+            self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
+            return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
             step_id="energy",
@@ -367,7 +369,8 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
         """Update Control Services options."""
         if user_input is not None:
             self._data.update(user_input)
-            return self.async_create_entry(title="", data=self._data)
+            self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
+            return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
             step_id="control",
