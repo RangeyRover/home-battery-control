@@ -6,6 +6,7 @@ Spec 2.3: Authentication flags.
 Spec 3.1: Separate import/export rates in plan table.
 """
 from datetime import datetime, timezone
+
 import pytest
 
 # --- Plan Table Requirements (from system_requirements.md 2.2) ---
@@ -77,11 +78,12 @@ async def test_config_yaml_handles_mappingproxytype():
     """config-yaml endpoint must handle MappingProxyType without throwing an error (fixes 500)."""
     from types import MappingProxyType
     from unittest.mock import MagicMock
-    from custom_components.house_battery_control.web import HBCConfigYamlView
+
     from custom_components.house_battery_control.const import DOMAIN
+    from custom_components.house_battery_control.web import HBCConfigYamlView
 
     view = HBCConfigYamlView()
-    
+
     mock_request = MagicMock()
     mock_hass = MagicMock()
     mock_hass.data = {
@@ -92,7 +94,7 @@ async def test_config_yaml_handles_mappingproxytype():
         }
     }
     mock_request.app = {"hass": mock_hass}
-    
+
     response = await view.get(mock_request)
     assert response.content_type == "text/yaml"
     assert "foo: bar" in response.text
@@ -173,20 +175,21 @@ def _make_plan_data(**overrides):
 
 
 def _build_test_table(data):
-    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
-    from unittest.mock import MagicMock
     from types import SimpleNamespace
-    
+    from unittest.mock import MagicMock
+
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
     coord = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
     coord.fsm = MagicMock()
     coord.fsm.calculate_next_state.return_value = SimpleNamespace(
-        state=data.get("state", "IDLE"), 
-        limit_kw=0.0, 
+        state=data.get("state", "IDLE"),
+        limit_kw=0.0,
         reason="Test"
     )
     coord.capacity_kwh = data.get("capacity", 27.0)
     coord.inverter_limit_kw = data.get("inverter_limit", 10.0)
-    
+
     return coord._build_diagnostic_plan_table(
         rates=data.get("rates", []),
         solar_forecast=data.get("solar_forecast", []),
@@ -244,21 +247,21 @@ def test_plan_table_time_format():
 def test_plan_table_interpolates_mixed_intervals():
     """Plan table must interpolate solcast, average load, and map weather strictly by UTC timestamp."""
     import datetime as dt
-    
+
     start_time = dt.datetime(2025, 6, 15, 12, 0, tzinfo=dt.timezone.utc)
-    
+
     # 1st row: 5 min. 2nd row: 30 min.
     rates = [
         {"start": start_time, "end": start_time + dt.timedelta(minutes=5), "price": 10.0},
         {"start": start_time + dt.timedelta(minutes=5), "end": start_time + dt.timedelta(minutes=35), "price": 12.0}
     ]
-    
-    # PV: Hourly block "12:00" = 6.0 kW total. 
+
+    # PV: Hourly block "12:00" = 6.0 kW total.
     solar_forecast = [
         {"period_start": start_time.isoformat(), "pv_estimate": 3.0}, # First 30 mins
         {"period_start": (start_time + dt.timedelta(minutes=30)).isoformat(), "pv_estimate": 3.0} # Second 30 mins
     ]
-    
+
     # Load: 5 min blocks
     load_forecast = [
         {"start": start_time.isoformat(), "kw": 1.0}, # 12:00 - 12:05
@@ -266,35 +269,35 @@ def test_plan_table_interpolates_mixed_intervals():
         {"start": (start_time + dt.timedelta(minutes=10)).isoformat(), "kw": 4.0}, # 12:10 - 12:15
         # Avg for the 30-min row (assuming these 2 match inside it, others missing/0) = 3.0
     ]
-    
+
     # Weather
     weather = [
         {"datetime": start_time - dt.timedelta(minutes=10), "temperature": 15.0}, # Closest to 12:00 row
         {"datetime": start_time + dt.timedelta(minutes=40), "temperature": 20.0}  # Closest to 12:05 (30min) row? Diff to 12:05 is 35min. Diff from 15.0 to 12:05 is 15min. So 15.0 should win!
     ]
-    
+
     data = _make_plan_data(
         rates=rates,
         solar_forecast=solar_forecast,
         load_forecast=load_forecast,
         weather=weather
     )
-    
+
     table = _build_test_table(data)
     row_5m = table[0]
     row_30m = table[1]
-    
-    # 1. Weather: Nearest neighbor to 12:00 is 11:50 (15.0). 
+
+    # 1. Weather: Nearest neighbor to 12:00 is 11:50 (15.0).
     assert row_5m["Air Temp Forecast"] == "15.0°C"
     # Nearest neighbor to 12:05 is 11:50 (15 min difference) vs 12:40 (35 min difference).
     assert row_30m["Air Temp Forecast"] == "15.0°C"
-    
+
     # 2. PV Interpolation: Each 30-min block is exactly 3.0 kW.
     # 5 min row (12:00-12:05) matches the first block. pv_kw = 3.0. Energy output = 3.0 * (5/60) = 0.25 kWh
     # 30 min row (12:05-12:35) bridges block 1 & 2. pv_kw = 3.0. Energy output = 3.0 * (30/60) = 1.50 kWh
     assert row_5m["PV Forecast"] == "0.25"
     assert row_30m["PV Forecast"] == "1.50"
-    
+
     # 3. Load average
     # 5 min row (12:00-12:05) matches only the first load block (1.0). Total avg = 1.0
     assert row_5m["Load Forecast"] == "1.00"

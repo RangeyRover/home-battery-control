@@ -127,25 +127,26 @@ async def test_load_never_negative(mock_hass):
 @pytest.mark.asyncio
 async def test_load_predict_uses_past_week_history(mock_hass):
     """Spec 3.4: load predictor uses history from exact same time 7 days ago."""
-    from unittest.mock import patch, AsyncMock
-    from homeassistant.core import State
     import datetime as dt
+    from unittest.mock import AsyncMock, patch
+
+    from homeassistant.core import State
 
     predictor = LoadPredictor(mock_hass)
-    
+
     # Mock executor job to just await what's passed if it's async, or call it
     async def mock_add_executor_job(func, *args):
         return func(*args)
-        
+
     mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
 
     start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
-    
+
     # Mock history returns state objects
     mock_states = [
         State("sensor.load", "1.75", last_updated=start - dt.timedelta(days=7)),
     ]
-    
+
     with patch(
         "custom_components.house_battery_control.load.history.get_significant_states",
         return_value={"sensor.load": mock_states}
@@ -155,6 +156,6 @@ async def test_load_predict_uses_past_week_history(mock_hass):
             duration_hours=1,
             load_entity_id="sensor.load"
         )
-    
+
     # Base load from history = 1.75
     assert prediction[0]["kw"] == 1.75

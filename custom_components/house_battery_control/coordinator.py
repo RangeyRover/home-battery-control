@@ -160,7 +160,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         current_soc: float, current_state: str
     ) -> list[dict]:
         """Iterate over the rates timeline to simulate the internal FSM calculation engine's execution path.
-        
+
         Outputs an interpolation table with explicitly rounded strings that matches the precise
         state logic Home Assistant will execute, mapped by UTC timestamp rather than array index.
         """

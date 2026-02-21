@@ -163,8 +163,9 @@ def test_rates_update_parses_amber_forecast_attribute(mock_hass):
 
 def test_rates_splits_into_5_min_intervals(mock_hass):
     """Phase 8: Amber blocks > 5 minutes must be unilaterally split into 5-minute ticks."""
-    from custom_components.house_battery_control.rates import RatesManager
     from datetime import datetime, timezone
+
+    from custom_components.house_battery_control.rates import RatesManager
 
     # Provide a 30 minute block
     import_prices = [

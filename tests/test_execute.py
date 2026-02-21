@@ -12,8 +12,8 @@ from custom_components.house_battery_control.const import (
     CONF_SCRIPT_DISCHARGE_STOP,
     STATE_CHARGE_GRID,
     STATE_CHARGE_SOLAR,
-    STATE_DISCHARGE_HOME,
     STATE_DISCHARGE_GRID,
+    STATE_DISCHARGE_HOME,
     STATE_IDLE,
     STATE_PRESERVE,
 )
@@ -66,7 +66,7 @@ async def test_idle_after_charge_calls_charge_stop(executor, mock_hass):
     # First go to charge
     await executor.apply_state(STATE_CHARGE_GRID, limit_kw=6.3)
     mock_hass.services.async_call.reset_mock()
-    
+
     # Then go to IDLE
     await executor.apply_state(STATE_IDLE, limit_kw=0.0)
     assert executor.last_state == STATE_IDLE
@@ -91,7 +91,7 @@ async def test_idle_after_discharge_calls_discharge_stop(executor, mock_hass):
     # First go to discharge
     await executor.apply_state(STATE_DISCHARGE_GRID, limit_kw=5.0)
     mock_hass.services.async_call.reset_mock()
-    
+
     # Then go to IDLE
     await executor.apply_state(STATE_IDLE, limit_kw=0.0)
     assert executor.last_state == STATE_IDLE
@@ -105,7 +105,7 @@ async def test_discharge_home_state(executor, mock_hass):
     """DISCHARGE_HOME (Self-Consumpiton) should return from a forced state via stop scripts."""
     await executor.apply_state(STATE_CHARGE_GRID, limit_kw=6.3)
     mock_hass.services.async_call.reset_mock()
-    
+
     await executor.apply_state(STATE_DISCHARGE_HOME, limit_kw=5.0)
     assert executor.last_state == STATE_DISCHARGE_HOME
     mock_hass.services.async_call.assert_any_call(

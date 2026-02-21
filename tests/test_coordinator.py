@@ -8,21 +8,21 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from custom_components.house_battery_control.const import (
+    CONF_BATTERY_POWER_ENTITY,
     CONF_BATTERY_POWER_INVERT,
-    CONF_GRID_POWER_INVERT,
     CONF_BATTERY_SOC_ENTITY,
-    CONF_SOLCAST_TODAY_ENTITY,
-    CONF_SOLCAST_TOMORROW_ENTITY,
+    CONF_EXPORT_TODAY_ENTITY,
+    CONF_GRID_ENTITY,
+    CONF_GRID_POWER_INVERT,
+    CONF_IMPORT_TODAY_ENTITY,
+    CONF_LOAD_TODAY_ENTITY,
     CONF_SCRIPT_CHARGE,
     CONF_SCRIPT_CHARGE_STOP,
     CONF_SCRIPT_DISCHARGE,
     CONF_SCRIPT_DISCHARGE_STOP,
-    CONF_LOAD_TODAY_ENTITY,
-    CONF_BATTERY_POWER_ENTITY,
-    CONF_GRID_ENTITY,
     CONF_SOLAR_ENTITY,
-    CONF_IMPORT_TODAY_ENTITY,
-    CONF_EXPORT_TODAY_ENTITY,
+    CONF_SOLCAST_TODAY_ENTITY,
+    CONF_SOLCAST_TOMORROW_ENTITY,
 )
 
 
@@ -140,10 +140,10 @@ def test_build_sensor_diagnostics_includes_all_entities():
     """Spec 2.4: Diagnostics must include Solcast and the 4 control scripts."""
     # We can test this without full init by just mocking the config and the method itself if we instantiate.
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
-    
+
     mock_hass = MagicMock()
     mock_hass.states.get.return_value = _make_state("test")
-    
+
     config = {
         CONF_BATTERY_SOC_ENTITY: "sensor.soc",
         CONF_SOLCAST_TODAY_ENTITY: "sensor.solcast_today",
@@ -153,17 +153,17 @@ def test_build_sensor_diagnostics_includes_all_entities():
         CONF_SCRIPT_DISCHARGE: "script.discharge",
         CONF_SCRIPT_DISCHARGE_STOP: "script.discharge_stop",
     }
-    
+
     # Bypass init requirements that hit the event loop
     coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
     coordinator.hass = mock_hass
     coordinator.config = config
-    
+
     diagnostics = coordinator._build_sensor_diagnostics()
-    
+
     # Extract entity IDs from the result
     reported_entities = [d["entity_id"] for d in diagnostics]
-    
+
     assert "sensor.soc" in reported_entities
     assert "sensor.solcast_today" in reported_entities
     assert "sensor.solcast_tomorrow" in reported_entities
@@ -178,20 +178,20 @@ def test_build_sensor_diagnostics_unknown_state_is_available():
     They are technically 'available', just waiting for data. If they return 'unknown',
     available should be True to avoid red error crosses in the UI."""
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
-    
+
     mock_hass = MagicMock()
     mock_hass.states.get.return_value = _make_state("unknown")
-    
+
     config = {
         CONF_LOAD_TODAY_ENTITY: "sensor.load_today",
     }
-    
+
     coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
     coordinator.hass = mock_hass
     coordinator.config = config
-    
+
     diagnostics = coordinator._build_sensor_diagnostics()
-    
+
     assert len(diagnostics) == 1
     # Should be True, because unknown is not unavailable.
     assert diagnostics[0]["available"] is True
@@ -199,12 +199,12 @@ def test_build_sensor_diagnostics_unknown_state_is_available():
 
 def test_coordinator_tracks_state_changes_on_init():
     """Spec: Trigger a plan update immediately on entity change so that any change is reflected straight away."""
-    import sys
     from unittest.mock import patch
+
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
-    
+
     mock_hass = MagicMock()
-    
+
     config = {
         CONF_BATTERY_SOC_ENTITY: "sensor.battery_soc",
         CONF_BATTERY_POWER_ENTITY: "sensor.battery_power",
@@ -217,14 +217,14 @@ def test_coordinator_tracks_state_changes_on_init():
          patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None):
         coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config)
         coordinator.hass = mock_hass
-        
+
         # Test that async_track_state_change_event was called to register listeners
         mock_track.assert_called_once()
-        
+
         # Assert it tracks the correct telemetry entities
         args, kwargs = mock_track.call_args
         tracked_entities = args[1]
-        
+
         assert "sensor.battery_soc" in tracked_entities
         assert "sensor.battery_power" in tracked_entities
         assert "sensor.solar_power" in tracked_entities
@@ -235,12 +235,13 @@ def test_coordinator_tracks_state_changes_on_init():
 def test_coordinator_rounded_outputs():
     """Spec requirement: Ensure all floating point energies and powers are rounded to 2 decimal places."""
     import asyncio
-    from unittest.mock import patch, AsyncMock
+    from unittest.mock import AsyncMock, patch
+
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
-    
+
     mock_hass = MagicMock()
     mock_hass.states.get.return_value = _make_state("5.555")
-    
+
     config = {
         CONF_BATTERY_SOC_ENTITY: "sensor.soc",
         CONF_BATTERY_POWER_ENTITY: "sensor.battery",
@@ -250,7 +251,7 @@ def test_coordinator_rounded_outputs():
         CONF_IMPORT_TODAY_ENTITY: "sensor.import",
         CONF_EXPORT_TODAY_ENTITY: "sensor.export",
     }
-    
+
     with patch("custom_components.house_battery_control.coordinator.async_track_state_change_event"), \
          patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None):
         coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config)
@@ -270,13 +271,13 @@ def test_coordinator_rounded_outputs():
         coordinator.executor = MagicMock()
         coordinator.executor.apply_state = AsyncMock()
         coordinator.executor.get_command_summary.return_value = ""
-        
+
         # Override the update methods to avoid crashing
         coordinator.rates.update = MagicMock()
         coordinator.weather.async_update = AsyncMock()
-        
+
         result = asyncio.run(coordinator._async_update_data())
-        
+
         assert result["solar_power"] == 5.55
         assert result["grid_power"] == 5.55
         assert result["battery_power"] == 5.55
@@ -287,21 +288,22 @@ def test_coordinator_rounded_outputs():
 def test_pv_interpolation():
     """Spec: Simulate a PV input from Solcast and check that it gets properly chopped into its 5 min rows."""
     from datetime import datetime, timedelta, timezone
-    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
     from unittest.mock import MagicMock
-    
+
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
     mock_hass = MagicMock()
     # Need a coordinator to test its (upcoming) interpolation method
     coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
     coordinator.hass = mock_hass
-    
+
     now = datetime(2025, 2, 20, 12, 0, tzinfo=timezone.utc)
-    
+
     # 30-minute Solcast block at 6.0 kW
     solar_forecast = [
         {"period_start": now.isoformat(), "pv_estimate": 6.0}
     ]
-    
+
     # Six 5-minute rate intervals covering the same 30-minute period
     rates = []
     for i in range(6):
@@ -311,7 +313,7 @@ def test_pv_interpolation():
             "import_price": 10.0,
             "export_price": 5.0
         })
-        
+
     # We will invoke the (soon to be implemented) diagnostic plan builder
     # _build_diagnostic_plan_table(rates, solar_forecast, load_forecast, weather, current_soc, current_state)
     coordinator.fsm = MagicMock()
@@ -320,7 +322,7 @@ def test_pv_interpolation():
     coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(state="IDLE", limit_kw=0.0, reason="Test")
     coordinator.capacity_kwh = 27.0
     coordinator.inverter_limit_kw = 10.0
-    
+
     table = coordinator._build_diagnostic_plan_table(
         rates=rates,
         solar_forecast=solar_forecast,
@@ -329,10 +331,10 @@ def test_pv_interpolation():
         current_soc=50.0,
         current_state="IDLE"
     )
-    
+
     assert len(table) == 6
     for i, row in enumerate(table):
-        # We expect the 5-min row duration to yield average kW of 6.0, 
+        # We expect the 5-min row duration to yield average kW of 6.0,
         # meaning energy = 6.0 kW * (5/60) h = 0.50 kWh per row.
         # The web table expects 'PV Forecast' nicely formatted as string "0.50"
         assert row["PV Forecast"] == "0.50", f"Row {i} failed PV interpolation"
