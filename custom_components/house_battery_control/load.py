@@ -44,10 +44,11 @@ class LoadPredictor:
                 is_energy_sensor = True
 
         historic_states_raw = []
-        self.last_history_raw = []
+        if not getattr(self, "testing_bypass_history", False):
+            self.last_history_raw = []
 
         # Fetch history via internal API exactly 5 days up to start_time
-        if load_entity_id:
+        if load_entity_id and not getattr(self, "testing_bypass_history", False):
 
             from homeassistant.components.recorder import history
 
@@ -84,46 +85,15 @@ class LoadPredictor:
         # The prediction loop requires the internal list
         historic_states_parsed = self.last_history_raw[0] if self.last_history_raw else []
 
-        # Provide a safe lookup for the prediction logic
-        valid_data = []
-        from homeassistant.util import dt as dt_util
-        for state_dict in historic_states_parsed:
-            state_time_str = state_dict.get("last_changed")
-            state_val = state_dict.get("state")
-            if not state_time_str or state_val in ("unknown", "unavailable", None, ""):
-                continue
-            dt_obj = dt_util.parse_datetime(state_time_str)
-            if dt_obj:
-                try:
-                    val = float(state_val)
-                    valid_data.append({"time": dt_obj.timestamp(), "value": val})
-                except (ValueError, TypeError):
-                    continue
-
-        valid_data.sort(key=lambda x: x["time"])
-
-        def interpolate(target_t: float) -> float | None:
-            """Linear interpolation at an exact timestamp."""
-            if not valid_data:
-                return None
-            if len(valid_data) == 1:
-                return valid_data[0]["value"]
-            if target_t <= valid_data[0]["time"]:
-                return valid_data[0]["value"]
-            if target_t >= valid_data[-1]["time"]:
-                return valid_data[-1]["value"]
-
-            for i in range(len(valid_data) - 1):
-                t1 = valid_data[i]["time"]
-                v1 = valid_data[i]["value"]
-                t2 = valid_data[i+1]["time"]
-                v2 = valid_data[i+1]["value"]
-
-                if t1 <= target_t <= t2:
-                    if t2 == t1:
-                        return v1
-                    return v1 + (target_t - t1) * (v2 - v1) / (t2 - t1)
-            return None
+        # Build statistical 24hr forecast if data exists using the native user module
+        from .historical_analyzer import extract_valid_data, build_historical_profile
+        
+        valid_data = extract_valid_data(historic_states_parsed)
+        
+        # Build Profile
+        # User requested exact alignment natively with extract script
+        target_tz = start_time.tzinfo if start_time.tzinfo else None
+        historical_profile = build_historical_profile(valid_data, target_tz, is_energy_sensor)
 
         # Naive lookup for temperature at a given time
         def get_temp_at(target_time: datetime) -> float:
@@ -144,48 +114,27 @@ class LoadPredictor:
             return closest.get("temperature", 20.0)
 
         # Track previous legitimate usage for midnight anomaly bridging
+        # (Fallback loop preserved for missing slots)
         prev_kwh_usage = 0.05
 
         for _ in range(intervals):
-            # Base logic uses 5 days ago to match exact interval but averaged or just matched from Day-5?
-            # We fetch 5 days. We want the value from 1 day ago to predict today, or 5 days ago?
-            # To be safe and use fetched data, let's use current - 1 day (yesterday).
-            # The user dataset covers 5 days. We could average them, but simple is best for now given the main goal was REST integration.
-            past_start = current - timedelta(days=1)
-            past_end = past_start + timedelta(minutes=5)
-
-            val_start = interpolate(past_start.timestamp())
-            val_end = interpolate(past_end.timestamp())
-
+            time_slot = current.strftime("%H:%M")
             derived_kw = None
-            if val_start is not None and val_end is not None:
+            
+            if time_slot in historical_profile:
                 if is_energy_sensor:
-                    usage = val_end - val_start
-                    if usage < 0:
-                        # Midnight reset gap anomaly fallback
-                        usage = prev_kwh_usage
-                    else:
-                        prev_kwh_usage = usage
-                    
-                    # Cumulative kWh -> Power kW (12 intervals of 5 mins in 1 hour)
-                    derived_kw = usage * 12.0
+                    derived_kw = historical_profile[time_slot] * 12.0
                 else:
-                    # Raw power sensor kW
-                    derived_kw = val_end
+                    derived_kw = historical_profile[time_slot]
 
             if derived_kw is None:
-                # Fallback to pure state lookup or dummy profile
-                hist_val = val_start if val_start is not None else 0.0
-                if hist_val is not None and hist_val > 0:
-                    derived_kw = hist_val if not is_energy_sensor else 0.5
-                else:
-                    # Fallback Dummy Profile
-                    hour = current.hour
-                    derived_kw = 0.5
-                    if 17 <= hour <= 21:  # Evening Peak
-                        derived_kw = 2.5
-                    elif 7 <= hour <= 9:  # Morning Peak
-                        derived_kw = 1.5
+                # Fallback Dummy Profile
+                hour = current.hour
+                derived_kw = 0.5
+                if 17 <= hour <= 21:  # Evening Peak
+                    derived_kw = 2.5
+                elif 7 <= hour <= 9:  # Morning Peak
+                    derived_kw = 1.5
 
             # Temperature Adjustment (Preserved per request)
             temp = get_temp_at(current)
