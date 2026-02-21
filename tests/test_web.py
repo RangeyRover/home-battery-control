@@ -267,11 +267,11 @@ def test_plan_table_interpolates_mixed_intervals():
     # Nearest neighbor to 12:05 is 11:50 (15 min difference) vs 12:40 (35 min difference).
     assert row_30m["Air Temp Forecast"] == "15.0°C"
     
-    # 2. PV Interpolation: Hourly total is 6.0 kW.
-    # 5 min row = 6.0 / 12 = 0.50
-    # 30 min row = 6.0 / 2 = 3.00
-    assert row_5m["PV Forecast"] == "0.50"
-    assert row_30m["PV Forecast"] == "3.00"
+    # 2. PV Interpolation: Each 30-min block is exactly 3.0 kW.
+    # 5 min row (12:00-12:05) matches the first block. pv_kw = 3.0. Energy output = 3.0 * (5/60) = 0.25 kWh
+    # 30 min row (12:05-12:35) bridges block 1 & 2. pv_kw = 3.0. Energy output = 3.0 * (30/60) = 1.50 kWh
+    assert row_5m["PV Forecast"] == "0.25"
+    assert row_30m["PV Forecast"] == "1.50"
     
     # 3. Load average
     # 5 min row (12:00-12:05) matches only the first load block (1.0). Total avg = 1.0

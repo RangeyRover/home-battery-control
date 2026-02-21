@@ -65,7 +65,7 @@ def test_rates_update_merges_import_export(mock_hass):
     manager.update()
 
     rates = manager.get_rates()
-    assert len(rates) == 1
+    assert len(rates) == 6
     assert rates[0]["import_price"] == 25.5
     assert rates[0]["export_price"] == 8.0
 
@@ -156,7 +156,43 @@ def test_rates_update_parses_amber_forecast_attribute(mock_hass):
     manager.update()
 
     rates = manager.get_rates()
-    assert len(rates) == 1
+    assert len(rates) == 6
     assert rates[0]["import_price"] == 10.0
     assert rates[0]["type"] == "FORECAST"
 
+
+def test_rates_splits_into_5_min_intervals(mock_hass):
+    """Phase 8: Amber blocks > 5 minutes must be unilaterally split into 5-minute ticks."""
+    from custom_components.house_battery_control.rates import RatesManager
+    from datetime import datetime, timezone
+
+    # Provide a 30 minute block
+    import_prices = [
+        {
+            "periodType": "ACTUAL",
+            "periodStart": "2025-02-20T12:00:00+00:00",
+            "periodEnd": "2025-02-20T12:30:00+00:00",
+            "perKwh": 25.5,
+        }
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(import_prices, key="forecast"),
+        "sensor.amber_export": _make_amber_state([], key="forecast"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export")
+    manager.update()
+
+    rates = manager.get_rates()
+    # A single 30-minute block should become exactly six 5-minute blocks
+    assert len(rates) == 6, f"Expected 6 blocks, got {len(rates)}"
+
+    # Verify boundaries of the first and last generated blocks
+    assert rates[0]["start"] == datetime(2025, 2, 20, 12, 0, tzinfo=timezone.utc)
+    assert rates[0]["end"] == datetime(2025, 2, 20, 12, 5, tzinfo=timezone.utc)
+    assert rates[0]["import_price"] == 25.5
+
+    assert rates[-1]["start"] == datetime(2025, 2, 20, 12, 25, tzinfo=timezone.utc)
+    assert rates[-1]["end"] == datetime(2025, 2, 20, 12, 30, tzinfo=timezone.utc)
+    assert rates[-1]["import_price"] == 25.5

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, TypedDict
 
 from homeassistant.core import HomeAssistant
@@ -93,12 +93,23 @@ class RatesManager:
 
                 price = float(interval.get("per_kwh") or interval.get("perKwh", 0))
 
-                parsed.append({
-                    "start": start_ts,
-                    "end": end_ts,
-                    "price": price,
-                    "type": interval.get("type") or interval.get("periodType", "UNKNOWN"),
-                })
+                # Phase 8: Force chunking all intervals into 5-minute ticks
+                chunk_duration = timedelta(minutes=5)
+                current_ts = start_ts
+                
+                while current_ts < end_ts:
+                    next_ts = current_ts + chunk_duration
+                    if next_ts > end_ts:
+                        next_ts = end_ts
+                        
+                    parsed.append({
+                        "start": current_ts,
+                        "end": next_ts,
+                        "price": price,
+                        "type": interval.get("type") or interval.get("periodType", "UNKNOWN"),
+                    })
+                    current_ts = next_ts
+                    
             except (ValueError, KeyError) as e:
                 _LOGGER.error(f"Error parsing {label} rate interval: {e}")
                 continue

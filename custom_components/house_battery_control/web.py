@@ -103,17 +103,24 @@ def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
         duration_mins = max(1, int((end - start).total_seconds() / 60.0))
         duration_hours = duration_mins / 60.0
 
-        # Solar forecast lookup by hour chunk
-        pv_kw = 0.0
-        key = (start.year, start.month, start.day, start.hour)
-        hourly_total = solar_by_hour.get(key, 0.0)
-        pv_kw = hourly_total * duration_hours
+        # Solar forecast lookup (average of all overlapping blocks)
+        matched_solar = [
+            float(s.get("pv_estimate", s.get("kw", 0.0)))
+            for s in solar_forecast
+            if isinstance(s, dict)
+            and dt_util.parse_datetime(s.get("period_start", "") if isinstance(s.get("period_start", ""), str) else (s.get("period_start").isoformat() if s.get("period_start") else s.get("start", "").isoformat() if not isinstance(s.get("start", ""), str) else s.get("start", "")))
+            and start <= dt_util.parse_datetime(s.get("period_start", "") if isinstance(s.get("period_start", ""), str) else (s.get("period_start").isoformat() if s.get("period_start") else s.get("start", "").isoformat() if not isinstance(s.get("start", ""), str) else s.get("start", ""))) < end
+        ]
+        
+        # Determine average power in kW for this row
+        pv_kw_avg = sum(matched_solar) / len(matched_solar) if matched_solar else 0.0
+        
+        # Calculate true energy in kWh for this row
+        pv_kwh = pv_kw_avg * duration_hours
 
         # Load forecast lookup (average of all overlapping blocks)
-        load_kw = 0.0
         matched_loads = [lf["kw"] for lf in parsed_loads if start <= lf["start"] < end]
-        if matched_loads:
-            load_kw = sum(matched_loads) / len(matched_loads)
+        load_kw_avg = sum(matched_loads) / len(matched_loads) if matched_loads else 0.0
 
         # Temperature lookup (nearest neighbor)
         temp_c = None
@@ -122,7 +129,7 @@ def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
             temp_c = closest.get("temperature")
 
         # Net power flow for interval cost
-        net_import_kw = load_kw - pv_kw  # positive = importing
+        net_import_kw = load_kw_avg - pv_kw_avg  # positive = importing
         interval_kwh = net_import_kw * duration_hours
         interval_cost = interval_kwh * price / 100.0  # price is c/kWh → dollars
 
@@ -141,8 +148,8 @@ def build_plan_table(data: dict[str, Any]) -> list[dict[str, Any]]:
             "Export Rate": f"{export_price:.1f}",
             "FSM State": state,
             "Inverter Limit": f"{inverter_pct:.0f}%",
-            "PV Forecast": f"{pv_kw:.2f}",
-            "Load Forecast": f"{load_kw:.2f}",
+            "PV Forecast": f"{pv_kwh:.2f}",
+            "Load Forecast": f"{load_kw_avg:.2f}",
             "Air Temp Forecast": f"{temp_c:.1f}°C" if temp_c is not None else "—",
             "SoC Forecast": f"{soc:.1f}%",
             "Interval Cost": f"${interval_cost:.4f}",
