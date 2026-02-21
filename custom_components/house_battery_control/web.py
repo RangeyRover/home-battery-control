@@ -319,10 +319,7 @@ class HBCLoadHistoryView(HomeAssistantView):
         for entry_data in domain_data.values():
             coord = entry_data.get("coordinator")
             if coord and hasattr(coord, "load_predictor"):
-                history_data["raw_states"] = coord.load_predictor.last_history
-                history_data["derived_forecast"] = getattr(
-                    coord.load_predictor, "last_history_derived", []
-                )
+                history_data = getattr(coord.load_predictor, "last_history_raw", [])
                 break
 
         return self.json(history_data)

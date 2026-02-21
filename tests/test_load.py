@@ -144,19 +144,18 @@ async def test_load_predict_uses_past_week_history(mock_hass):
 
     start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
 
-    # Mock history returns state objects
     mock_states = [
         State("sensor.load", "1.75", last_updated=start - dt.timedelta(days=7)),
     ]
 
     with patch(
-        "custom_components.house_battery_control.load.history.get_significant_states",
+        "homeassistant.components.recorder.history.get_significant_states",
         return_value={"sensor.load": mock_states}
     ):
         prediction = await predictor.async_predict(
             start,
             duration_hours=1,
-            load_entity_id="sensor.load"
+            load_entity_id="sensor.load",
         )
 
     # Base load from history = 1.75
@@ -167,7 +166,7 @@ async def test_load_predict_uses_past_week_history(mock_hass):
 async def test_load_derives_power_from_energy_deltas(mock_hass):
     """Verify that LoadPredictor derives kW from kWh deltas (kWh_diff * 12)."""
     import datetime as dt
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import MagicMock, AsyncMock, patch
     from homeassistant.core import State
 
     predictor = LoadPredictor(mock_hass)
@@ -177,15 +176,15 @@ async def test_load_derives_power_from_energy_deltas(mock_hass):
     mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
 
     start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
-    base_past = start - dt.timedelta(days=7)
+    base_past = start - dt.timedelta(days=1)
 
     # Mock the current state of the entity to have kWh unit
     mock_hass.states.get.return_value = MagicMock(
         attributes={"unit_of_measurement": "kWh"}
     )
 
-    # Mock energy states: 10.0 at T, 10.1 at T+5m... 
-    # Use slightly BEFORE interval end to ensure lookup catches it
+    from homeassistant.core import State
+
     mock_states = [
         State("sensor.energy", "10.0", last_updated=base_past),
         State("sensor.energy", "10.1", last_updated=base_past + dt.timedelta(minutes=4.99)),
@@ -193,19 +192,98 @@ async def test_load_derives_power_from_energy_deltas(mock_hass):
     ]
 
     with patch(
-        "custom_components.house_battery_control.load.history.get_significant_states",
+        "homeassistant.components.recorder.history.get_significant_states",
         return_value={"sensor.energy": mock_states}
     ):
         prediction = await predictor.async_predict(
             start,
             duration_hours=1,
-            load_entity_id="sensor.energy"
+            load_entity_id="sensor.energy",
         )
-
-    # 1st interval (12:00-12:05): Uses state at 12:00 (10.0) -> No delta yet if naive, 
-    # but our spec says it must divide by interval.
-    # Actually, current implementation just returns 10.0 (The insane 20kW bug)
-    # The fix should find the NEXT state to calculate delta.
     
     assert prediction[0]["kw"] == pytest.approx(1.2, abs=0.1)
     assert prediction[1]["kw"] == pytest.approx(2.4, abs=0.1)
+
+
+@pytest.mark.asyncio
+async def test_load_derives_history_payload_schema(mock_hass):
+    """Phase 17A: Verify that the internal history fetch precisely formats exactly like the REST API payload."""
+    import datetime as dt
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from homeassistant.core import State
+
+    predictor = LoadPredictor(mock_hass)
+
+    async def mock_add_executor_job(func, *args):
+        return func(*args)
+    mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
+
+    start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
+    base_past = start - dt.timedelta(days=1)
+
+    # Mock the current state to return specific attributes required by the schema
+    mock_hass.states.get.return_value = MagicMock(
+        attributes={
+            "unit_of_measurement": "kWh",
+            "state_class": "total_increasing",
+            "device_class": "energy"
+        }
+    )
+
+    mock_state = State(
+        "sensor.example_energy_kwh", 
+        "51.4725", 
+        attributes={
+            "unit_of_measurement": "kWh",
+            "state_class": "total_increasing",
+            "device_class": "energy"
+        },
+        last_changed=base_past,
+        last_updated=base_past
+    )
+
+    with patch(
+        "homeassistant.components.recorder.history.get_significant_states",
+        return_value={"sensor.example_energy_kwh": [mock_state]}
+    ):
+        await predictor.async_predict(
+            start,
+            duration_hours=1,
+            load_entity_id="sensor.example_energy_kwh",
+        )
+    
+    # 1. Assert it populated the raw list
+    assert hasattr(predictor, "last_history_raw")
+    raw_payload = predictor.last_history_raw
+    
+    # 2. Assert structural list of list mapping
+    assert isinstance(raw_payload, list)
+    assert len(raw_payload) == 1
+    assert isinstance(raw_payload[0], list)
+    assert len(raw_payload[0]) == 1
+    
+    # 3. Assert exact dictionary keys from user-provided schema
+    state_dict = raw_payload[0][0]
+    assert "entity_id" in state_dict
+    assert "state" in state_dict
+    assert "last_changed" in state_dict
+    assert "last_updated" in state_dict
+    assert "attributes" in state_dict
+    
+    # 4. Assert values map exactly
+    assert state_dict["entity_id"] == "sensor.example_energy_kwh"
+    assert state_dict["state"] == "51.4725"
+    
+    # 5. Assert ISO 8601 formatting with timezone retained (no forced 'Z')
+    # Use standard Python regex for ISO 8601 with offset
+    import re
+    iso8601_offset_regex = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+    assert re.match(iso8601_offset_regex, state_dict["last_changed"]), f"Invalid ISO 8601 string: {state_dict['last_changed']}"
+    assert state_dict["last_changed"].endswith("+00:00")  # The mock base_past was created with tzinfo=dt.timezone.utc
+    
+    # 6. Assert attributes mapping
+    attrs = state_dict["attributes"]
+    assert attrs["unit_of_measurement"] == "kWh"
+    assert attrs["state_class"] == "total_increasing"
+    assert attrs["device_class"] == "energy"
+
