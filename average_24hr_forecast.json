@@ -1,0 +1,1442 @@
+[
+  {
+    "time_slot": "00:00",
+    "avg_kwh_usage": 0.0588,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:05",
+    "avg_kwh_usage": 0.0547,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:10",
+    "avg_kwh_usage": 0.0674,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:15",
+    "avg_kwh_usage": 0.0617,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:20",
+    "avg_kwh_usage": 0.068,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:25",
+    "avg_kwh_usage": 0.0591,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:30",
+    "avg_kwh_usage": 0.0643,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:35",
+    "avg_kwh_usage": 0.0631,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:40",
+    "avg_kwh_usage": 0.0631,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:45",
+    "avg_kwh_usage": 0.0629,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:50",
+    "avg_kwh_usage": 0.0637,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "00:55",
+    "avg_kwh_usage": 0.0599,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:00",
+    "avg_kwh_usage": 0.0693,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:05",
+    "avg_kwh_usage": 0.0651,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:10",
+    "avg_kwh_usage": 0.0623,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:15",
+    "avg_kwh_usage": 0.0609,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:20",
+    "avg_kwh_usage": 0.0623,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:25",
+    "avg_kwh_usage": 0.0617,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:30",
+    "avg_kwh_usage": 0.0676,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:35",
+    "avg_kwh_usage": 0.0613,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:40",
+    "avg_kwh_usage": 0.0614,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:45",
+    "avg_kwh_usage": 0.0572,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:50",
+    "avg_kwh_usage": 0.0574,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "01:55",
+    "avg_kwh_usage": 0.063,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:00",
+    "avg_kwh_usage": 0.0599,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:05",
+    "avg_kwh_usage": 0.06,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:10",
+    "avg_kwh_usage": 0.0623,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:15",
+    "avg_kwh_usage": 0.0611,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:20",
+    "avg_kwh_usage": 0.0577,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:25",
+    "avg_kwh_usage": 0.0577,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:30",
+    "avg_kwh_usage": 0.0615,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:35",
+    "avg_kwh_usage": 0.0572,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:40",
+    "avg_kwh_usage": 0.0646,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:45",
+    "avg_kwh_usage": 0.0581,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:50",
+    "avg_kwh_usage": 0.0571,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "02:55",
+    "avg_kwh_usage": 0.0623,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:00",
+    "avg_kwh_usage": 0.0615,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:05",
+    "avg_kwh_usage": 0.0608,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:10",
+    "avg_kwh_usage": 0.0633,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:15",
+    "avg_kwh_usage": 0.0622,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:20",
+    "avg_kwh_usage": 0.0552,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:25",
+    "avg_kwh_usage": 0.0528,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:30",
+    "avg_kwh_usage": 0.0577,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:35",
+    "avg_kwh_usage": 0.0596,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:40",
+    "avg_kwh_usage": 0.0596,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:45",
+    "avg_kwh_usage": 0.0618,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:50",
+    "avg_kwh_usage": 0.0633,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "03:55",
+    "avg_kwh_usage": 0.0645,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:00",
+    "avg_kwh_usage": 0.0604,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:05",
+    "avg_kwh_usage": 0.0549,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:10",
+    "avg_kwh_usage": 0.0567,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:15",
+    "avg_kwh_usage": 0.0515,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:20",
+    "avg_kwh_usage": 0.0548,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:25",
+    "avg_kwh_usage": 0.0566,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:30",
+    "avg_kwh_usage": 0.0598,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:35",
+    "avg_kwh_usage": 0.0637,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:40",
+    "avg_kwh_usage": 0.0669,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:45",
+    "avg_kwh_usage": 0.0635,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:50",
+    "avg_kwh_usage": 0.0558,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "04:55",
+    "avg_kwh_usage": 0.0568,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:00",
+    "avg_kwh_usage": 0.057,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:05",
+    "avg_kwh_usage": 0.0589,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:10",
+    "avg_kwh_usage": 0.0594,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:15",
+    "avg_kwh_usage": 0.0533,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:20",
+    "avg_kwh_usage": 0.0545,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:25",
+    "avg_kwh_usage": 0.0611,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:30",
+    "avg_kwh_usage": 0.0645,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:35",
+    "avg_kwh_usage": 0.0547,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:40",
+    "avg_kwh_usage": 0.061,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:45",
+    "avg_kwh_usage": 0.0586,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:50",
+    "avg_kwh_usage": 0.0626,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "05:55",
+    "avg_kwh_usage": 0.0576,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:00",
+    "avg_kwh_usage": 0.0594,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:05",
+    "avg_kwh_usage": 0.0554,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:10",
+    "avg_kwh_usage": 0.0629,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:15",
+    "avg_kwh_usage": 0.0602,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:20",
+    "avg_kwh_usage": 0.0586,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:25",
+    "avg_kwh_usage": 0.0572,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:30",
+    "avg_kwh_usage": 0.0528,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:35",
+    "avg_kwh_usage": 0.0586,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:40",
+    "avg_kwh_usage": 0.0599,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:45",
+    "avg_kwh_usage": 0.0599,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:50",
+    "avg_kwh_usage": 0.0615,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "06:55",
+    "avg_kwh_usage": 0.0548,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:00",
+    "avg_kwh_usage": 0.0585,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:05",
+    "avg_kwh_usage": 0.0573,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:10",
+    "avg_kwh_usage": 0.0558,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:15",
+    "avg_kwh_usage": 0.057,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:20",
+    "avg_kwh_usage": 0.0567,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:25",
+    "avg_kwh_usage": 0.0625,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:30",
+    "avg_kwh_usage": 0.0652,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:35",
+    "avg_kwh_usage": 0.0694,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:40",
+    "avg_kwh_usage": 0.0638,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:45",
+    "avg_kwh_usage": 0.0596,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:50",
+    "avg_kwh_usage": 0.0567,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "07:55",
+    "avg_kwh_usage": 0.0634,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:00",
+    "avg_kwh_usage": 0.0676,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:05",
+    "avg_kwh_usage": 0.0746,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:10",
+    "avg_kwh_usage": 0.0703,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:15",
+    "avg_kwh_usage": 0.0703,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:20",
+    "avg_kwh_usage": 0.0566,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:25",
+    "avg_kwh_usage": 0.0933,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:30",
+    "avg_kwh_usage": 0.1341,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:35",
+    "avg_kwh_usage": 0.1479,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:40",
+    "avg_kwh_usage": 0.1462,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:45",
+    "avg_kwh_usage": 0.1403,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:50",
+    "avg_kwh_usage": 0.1542,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "08:55",
+    "avg_kwh_usage": 0.1296,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:00",
+    "avg_kwh_usage": 0.1544,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:05",
+    "avg_kwh_usage": 0.1702,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:10",
+    "avg_kwh_usage": 0.185,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:15",
+    "avg_kwh_usage": 0.2034,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:20",
+    "avg_kwh_usage": 0.1657,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:25",
+    "avg_kwh_usage": 0.168,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:30",
+    "avg_kwh_usage": 0.1577,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:35",
+    "avg_kwh_usage": 0.1695,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:40",
+    "avg_kwh_usage": 0.1522,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:45",
+    "avg_kwh_usage": 0.1286,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:50",
+    "avg_kwh_usage": 0.1903,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "09:55",
+    "avg_kwh_usage": 0.1428,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:00",
+    "avg_kwh_usage": 0.1552,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:05",
+    "avg_kwh_usage": 0.177,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:10",
+    "avg_kwh_usage": 0.2187,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:15",
+    "avg_kwh_usage": 0.229,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:20",
+    "avg_kwh_usage": 0.2162,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:25",
+    "avg_kwh_usage": 0.2661,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:30",
+    "avg_kwh_usage": 0.2495,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:35",
+    "avg_kwh_usage": 0.2625,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:40",
+    "avg_kwh_usage": 0.2537,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:45",
+    "avg_kwh_usage": 0.2369,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:50",
+    "avg_kwh_usage": 0.2523,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "10:55",
+    "avg_kwh_usage": 0.2785,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:00",
+    "avg_kwh_usage": 0.2769,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:05",
+    "avg_kwh_usage": 0.2629,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:10",
+    "avg_kwh_usage": 0.2252,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:15",
+    "avg_kwh_usage": 0.2171,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:20",
+    "avg_kwh_usage": 0.1745,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:25",
+    "avg_kwh_usage": 0.2391,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:30",
+    "avg_kwh_usage": 0.2367,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:35",
+    "avg_kwh_usage": 0.19,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:40",
+    "avg_kwh_usage": 0.188,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:45",
+    "avg_kwh_usage": 0.226,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:50",
+    "avg_kwh_usage": 0.2334,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "11:55",
+    "avg_kwh_usage": 0.2369,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:00",
+    "avg_kwh_usage": 0.2243,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:05",
+    "avg_kwh_usage": 0.2779,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:10",
+    "avg_kwh_usage": 0.2312,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:15",
+    "avg_kwh_usage": 0.1985,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:20",
+    "avg_kwh_usage": 0.2372,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:25",
+    "avg_kwh_usage": 0.2137,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:30",
+    "avg_kwh_usage": 0.1949,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:35",
+    "avg_kwh_usage": 0.2043,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:40",
+    "avg_kwh_usage": 0.1885,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:45",
+    "avg_kwh_usage": 0.186,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:50",
+    "avg_kwh_usage": 0.1786,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "12:55",
+    "avg_kwh_usage": 0.1985,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:00",
+    "avg_kwh_usage": 0.1841,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:05",
+    "avg_kwh_usage": 0.1776,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:10",
+    "avg_kwh_usage": 0.1746,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:15",
+    "avg_kwh_usage": 0.1872,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:20",
+    "avg_kwh_usage": 0.1853,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:25",
+    "avg_kwh_usage": 0.1904,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:30",
+    "avg_kwh_usage": 0.3116,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:35",
+    "avg_kwh_usage": 0.2847,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:40",
+    "avg_kwh_usage": 0.3256,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:45",
+    "avg_kwh_usage": 0.3403,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:50",
+    "avg_kwh_usage": 0.3175,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "13:55",
+    "avg_kwh_usage": 0.2625,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:00",
+    "avg_kwh_usage": 0.3463,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:05",
+    "avg_kwh_usage": 0.3303,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:10",
+    "avg_kwh_usage": 0.3474,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:15",
+    "avg_kwh_usage": 0.3051,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:20",
+    "avg_kwh_usage": 0.3119,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:25",
+    "avg_kwh_usage": 0.382,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:30",
+    "avg_kwh_usage": 0.397,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:35",
+    "avg_kwh_usage": 0.3482,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:40",
+    "avg_kwh_usage": 0.3615,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:45",
+    "avg_kwh_usage": 0.3466,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:50",
+    "avg_kwh_usage": 0.3672,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "14:55",
+    "avg_kwh_usage": 0.34,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:00",
+    "avg_kwh_usage": 0.3505,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:05",
+    "avg_kwh_usage": 0.3186,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:10",
+    "avg_kwh_usage": 0.3004,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:15",
+    "avg_kwh_usage": 0.322,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:20",
+    "avg_kwh_usage": 0.3495,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:25",
+    "avg_kwh_usage": 0.2528,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:30",
+    "avg_kwh_usage": 0.3577,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:35",
+    "avg_kwh_usage": 0.3399,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:40",
+    "avg_kwh_usage": 0.3015,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:45",
+    "avg_kwh_usage": 0.319,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:50",
+    "avg_kwh_usage": 0.3248,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "15:55",
+    "avg_kwh_usage": 0.3411,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:00",
+    "avg_kwh_usage": 0.3338,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:05",
+    "avg_kwh_usage": 0.3117,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:10",
+    "avg_kwh_usage": 0.3506,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:15",
+    "avg_kwh_usage": 0.3734,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:20",
+    "avg_kwh_usage": 0.3416,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:25",
+    "avg_kwh_usage": 0.3541,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:30",
+    "avg_kwh_usage": 0.3649,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:35",
+    "avg_kwh_usage": 0.2966,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:40",
+    "avg_kwh_usage": 0.3693,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:45",
+    "avg_kwh_usage": 0.3508,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:50",
+    "avg_kwh_usage": 0.3333,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "16:55",
+    "avg_kwh_usage": 0.3309,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:00",
+    "avg_kwh_usage": 0.3099,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:05",
+    "avg_kwh_usage": 0.3024,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:10",
+    "avg_kwh_usage": 0.2911,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:15",
+    "avg_kwh_usage": 0.3092,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:20",
+    "avg_kwh_usage": 0.3135,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:25",
+    "avg_kwh_usage": 0.301,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:30",
+    "avg_kwh_usage": 0.217,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:35",
+    "avg_kwh_usage": 0.1755,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:40",
+    "avg_kwh_usage": 0.1761,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:45",
+    "avg_kwh_usage": 0.1912,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:50",
+    "avg_kwh_usage": 0.2067,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "17:55",
+    "avg_kwh_usage": 0.1724,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:00",
+    "avg_kwh_usage": 0.1935,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:05",
+    "avg_kwh_usage": 0.1999,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:10",
+    "avg_kwh_usage": 0.1959,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:15",
+    "avg_kwh_usage": 0.2042,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:20",
+    "avg_kwh_usage": 0.1821,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:25",
+    "avg_kwh_usage": 0.2563,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:30",
+    "avg_kwh_usage": 0.2511,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:35",
+    "avg_kwh_usage": 0.2468,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:40",
+    "avg_kwh_usage": 0.2492,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:45",
+    "avg_kwh_usage": 0.2611,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:50",
+    "avg_kwh_usage": 0.2552,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "18:55",
+    "avg_kwh_usage": 0.27,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:00",
+    "avg_kwh_usage": 0.2867,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:05",
+    "avg_kwh_usage": 0.2808,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:10",
+    "avg_kwh_usage": 0.2724,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:15",
+    "avg_kwh_usage": 0.2483,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:20",
+    "avg_kwh_usage": 0.1776,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:25",
+    "avg_kwh_usage": 0.1708,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:30",
+    "avg_kwh_usage": 0.1617,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:35",
+    "avg_kwh_usage": 0.2336,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:40",
+    "avg_kwh_usage": 0.1844,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:45",
+    "avg_kwh_usage": 0.1808,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:50",
+    "avg_kwh_usage": 0.1521,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "19:55",
+    "avg_kwh_usage": 0.1794,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:00",
+    "avg_kwh_usage": 0.1799,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:05",
+    "avg_kwh_usage": 0.1485,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:10",
+    "avg_kwh_usage": 0.2279,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:15",
+    "avg_kwh_usage": 0.1344,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:20",
+    "avg_kwh_usage": 0.1241,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:25",
+    "avg_kwh_usage": 0.1295,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:30",
+    "avg_kwh_usage": 0.1051,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:35",
+    "avg_kwh_usage": 0.0866,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:40",
+    "avg_kwh_usage": 0.1363,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:45",
+    "avg_kwh_usage": 0.1011,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:50",
+    "avg_kwh_usage": 0.1008,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "20:55",
+    "avg_kwh_usage": 0.1153,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:00",
+    "avg_kwh_usage": 0.1243,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:05",
+    "avg_kwh_usage": 0.1239,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:10",
+    "avg_kwh_usage": 0.1209,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:15",
+    "avg_kwh_usage": 0.1024,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:20",
+    "avg_kwh_usage": 0.1231,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:25",
+    "avg_kwh_usage": 0.086,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:30",
+    "avg_kwh_usage": 0.1291,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:35",
+    "avg_kwh_usage": 0.111,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:40",
+    "avg_kwh_usage": 0.1033,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:45",
+    "avg_kwh_usage": 0.1016,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:50",
+    "avg_kwh_usage": 0.1095,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "21:55",
+    "avg_kwh_usage": 0.1201,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:00",
+    "avg_kwh_usage": 0.0851,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:05",
+    "avg_kwh_usage": 0.0933,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:10",
+    "avg_kwh_usage": 0.0917,
+    "days_sampled": 4
+  },
+  {
+    "time_slot": "22:15",
+    "avg_kwh_usage": 0.0954,
+    "days_sampled": 4
+  },
+  {
+    "time_slot": "22:20",
+    "avg_kwh_usage": 0.1066,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:25",
+    "avg_kwh_usage": 0.0887,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:30",
+    "avg_kwh_usage": 0.0852,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:35",
+    "avg_kwh_usage": 0.0782,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:40",
+    "avg_kwh_usage": 0.0679,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:45",
+    "avg_kwh_usage": 0.0676,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:50",
+    "avg_kwh_usage": 0.0655,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "22:55",
+    "avg_kwh_usage": 0.0751,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:00",
+    "avg_kwh_usage": 0.061,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:05",
+    "avg_kwh_usage": 0.082,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:10",
+    "avg_kwh_usage": 0.0665,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:15",
+    "avg_kwh_usage": 0.0624,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:20",
+    "avg_kwh_usage": 0.0582,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:25",
+    "avg_kwh_usage": 0.0574,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:30",
+    "avg_kwh_usage": 0.0669,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:35",
+    "avg_kwh_usage": 0.0624,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:40",
+    "avg_kwh_usage": 0.0585,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:45",
+    "avg_kwh_usage": 0.07,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:50",
+    "avg_kwh_usage": 0.0588,
+    "days_sampled": 5
+  },
+  {
+    "time_slot": "23:55",
+    "avg_kwh_usage": 0.0588,
+    "days_sampled": 5
+  }
+]

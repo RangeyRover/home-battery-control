@@ -74,6 +74,59 @@ def test_plan_is_public():
     assert HBCPlanView.requires_auth is False
 
 
+@pytest.mark.asyncio
+async def test_dashboard_html_rendering_and_svg(mock_hass):
+    """Verify HBCDashboardView renders full HTML and an embedded SVG graph."""
+    from unittest.mock import MagicMock
+    from custom_components.house_battery_control.const import DOMAIN
+    from custom_components.house_battery_control.web import HBCDashboardView
+
+    view = HBCDashboardView()
+
+    mock_request = MagicMock()
+    mock_request.app = {"hass": mock_hass}
+    
+    mock_coord = MagicMock()
+    mock_coord.data = {
+        "soc": 65.5,
+        "solar_power": 4.1,
+        "grid_power": -2.0,
+        "load_power": 1.5,
+        "current_price": 12.3,
+        "state": "IDLE",
+        "reason": "Stable operation"
+    }
+
+    mock_hass.data = {
+        DOMAIN: {
+            "entry_1": {
+                "coordinator": mock_coord
+            }
+        }
+    }
+
+    response = await view.get(mock_request)
+    
+    assert response.status == 200
+    assert response.content_type == "text/html"
+    html = response.text
+    
+    # Assert structural HTML
+    assert "<!DOCTYPE html>" in html
+    assert "House Battery Control" in html
+    
+    # Assert SVG graph components
+    assert "<svg" in html
+    assert "House" in html
+    assert "Battery" in html
+    
+    # Assert statistics formatting
+    assert "66%" in html # Rounded from 65.5
+    assert "4.1" in html
+    assert "1.5" in html
+    assert "IDLE" in html
+
+
 # --- YAML Config Endpoint (Spec 4.1) ---
 
 def test_web_has_config_yaml_view():

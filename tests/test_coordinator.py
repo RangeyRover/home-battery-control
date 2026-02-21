@@ -7,6 +7,8 @@ derivation logic WITHOUT constructing the full DataUpdateCoordinator
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
 from custom_components.house_battery_control.const import (
     CONF_BATTERY_POWER_ENTITY,
     CONF_BATTERY_POWER_INVERT,
@@ -24,6 +26,14 @@ from custom_components.house_battery_control.const import (
     CONF_SOLCAST_TODAY_ENTITY,
     CONF_SOLCAST_TOMORROW_ENTITY,
 )
+
+@pytest.fixture
+def mock_hass():
+    """Mock HomeAssistant fixture."""
+    from homeassistant.core import HomeAssistant
+    hass = MagicMock(spec=HomeAssistant)
+    hass.states = MagicMock()
+    return hass
 
 
 def _make_state(value):
@@ -341,3 +351,46 @@ def test_pv_interpolation():
         # The string time should match
         expected_time_str = (now + timedelta(minutes=5 * i)).strftime("%H:%M")
         assert row["Time"] == expected_time_str
+
+@pytest.mark.asyncio
+async def test_coordinator_update_data_exception_recovery(mock_hass):
+    """Verify that a single failing service (e.g. weather map) doesn't crash the whole FSM calculation loop."""
+    import asyncio
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from types import SimpleNamespace
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
+    mock_hass.states.get.return_value = _make_state("5.55")
+
+    config = {
+        CONF_BATTERY_SOC_ENTITY: "sensor.soc",
+        CONF_BATTERY_POWER_ENTITY: "sensor.battery",
+        CONF_SOLAR_ENTITY: "sensor.solar",
+        CONF_GRID_ENTITY: "sensor.grid",
+        CONF_LOAD_TODAY_ENTITY: "sensor.load",
+        CONF_IMPORT_TODAY_ENTITY: "sensor.import",
+        CONF_EXPORT_TODAY_ENTITY: "sensor.export",
+    }
+
+    with patch("custom_components.house_battery_control.coordinator.async_track_state_change_event"), \
+         patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None):
+        coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config)
+        coordinator.hass = mock_hass
+        coordinator._update_count = 0
+        coordinator.rates = MagicMock()
+        coordinator.weather = MagicMock()
+        coordinator.solar = AsyncMock()
+        coordinator.load_predictor = AsyncMock()
+        coordinator.fsm = MagicMock()
+        coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(state="standby", reason="test", limit_kw=0.0)
+        coordinator.executor = AsyncMock()
+
+        # OVERRIDE to simulate catastrophic failure from underlying third-party API integration
+        coordinator.weather.async_update.side_effect = Exception("Weather API is dead")
+
+        result = await coordinator._async_update_data()
+
+        # The result block should STILL emit telemetry and the coordinator shouldn't crash
+        assert result is not None
+        assert result["solar_power"] == 5.55
+        assert result["state"] == "standby"
