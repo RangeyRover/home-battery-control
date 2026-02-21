@@ -166,7 +166,8 @@ async def test_load_predict_uses_past_week_history(mock_hass):
 async def test_load_derives_power_from_energy_deltas(mock_hass):
     """Verify that LoadPredictor derives kW from kWh deltas (kWh_diff * 12)."""
     import datetime as dt
-    from unittest.mock import MagicMock, AsyncMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
+
     from homeassistant.core import State
 
     predictor = LoadPredictor(mock_hass)
@@ -183,7 +184,6 @@ async def test_load_derives_power_from_energy_deltas(mock_hass):
         attributes={"unit_of_measurement": "kWh"}
     )
 
-    from homeassistant.core import State
 
     mock_states = [
         State("sensor.energy", "10.0", last_updated=base_past),
@@ -200,7 +200,7 @@ async def test_load_derives_power_from_energy_deltas(mock_hass):
             duration_hours=1,
             load_entity_id="sensor.energy",
         )
-    
+
     assert prediction[0]["kw"] == pytest.approx(1.2, abs=0.1)
     assert prediction[1]["kw"] == pytest.approx(2.4, abs=0.1)
 
@@ -209,7 +209,8 @@ async def test_load_derives_power_from_energy_deltas(mock_hass):
 async def test_load_derives_history_payload_schema(mock_hass):
     """Phase 17A: Verify that the internal history fetch precisely formats exactly like the REST API payload."""
     import datetime as dt
-    from unittest.mock import MagicMock, AsyncMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
+
     from homeassistant.core import State
 
     predictor = LoadPredictor(mock_hass)
@@ -231,8 +232,8 @@ async def test_load_derives_history_payload_schema(mock_hass):
     )
 
     mock_state = State(
-        "sensor.example_energy_kwh", 
-        "51.4725", 
+        "sensor.example_energy_kwh",
+        "51.4725",
         attributes={
             "unit_of_measurement": "kWh",
             "state_class": "total_increasing",
@@ -251,17 +252,17 @@ async def test_load_derives_history_payload_schema(mock_hass):
             duration_hours=1,
             load_entity_id="sensor.example_energy_kwh",
         )
-    
+
     # 1. Assert it populated the raw list
     assert hasattr(predictor, "last_history_raw")
     raw_payload = predictor.last_history_raw
-    
+
     # 2. Assert structural list of list mapping
     assert isinstance(raw_payload, list)
     assert len(raw_payload) == 1
     assert isinstance(raw_payload[0], list)
     assert len(raw_payload[0]) == 1
-    
+
     # 3. Assert exact dictionary keys from user-provided schema
     state_dict = raw_payload[0][0]
     assert "entity_id" in state_dict
@@ -269,18 +270,18 @@ async def test_load_derives_history_payload_schema(mock_hass):
     assert "last_changed" in state_dict
     assert "last_updated" in state_dict
     assert "attributes" in state_dict
-    
+
     # 4. Assert values map exactly
     assert state_dict["entity_id"] == "sensor.example_energy_kwh"
     assert state_dict["state"] == "51.4725"
-    
+
     # 5. Assert ISO 8601 formatting with timezone retained (no forced 'Z')
     # Use standard Python regex for ISO 8601 with offset
     import re
     iso8601_offset_regex = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
     assert re.match(iso8601_offset_regex, state_dict["last_changed"]), f"Invalid ISO 8601 string: {state_dict['last_changed']}"
     assert state_dict["last_changed"].endswith("+00:00")  # The mock base_past was created with tzinfo=dt.timezone.utc
-    
+
     # 6. Assert attributes mapping
     attrs = state_dict["attributes"]
     assert attrs["unit_of_measurement"] == "kWh"

@@ -6,10 +6,11 @@ Spec 2.3: Authentication flags.
 Spec 3.1: Separate import/export rates in plan table.
 """
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 import pytest
-from unittest.mock import MagicMock
 from homeassistant.core import HomeAssistant
+
 
 @pytest.fixture
 def mock_hass():
@@ -465,6 +466,7 @@ def test_plan_html_includes_local_time_column():
 async def test_load_history_api_returns_data(mock_hass):
     """Verify HBCLoadHistoryView returns both raw and derived data."""
     from unittest.mock import MagicMock
+
     from custom_components.house_battery_control.const import DOMAIN
     from custom_components.house_battery_control.web import HBCLoadHistoryView
 

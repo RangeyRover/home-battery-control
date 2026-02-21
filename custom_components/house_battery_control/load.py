@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timedelta
 from typing import List
 
-from homeassistant.components.recorder import history
 from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,9 +48,9 @@ class LoadPredictor:
 
         # Fetch history via internal API exactly 5 days up to start_time
         if load_entity_id:
+
             from homeassistant.components.recorder import history
-            import re
-            
+
             end_date = start_time
             start_date = end_date - timedelta(days=5)
 
@@ -60,7 +59,7 @@ class LoadPredictor:
                     history.get_significant_states, self._hass, start_date, end_date, [load_entity_id]
                 )
                 historic_states_raw = states_dict.get(load_entity_id, [])
-                
+
                 # Format to exact REST API match
                 formatted_states = []
                 for s in historic_states_raw:
@@ -90,7 +89,7 @@ class LoadPredictor:
             """Find the state value at exactly target_time."""
             if not historic_states_parsed:
                 return None
-            
+
             from homeassistant.util import dt as dt_util
             selected = None
             for state_dict in historic_states_parsed:
@@ -102,7 +101,7 @@ class LoadPredictor:
                     selected = state_dict
                 else:
                     break
-            
+
             if selected:
                 state_val = selected.get("state")
                 if state_val not in ("unknown", "unavailable"):
@@ -182,7 +181,7 @@ class LoadPredictor:
 
             # Round off to 2 decimals + Apply 4kW safety cap
             kw_final = round(max(0.0, min(derived_kw, max_load_kw)), 2)
-            
+
             prediction.append({"start": current.isoformat(), "kw": kw_final})
             current += timedelta(minutes=5)
 
