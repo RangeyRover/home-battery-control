@@ -1,0 +1,117 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.3, pytest-9.0.0, pluggy-1.6.0 -- C:\Users\markn\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\markn\OneDrive - IXL Signalling\0-01 AI Programming\AI Coding\House Battery Control
+configfile: pytest.ini
+plugins: anyio-4.12.1, aiohttp-1.1.0, asyncio-1.3.0, cov-7.0.0, pytest_freezer-0.4.9, github-actions-annotate-failures-0.3.0, picked-0.5.1, sugar-1.0.0, timeout-2.4.0, unordered-0.7.0, xdist-3.8.0, requests-mock-1.12.1, respx-0.22.0, syrupy-5.0.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+tests/test_load.py::test_load_matches_average_24hr_forecast \n\nDEBUG: valid_data len=0, profile keys=0\n\n
+\nBucket Validation: 39/288 passed (13.5%)
+Top 10 Mismatches:\nMismatch at 00:00: predicted 0.50, expected 0.71 (diff: 0.21)\nMismatch at 00:10: predicted 0.50, expected 0.81 (diff: 0.31)\nMismatch at 00:15: predicted 0.50, expected 0.74 (diff: 0.24)\nMismatch at 00:20: predicted 0.50, expected 0.82 (diff: 0.32)\nMismatch at 00:25: predicted 0.50, expected 0.71 (diff: 0.21)\nMismatch at 00:30: predicted 0.50, expected 0.77 (diff: 0.27)\nMismatch at 00:35: predicted 0.50, expected 0.76 (diff: 0.26)\nMismatch at 00:40: predicted 0.50, expected 0.76 (diff: 0.26)\nMismatch at 00:45: predicted 0.50, expected 0.75 (diff: 0.25)\nMismatch at 00:50: predicted 0.50, expected 0.76 (diff: 0.26)
+FAILED
+
+================================== FAILURES ===================================
+___________________ test_load_matches_average_24hr_forecast ___________________
+
+mock_hass = <MagicMock spec='HomeAssistant' id='2105800093248'>
+
+    @pytest.mark.asyncio
+    async def test_load_matches_average_24hr_forecast(mock_hass):
+        """Phase 21: Verify multi-day real history interpolation against mathematical reference."""
+        import datetime as dt
+        import json
+        import os
+        import zoneinfo
+        from unittest.mock import MagicMock, AsyncMock, patch
+    
+        # Load JSON files
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        history_path = os.path.join(base_dir, "load_history.json")
+        forecast_path = os.path.join(base_dir, "average_24hr_forecast.json")
+    
+        with open(history_path, "r") as f:
+            history_raw = json.load(f)
+        with open(forecast_path, "r") as f:
+            forecast_ref = json.load(f)
+    
+        predictor = LoadPredictor(mock_hass)
+    
+        async def mock_add_executor_job(func, *args):
+            return func(*args)
+        mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
+    
+        # Needs to match the start date of the simulated target day.
+        # Use Adelaide time for direct comparison with time_slots.
+        try:
+            adelaide_tz = zoneinfo.ZoneInfo("Australia/Adelaide")
+        except zoneinfo.ZoneInfoNotFoundError:
+            # Fallback if system doesn't have the tz DB handy
+            adelaide_tz = dt.timezone(dt.timedelta(hours=10, minutes=30))
+    
+        # Choosing Jan 29 which is immediately after the dataset
+        start = dt.datetime(2025, 1, 29, 0, 0, 0, tzinfo=adelaide_tz)
+    
+        mock_hass.states.get.return_value = MagicMock(
+            attributes={"unit_of_measurement": "kWh"}
+        )
+    
+        # Mock last_history_raw correctly
+        predictor.last_history_raw = history_raw
+    
+        prediction = await predictor.async_predict(
+            start,
+            duration_hours=24,
+            load_entity_id="sensor.powerwall_2_home_usage",
+            max_load_kw=10.0,
+        )
+    
+        # Ensure there are exactly 288 predictions
+        assert len(prediction) == 288
+    
+        # Create lookup dict from forecast reference
+        ref_dict = {item["time_slot"]: item for item in forecast_ref}
+    
+        passes = 0
+        failures = 0
+        mismatches = []
+    
+        for p in prediction:
+            interval_start_dt = dt.datetime.fromisoformat(p["start"]).astimezone(adelaide_tz)
+            time_slot_str = interval_start_dt.strftime("%H:%M")
+    
+            # Handle cases where the dictionary might not perfectly align
+            if time_slot_str not in ref_dict:
+                failures += 1
+                mismatches.append(f"Missing time slot {time_slot_str} in reference")
+                continue
+    
+            ref = ref_dict[time_slot_str]
+            expected_kwh = ref["avg_kwh_usage"]
+            expected_kw = expected_kwh * 12.0
+    
+            diff = abs(p["kw"] - expected_kw)
+            if diff <= 0.2:
+                passes += 1
+            else:
+                failures += 1
+                mismatches.append(f"Mismatch at {time_slot_str}: predicted {p['kw']:.2f}, expected {expected_kw:.2f} (diff: {diff:.2f})")
+    
+        total = passes + failures
+        pass_rate = (passes / total) * 100 if total > 0 else 0
+    
+        print(f"\\nBucket Validation: {passes}/{total} passed ({pass_rate:.1f}%)")
+        if failures > 0:
+            print(f"Top 10 Mismatches:\\n" + "\\n".join(mismatches[:10]))
+    
+>       assert pass_rate >= 90.0, f"Pass rate {pass_rate:.1f}% is below 90% threshold"
+E       AssertionError: Pass rate 13.5% is below 90% threshold
+E       assert 13.541666666666666 >= 90.0
+
+tests\test_load.py:473: AssertionError
+------------------------------ Captured log call ------------------------------
+ERROR    custom_components.house_battery_control.load:load.py:82 Error fetching load history via internal API: Mock object has no attribute 'data'
+=========================== short test summary info ===========================
+FAILED tests/test_load.py::test_load_matches_average_24hr_forecast - Assertio...
+============================== 1 failed in 3.01s ==============================

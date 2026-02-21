@@ -257,29 +257,30 @@ async def test_load_derives_history_payload_schema(mock_hass):
 async def test_load_linear_interpolation(mock_hass):
     """Phase 19: Verify linear interpolation logic across a time gap."""
     import datetime as dt
-    from unittest.mock import MagicMock, AsyncMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
+
     from homeassistant.core import State
-    
+
     predictor = LoadPredictor(mock_hass)
-    
+
     async def mock_add_executor_job(func, *args):
         return func(*args)
     mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
-    
+
     start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
     base_past = start - dt.timedelta(days=1)
-    
+
     mock_hass.states.get.return_value = MagicMock(
         attributes={"unit_of_measurement": "kWh"}
     )
-    
+
     # 10.0 at base_past, 11.0 at base_past + 10 mins.
     # At base_past + 5 mins, value should exactly be 10.5
     mock_states = [
         State("sensor.energy", "10.0", last_updated=base_past, last_changed=base_past),
         State("sensor.energy", "11.0", last_updated=base_past + dt.timedelta(minutes=10), last_changed=base_past + dt.timedelta(minutes=10))
     ]
-    
+
     with patch(
         "homeassistant.components.recorder.history.get_significant_states",
         return_value={"sensor.energy": mock_states}
@@ -290,7 +291,7 @@ async def test_load_linear_interpolation(mock_hass):
             load_entity_id="sensor.energy",
             max_load_kw=10.0,
         )
-    
+
     # prediction[0] predicts 12:00 -> 12:05 based on yesterday 12:00 -> 12:05.
     # val_start = interpolate(12:00) = 10.0
     # val_end = interpolate(12:05) = 10.5
@@ -302,22 +303,23 @@ async def test_load_linear_interpolation(mock_hass):
 async def test_load_midnight_reset_anomaly(mock_hass):
     """Phase 19: Verify negative deltas (midnight reset) fallback to prev usage instead of calculating negative power."""
     import datetime as dt
-    from unittest.mock import MagicMock, AsyncMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
+
     from homeassistant.core import State
-    
+
     predictor = LoadPredictor(mock_hass)
-    
+
     async def mock_add_executor_job(func, *args):
         return func(*args)
     mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
-    
+
     start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
     base_past = start - dt.timedelta(days=1)
-    
+
     mock_hass.states.get.return_value = MagicMock(
         attributes={"unit_of_measurement": "kWh"}
     )
-    
+
     # Creates a situation where:
     # 12:00 -> 10.0
     # 12:05 -> 10.5 (usage 0.5 kWh, 6.0 kW)
@@ -327,7 +329,7 @@ async def test_load_midnight_reset_anomaly(mock_hass):
         State("sensor.energy", "10.5", last_updated=base_past + dt.timedelta(minutes=5), last_changed=base_past + dt.timedelta(minutes=5)),
         State("sensor.energy", "0.0", last_updated=base_past + dt.timedelta(minutes=10), last_changed=base_past + dt.timedelta(minutes=10))
     ]
-    
+
     with patch(
         "homeassistant.components.recorder.history.get_significant_states",
         return_value={"sensor.energy": mock_states}
@@ -338,11 +340,11 @@ async def test_load_midnight_reset_anomaly(mock_hass):
             load_entity_id="sensor.energy",
             max_load_kw=10.0,
         )
-    
+
     # Int1: 12:00 -> 12:05
     # usage: 0.5 kWh -> 6.0 kW
     assert prediction[0]["kw"] == pytest.approx(6.0, abs=0.1)
-    
+
     # Int2: 12:05 -> 12:10
     # usage raw = -10.5 kWh. Fallback should grab prev_usage = 0.5 kWh -> 6.0 kW
     assert prediction[1]["kw"] == pytest.approx(6.0, abs=0.1)
@@ -354,25 +356,25 @@ async def test_load_matches_average_24hr_forecast(mock_hass):
     import json
     import os
     import zoneinfo
-    from unittest.mock import MagicMock, AsyncMock, patch
-    
+    from unittest.mock import AsyncMock, MagicMock
+
     # Load JSON files
     base_dir = os.path.dirname(os.path.dirname(__file__))
     history_path = os.path.join(base_dir, "load_history.json")
     forecast_path = os.path.join(base_dir, "average_24hr_forecast.json")
-    
+
     with open(history_path, "r") as f:
         history_raw = json.load(f)
     with open(forecast_path, "r") as f:
         forecast_ref = json.load(f)
-        
+
     predictor = LoadPredictor(mock_hass)
-    
+
     async def mock_add_executor_job(func, *args):
         return func(*args)
     mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
-    
-    # Needs to match the start date of the simulated target day. 
+
+    # Needs to match the start date of the simulated target day.
     # Use Adelaide time for direct comparison with time_slots.
     try:
         adelaide_tz = zoneinfo.ZoneInfo("Australia/Adelaide")
@@ -382,54 +384,54 @@ async def test_load_matches_average_24hr_forecast(mock_hass):
 
     # Choosing Jan 29 which is immediately after the dataset
     start = dt.datetime(2025, 1, 29, 0, 0, 0, tzinfo=adelaide_tz)
-    
+
     mock_hass.states.get.return_value = MagicMock(
         attributes={"unit_of_measurement": "kWh"}
     )
-    
+
     # Mock last_history_raw correctly
     predictor.last_history_raw = history_raw
     predictor.testing_bypass_history = True
-    
+
     prediction = await predictor.async_predict(
         start,
         duration_hours=24,
         load_entity_id="sensor.powerwall_2_home_usage",
         max_load_kw=10.0,
     )
-    
+
     # Ensure there are exactly 288 predictions
     assert len(prediction) == 288
-    
+
     # Create lookup dict from forecast reference
     ref_dict = {item["time_slot"]: item for item in forecast_ref}
-    
+
     passes = 0
     failures = 0
     mismatches = []
-    
+
     for p in prediction:
         interval_start_dt = dt.datetime.fromisoformat(p["start"]).astimezone(adelaide_tz)
         time_slot_str = interval_start_dt.strftime("%H:%M")
-        
+
         # Handle cases where the dictionary might not perfectly align
         if time_slot_str not in ref_dict:
             failures += 1
             mismatches.append(f"Missing time slot {time_slot_str} in reference")
             continue
-            
+
         ref = ref_dict[time_slot_str]
         expected_kwh = ref["avg_kwh_usage"]
         expected_kw = expected_kwh * 12.0
-        
+
         diff = abs(p["kw"] - expected_kw)
-        
+
         # 10% tolerance of the expected mathematical value
         tolerance = expected_kw * 0.10
         # If expected is 0, allow a tiny floor to prevent float-rounding failures
         if tolerance < 0.05:
             tolerance = 0.05
-            
+
         if diff <= tolerance:
             passes += 1
         else:
@@ -438,10 +440,10 @@ async def test_load_matches_average_24hr_forecast(mock_hass):
 
     total = passes + failures
     pass_rate = (passes / total) * 100 if total > 0 else 0
-    
+
     print(f"\\nBucket Validation: {passes}/{total} passed ({pass_rate:.1f}%)")
     if failures > 0:
-        print(f"Top 10 Mismatches:\\n" + "\\n".join(mismatches[:10]))
-        
+        print("Top 10 Mismatches:\\n" + "\\n".join(mismatches[:10]))
+
     assert pass_rate >= 90.0, f"Pass rate {pass_rate:.1f}% is below 90% threshold"
 

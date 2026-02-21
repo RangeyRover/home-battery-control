@@ -20,7 +20,7 @@ def extract_valid_data(historic_states_parsed: list) -> list:
                     dt = time_str
                 else:
                     dt = parse_isoformat(time_str)
-                    
+
                 val = float(state)
                 valid_data.append({
                     'time': dt.timestamp(),
@@ -51,9 +51,10 @@ def interpolate(target_t: float, valid_data: list) -> float:
         v2 = valid_data[i+1]['value']
 
         if t1 <= target_t <= t2:
-            if t2 == t1: return v1
+            if t2 == t1:
+                return v1
             return v1 + (target_t - t1) * (v2 - v1) / (t2 - t1)
-            
+
     return 0.0
 
 def build_historical_profile(valid_data: list, target_tz=None, is_energy_sensor: bool = True) -> dict:
@@ -65,7 +66,7 @@ def build_historical_profile(valid_data: list, target_tz=None, is_energy_sensor:
     historical_profile = {}
     if not valid_data or len(valid_data) < 2:
         return historical_profile
-        
+
     try:
         start_time = valid_data[0]['time']
         end_time = valid_data[-1]['time']
@@ -81,7 +82,7 @@ def build_historical_profile(valid_data: list, target_tz=None, is_energy_sensor:
 
         current_t = aligned_start
         prev_value = interpolate(current_t, valid_data)
-        
+
         # Track previous legitimate usage for midnight anomaly bridging
         hist_prev_usage = 0.05
 
@@ -120,7 +121,7 @@ def build_historical_profile(valid_data: list, target_tz=None, is_energy_sensor:
         for slot, total in slot_sums.items():
             # Calculate the literal average
             historical_profile[slot] = total / slot_counts[slot]
-            
+
     except Exception as e:
         _LOGGER.error(f"Error building historical load profile: {e}")
 

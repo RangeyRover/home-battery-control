@@ -78,6 +78,7 @@ def test_plan_is_public():
 async def test_dashboard_html_rendering_and_svg(mock_hass):
     """Verify HBCDashboardView renders full HTML and an embedded SVG graph."""
     from unittest.mock import MagicMock
+
     from custom_components.house_battery_control.const import DOMAIN
     from custom_components.house_battery_control.web import HBCDashboardView
 
@@ -85,7 +86,7 @@ async def test_dashboard_html_rendering_and_svg(mock_hass):
 
     mock_request = MagicMock()
     mock_request.app = {"hass": mock_hass}
-    
+
     mock_coord = MagicMock()
     mock_coord.data = {
         "soc": 65.5,
@@ -106,20 +107,20 @@ async def test_dashboard_html_rendering_and_svg(mock_hass):
     }
 
     response = await view.get(mock_request)
-    
+
     assert response.status == 200
     assert response.content_type == "text/html"
     html = response.text
-    
+
     # Assert structural HTML
     assert "<!DOCTYPE html>" in html
     assert "House Battery Control" in html
-    
+
     # Assert SVG graph components
     assert "<svg" in html
     assert "House" in html
     assert "Battery" in html
-    
+
     # Assert statistics formatting
     assert "66%" in html # Rounded from 65.5
     assert "4.1" in html

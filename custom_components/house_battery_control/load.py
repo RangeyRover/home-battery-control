@@ -86,10 +86,10 @@ class LoadPredictor:
         historic_states_parsed = self.last_history_raw[0] if self.last_history_raw else []
 
         # Build statistical 24hr forecast if data exists using the native user module
-        from .historical_analyzer import extract_valid_data, build_historical_profile
-        
+        from .historical_analyzer import build_historical_profile, extract_valid_data
+
         valid_data = extract_valid_data(historic_states_parsed)
-        
+
         # Build Profile
         # User requested exact alignment natively with extract script
         target_tz = start_time.tzinfo if start_time.tzinfo else None
@@ -115,12 +115,11 @@ class LoadPredictor:
 
         # Track previous legitimate usage for midnight anomaly bridging
         # (Fallback loop preserved for missing slots)
-        prev_kwh_usage = 0.05
 
         for _ in range(intervals):
             time_slot = current.strftime("%H:%M")
             derived_kw = None
-            
+
             if time_slot in historical_profile:
                 if is_energy_sensor:
                     derived_kw = historical_profile[time_slot] * 12.0

@@ -8,7 +8,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
 from custom_components.house_battery_control.const import (
     CONF_BATTERY_POWER_ENTITY,
     CONF_BATTERY_POWER_INVERT,
@@ -26,6 +25,7 @@ from custom_components.house_battery_control.const import (
     CONF_SOLCAST_TODAY_ENTITY,
     CONF_SOLCAST_TOMORROW_ENTITY,
 )
+
 
 @pytest.fixture
 def mock_hass():
@@ -355,9 +355,9 @@ def test_pv_interpolation():
 @pytest.mark.asyncio
 async def test_coordinator_update_data_exception_recovery(mock_hass):
     """Verify that a single failing service (e.g. weather map) doesn't crash the whole FSM calculation loop."""
-    import asyncio
-    from unittest.mock import AsyncMock, MagicMock, patch
     from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
 
     mock_hass.states.get.return_value = _make_state("5.55")
