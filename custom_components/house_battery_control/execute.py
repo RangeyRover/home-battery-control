@@ -5,6 +5,7 @@ Responsible for:
 - Deduplicating commands (don't re-send if state unchanged)
 - Providing a human-readable summary of the last command
 """
+
 import logging
 from typing import Any
 

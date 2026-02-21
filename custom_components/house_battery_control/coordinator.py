@@ -1,4 +1,5 @@
 """DataUpdateCoordinator for House Battery Control."""
+
 from __future__ import annotations
 
 import logging
@@ -51,6 +52,7 @@ from .weather import WeatherManager
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class HBCDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching House Battery Control data."""
 
@@ -84,7 +86,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         self.solar = SolcastSolar(
             hass,
             forecast_today_entity=config.get(CONF_SOLCAST_TODAY_ENTITY, DEFAULT_SOLCAST_TODAY),
-            forecast_tomorrow_entity=config.get(CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW),
+            forecast_tomorrow_entity=config.get(
+                CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW
+            ),
         )
 
         # FSM + Executor
@@ -104,9 +108,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
 
         if self._tracked_entities:
             async_track_state_change_event(
-                hass,
-                self._tracked_entities,
-                self._async_on_state_change
+                hass, self._tracked_entities, self._async_on_state_change
             )
 
     async def _async_on_state_change(self, event) -> None:
@@ -128,14 +130,22 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
     def _build_sensor_diagnostics(self) -> list[dict[str, Any]]:
         """Build sensor availability report for API diagnostics (spec 2.4)."""
         sensor_keys = [
-            CONF_BATTERY_SOC_ENTITY, CONF_BATTERY_POWER_ENTITY,
-            CONF_SOLAR_ENTITY, CONF_GRID_ENTITY,
-            CONF_IMPORT_PRICE_ENTITY, CONF_EXPORT_PRICE_ENTITY,
-            CONF_WEATHER_ENTITY, CONF_LOAD_TODAY_ENTITY,
-            CONF_IMPORT_TODAY_ENTITY, CONF_EXPORT_TODAY_ENTITY,
-            CONF_SOLCAST_TODAY_ENTITY, CONF_SOLCAST_TOMORROW_ENTITY,
-            CONF_SCRIPT_CHARGE, CONF_SCRIPT_CHARGE_STOP,
-            CONF_SCRIPT_DISCHARGE, CONF_SCRIPT_DISCHARGE_STOP,
+            CONF_BATTERY_SOC_ENTITY,
+            CONF_BATTERY_POWER_ENTITY,
+            CONF_SOLAR_ENTITY,
+            CONF_GRID_ENTITY,
+            CONF_IMPORT_PRICE_ENTITY,
+            CONF_EXPORT_PRICE_ENTITY,
+            CONF_WEATHER_ENTITY,
+            CONF_LOAD_TODAY_ENTITY,
+            CONF_IMPORT_TODAY_ENTITY,
+            CONF_EXPORT_TODAY_ENTITY,
+            CONF_SOLCAST_TODAY_ENTITY,
+            CONF_SOLCAST_TOMORROW_ENTITY,
+            CONF_SCRIPT_CHARGE,
+            CONF_SCRIPT_CHARGE_STOP,
+            CONF_SCRIPT_DISCHARGE,
+            CONF_SCRIPT_DISCHARGE_STOP,
         ]
         diagnostics = []
         for key in sensor_keys:
@@ -143,21 +153,24 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             if not entity_id:
                 continue
             state = self.hass.states.get(entity_id)
-            diagnostics.append({
-                "entity_id": entity_id,
-                "state": state.state if state else "not_found",
-                "available": (
-                    state is not None
-                    and state.state != "unavailable"
-                ),
-                "attributes": dict(state.attributes) if state else {},
-            })
+            diagnostics.append(
+                {
+                    "entity_id": entity_id,
+                    "state": state.state if state else "not_found",
+                    "available": (state is not None and state.state != "unavailable"),
+                    "attributes": dict(state.attributes) if state else {},
+                }
+            )
         return diagnostics
 
     def _build_diagnostic_plan_table(
-        self, rates: list[dict], solar_forecast: list[dict],
-        load_forecast: list[dict], weather: list[dict],
-        current_soc: float, current_state: str
+        self,
+        rates: list[dict],
+        solar_forecast: list[dict],
+        load_forecast: list[dict],
+        weather: list[dict],
+        current_soc: float,
+        current_state: str,
     ) -> list[dict]:
         """Iterate over the rates timeline to simulate the internal FSM calculation engine's execution path.
 
@@ -211,12 +224,21 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 s_start_raw = s.get("period_start", s.get("start", ""))
                 if not s_start_raw:
                     continue
-                s_start = dt_util.parse_datetime(s_start_raw) if isinstance(s_start_raw, str) else s_start_raw
+                s_start = (
+                    dt_util.parse_datetime(s_start_raw)
+                    if isinstance(s_start_raw, str)
+                    else s_start_raw
+                )
 
                 from datetime import timedelta
+
                 s_end_raw = s.get("period_end", s.get("end", ""))
                 if s_end_raw:
-                    s_end = dt_util.parse_datetime(s_end_raw) if isinstance(s_end_raw, str) else s_end_raw
+                    s_end = (
+                        dt_util.parse_datetime(s_end_raw)
+                        if isinstance(s_end_raw, str)
+                        else s_end_raw
+                    )
                 else:
                     s_end = s_start + timedelta(minutes=30) if s_start else None
 
@@ -233,7 +255,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             # --- 3. Weather Interpolation (Nearest Neighbor) ---
             temp_c = None
             if parsed_weather:
-                closest = min(parsed_weather, key=lambda w: abs((start - w["datetime"]).total_seconds()))
+                closest = min(
+                    parsed_weather, key=lambda w: abs((start - w["datetime"]).total_seconds())
+                )
                 temp_c = closest.get("temperature")
 
             # Build FSM Context for simulation
@@ -245,14 +269,18 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 current_price=price,
                 forecast_solar=solar_forecast,
                 forecast_load=load_forecast,
-                forecast_price=rates
+                forecast_price=rates,
             )
 
             if self.fsm:
                 sim_res = self.fsm.calculate_next_state(ctx)
                 state = sim_res.state
                 inverter_limit = getattr(self, "inverter_limit_kw", 10.0)
-                limit_pct = min(100.0, (abs(sim_res.limit_kw) / inverter_limit) * 100.0) if inverter_limit > 0 else 0.0
+                limit_pct = (
+                    min(100.0, (abs(sim_res.limit_kw) / inverter_limit) * 100.0)
+                    if inverter_limit > 0
+                    else 0.0
+                )
 
                 # Flow Physics
                 capacity = getattr(self, "capacity_kwh", 27.0)
@@ -287,20 +315,24 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 interval_cost = 0.0
                 next_soc = simulated_soc
 
-            table.append({
-                "Time": start.strftime("%H:%M") if hasattr(start, "strftime") else str(start),
-                "Local Time": dt_util.as_local(start).strftime("%H:%M") if hasattr(start, "strftime") else str(start),
-                "Import Rate": f"{price:.2f}",
-                "Export Rate": f"{export_price:.2f}",
-                "FSM State": state,
-                "Inverter Limit": f"{limit_pct:.0f}%",
-                "PV Forecast": f"{pv_kwh:.2f}",
-                "Load Forecast": f"{load_kw_avg:.2f}",
-                "Air Temp Forecast": f"{temp_c:.1f}°C" if temp_c is not None else "—",
-                "SoC Forecast": f"{simulated_soc:.1f}%",
-                "Interval Cost": f"${interval_cost:.4f}",
-                "Cumulative Total": f"${cumulative:.2f}",
-            })
+            table.append(
+                {
+                    "Time": start.strftime("%H:%M") if hasattr(start, "strftime") else str(start),
+                    "Local Time": dt_util.as_local(start).strftime("%H:%M")
+                    if hasattr(start, "strftime")
+                    else str(start),
+                    "Import Rate": f"{price:.2f}",
+                    "Export Rate": f"{export_price:.2f}",
+                    "FSM State": state,
+                    "Inverter Limit": f"{limit_pct:.0f}%",
+                    "PV Forecast": f"{pv_kwh:.2f}",
+                    "Load Forecast": f"{load_kw_avg:.2f}",
+                    "Air Temp Forecast": f"{temp_c:.1f}°C" if temp_c is not None else "—",
+                    "SoC Forecast": f"{simulated_soc:.1f}%",
+                    "Interval Cost": f"${interval_cost:.4f}",
+                    "Cumulative Total": f"${cumulative:.2f}",
+                }
+            )
 
             # Carry over SoC
             simulated_soc = next_soc
@@ -325,7 +357,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             soc = self._get_sensor_value(self.config.get(CONF_BATTERY_SOC_ENTITY, ""))
 
             raw_battery_p = self._get_sensor_value(self.config.get(CONF_BATTERY_POWER_ENTITY, ""))
-            battery_p = raw_battery_p * (-1.0 if self.config.get(CONF_BATTERY_POWER_INVERT) else 1.0)
+            battery_p = raw_battery_p * (
+                -1.0 if self.config.get(CONF_BATTERY_POWER_INVERT) else 1.0
+            )
 
             solar_p = self._get_sensor_value(self.config.get(CONF_SOLAR_ENTITY, ""))
 
@@ -363,7 +397,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 low_sensitivity=self.config.get(CONF_LOAD_SENSITIVITY_LOW_TEMP, 0.3),
                 high_threshold=self.config.get(CONF_LOAD_HIGH_TEMP_THRESHOLD, 25.0),
                 low_threshold=self.config.get(CONF_LOAD_LOW_TEMP_THRESHOLD, 15.0),
-                load_entity_id=self.config.get(CONF_LOAD_TODAY_ENTITY, ""),  # Ideally an instant load sensor, using what's available
+                load_entity_id=self.config.get(
+                    CONF_LOAD_TODAY_ENTITY, ""
+                ),  # Ideally an instant load sensor, using what's available
             )
 
             # Build FSM context and run decision logic
@@ -410,8 +446,12 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "limit_kw": fsm_result.limit_kw,
                 "plan_html": self.executor.get_command_summary(),
                 "plan": self._build_diagnostic_plan_table(
-                    self.rates.get_rates(), solar_forecast, load_forecast,
-                    self.weather.get_forecast(), soc, fsm_result.state
+                    self.rates.get_rates(),
+                    solar_forecast,
+                    load_forecast,
+                    self.weather.get_forecast(),
+                    soc,
+                    fsm_result.state,
                 ),
                 "sensors": self._build_sensor_diagnostics(),
                 "last_update": dt_util.utcnow().isoformat(),

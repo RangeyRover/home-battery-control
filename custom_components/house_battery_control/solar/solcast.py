@@ -8,6 +8,7 @@ Expected entities:
 - sensor.solcast_pv_forecast_today (with 'detailedForecast' attribute)
 - sensor.solcast_pv_forecast_tomorrow (with 'detailedForecast' attribute)
 """
+
 import logging
 from datetime import timedelta
 from typing import List
@@ -82,9 +83,7 @@ class SolcastSolar(SolarForecastProvider):
                     duration_mins = 30
                     if "PT" in str(period_str) and "M" in str(period_str):
                         try:
-                            duration_mins = int(
-                                str(period_str).replace("PT", "").replace("M", "")
-                            )
+                            duration_mins = int(str(period_str).replace("PT", "").replace("M", ""))
                         except ValueError:
                             pass
 
@@ -92,10 +91,12 @@ class SolcastSolar(SolarForecastProvider):
                     slots = max(1, duration_mins // 5)
                     for i in range(slots):
                         slot_time = period_start + timedelta(minutes=i * 5)
-                        result.append({
-                            "start": slot_time,
-                            "kw": pv_kw,
-                        })
+                        result.append(
+                            {
+                                "start": slot_time,
+                                "kw": pv_kw,
+                            }
+                        )
 
                 except (ValueError, KeyError, TypeError) as e:
                     _LOGGER.error(f"Error parsing Solcast interval: {e}")

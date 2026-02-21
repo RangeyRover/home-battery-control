@@ -7,6 +7,7 @@ Provides:
 
 Registers with HA's built-in aiohttp server via hass.http.register_view().
 """
+
 import logging
 from typing import Any
 
@@ -40,8 +41,7 @@ def build_status_data(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_power_flow_svg(
-    solar_kw: float, grid_kw: float, battery_kw: float,
-    load_kw: float, soc: float
+    solar_kw: float, grid_kw: float, battery_kw: float, load_kw: float, soc: float
 ) -> str:
     """Generate an SVG power flow diagram.
 
@@ -49,22 +49,23 @@ def build_power_flow_svg(
     Battery (bottom-left), House (centre).
     Lines show energy direction with labels.
     """
+
     def _arrow_line(x1, y1, x2, y2, label, kw, color):
         if abs(kw) < 0.01:
             return ""
         return (
             f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
             f'stroke="{color}" stroke-width="2" marker-end="url(#arrow)"/>'
-            f'<text x="{(x1+x2)//2}" y="{(y1+y2)//2 - 5}" '
+            f'<text x="{(x1 + x2) // 2}" y="{(y1 + y2) // 2 - 5}" '
             f'fill="{color}" font-size="12" text-anchor="middle">{label}: {abs(kw):.1f} kW</text>'
         )
 
     def _node(cx, cy, label, value, color):
         return (
             f'<circle cx="{cx}" cy="{cy}" r="40" fill="none" stroke="{color}" stroke-width="2"/>'
-            f'<text x="{cx}" y="{cy-5}" fill="{color}" font-size="14" '
+            f'<text x="{cx}" y="{cy - 5}" fill="{color}" font-size="14" '
             f'font-weight="bold" text-anchor="middle">{label}</text>'
-            f'<text x="{cx}" y="{cy+15}" fill="{color}" font-size="12" text-anchor="middle">{value}</text>'
+            f'<text x="{cx}" y="{cy + 15}" fill="{color}" font-size="12" text-anchor="middle">{value}</text>'
         )
 
     lines = []
@@ -93,14 +94,15 @@ def build_power_flow_svg(
         'style="max-width:400px;font-family:sans-serif;">'
         '<defs><marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">'
         '<polygon points="0 0, 8 3, 0 6" fill="#666"/></marker></defs>'
-        f'{body}'
-        '</svg>'
+        f"{body}"
+        "</svg>"
     )
 
 
 # ============================================================
 # HA HTTP VIEWS
 # ============================================================
+
 
 class HBCDashboardView(HomeAssistantView):
     """Main dashboard: power flow + status."""
@@ -144,12 +146,12 @@ nav a:hover {{ text-decoration: underline; }}
 <div class="card">{svg}</div>
 <div class="card">
 <div class="status">
-  <div class="stat"><div class="stat-value">{status['soc']:.0f}%</div><div class="stat-label">SoC</div></div>
-  <div class="stat"><div class="stat-value">{status['solar_power']:.1f}</div><div class="stat-label">Solar kW</div></div>
-  <div class="stat"><div class="stat-value">{status['grid_power']:.1f}</div><div class="stat-label">Grid kW</div></div>
-  <div class="stat"><div class="stat-value">{status['load_power']:.1f}</div><div class="stat-label">Load kW</div></div>
-  <div class="stat"><div class="stat-value">{status['current_price']:.1f}</div><div class="stat-label">Price c/kWh</div></div>
-  <div class="stat"><div class="state-badge">{status['state']}</div><div class="stat-label">{status['reason']}</div></div>
+  <div class="stat"><div class="stat-value">{status["soc"]:.0f}%</div><div class="stat-label">SoC</div></div>
+  <div class="stat"><div class="stat-value">{status["solar_power"]:.1f}</div><div class="stat-label">Solar kW</div></div>
+  <div class="stat"><div class="stat-value">{status["grid_power"]:.1f}</div><div class="stat-label">Grid kW</div></div>
+  <div class="stat"><div class="stat-value">{status["load_power"]:.1f}</div><div class="stat-label">Load kW</div></div>
+  <div class="stat"><div class="stat-value">{status["current_price"]:.1f}</div><div class="stat-label">Price c/kWh</div></div>
+  <div class="stat"><div class="state-badge">{status["state"]}</div><div class="stat-label">{status["reason"]}</div></div>
 </div></div>
 </body></html>"""
 
@@ -181,20 +183,42 @@ class HBCPlanView(HomeAssistantView):
 
         rows_html = ""
         for row in table:
-            cells = "".join(f"<td>{row[c]}</td>" for c in [
-                "Time", "Local Time", "Import Rate", "Export Rate", "FSM State",
-                "Inverter Limit", "PV Forecast", "Load Forecast",
-                "Air Temp Forecast", "SoC Forecast", "Interval Cost",
-                "Cumulative Total",
-            ])
+            cells = "".join(
+                f"<td>{row[c]}</td>"
+                for c in [
+                    "Time",
+                    "Local Time",
+                    "Import Rate",
+                    "Export Rate",
+                    "FSM State",
+                    "Inverter Limit",
+                    "PV Forecast",
+                    "Load Forecast",
+                    "Air Temp Forecast",
+                    "SoC Forecast",
+                    "Interval Cost",
+                    "Cumulative Total",
+                ]
+            )
             rows_html += f"<tr>{cells}</tr>\n"
 
-        headers = "".join(f"<th>{c}</th>" for c in [
-            "Time", "Local Time", "Import Rate", "Export Rate", "FSM State",
-            "Inverter Limit", "PV Forecast", "Load Forecast",
-            "Air Temp Forecast", "SoC Forecast", "Interval Cost",
-            "Cumulative Total",
-        ])
+        headers = "".join(
+            f"<th>{c}</th>"
+            for c in [
+                "Time",
+                "Local Time",
+                "Import Rate",
+                "Export Rate",
+                "FSM State",
+                "Inverter Limit",
+                "PV Forecast",
+                "Load Forecast",
+                "Air Temp Forecast",
+                "SoC Forecast",
+                "Interval Cost",
+                "Cumulative Total",
+            ]
+        )
 
         html = f"""<!DOCTYPE html>
 <html><head><title>HBC Plan</title>
@@ -289,17 +313,16 @@ class HBCLoadHistoryView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
         domain_data = hass.data.get(DOMAIN, {})
-        
-        history_data = {
-            "raw_states": [],
-            "derived_forecast": []
-        }
-        
+
+        history_data = {"raw_states": [], "derived_forecast": []}
+
         for entry_data in domain_data.values():
             coord = entry_data.get("coordinator")
             if coord and hasattr(coord, "load_predictor"):
                 history_data["raw_states"] = coord.load_predictor.last_history
-                history_data["derived_forecast"] = getattr(coord.load_predictor, "last_history_derived", [])
+                history_data["derived_forecast"] = getattr(
+                    coord.load_predictor, "last_history_derived", []
+                )
                 break
 
         return self.json(history_data)

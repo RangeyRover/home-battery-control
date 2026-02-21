@@ -1,4 +1,5 @@
 """The House Battery Control integration."""
+
 from __future__ import annotations
 
 import logging
@@ -6,12 +7,19 @@ from pathlib import Path
 
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform, EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 from .coordinator import HBCDataUpdateCoordinator
-from .web import HBCApiPingView, HBCApiStatusView, HBCLoadHistoryView, HBCConfigYamlView, HBCDashboardView, HBCPlanView
+from .web import (
+    HBCApiPingView,
+    HBCApiStatusView,
+    HBCConfigYamlView,
+    HBCDashboardView,
+    HBCLoadHistoryView,
+    HBCPlanView,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,10 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {
-        "config": config_data,
-        "coordinator": coordinator
-    }
+    hass.data[DOMAIN][entry.entry_id] = {"config": config_data, "coordinator": coordinator}
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
@@ -68,6 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         from homeassistant.components.frontend import (
             async_register_built_in_panel,
         )
+
         async_register_built_in_panel(
             hass,
             component_name="custom",
@@ -86,12 +92,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     return True
 
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
+
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry when options change."""

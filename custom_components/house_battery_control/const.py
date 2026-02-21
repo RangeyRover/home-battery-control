@@ -19,10 +19,10 @@ CONF_IMPORT_TODAY_ENTITY = "import_today_entity"
 CONF_EXPORT_TODAY_ENTITY = "export_today_entity"
 
 # Load Prediction Calibrations
-CONF_LOAD_SENSITIVITY_HIGH_TEMP = "load_high_temp_sensitivity" # kW per deg above threshold
-CONF_LOAD_SENSITIVITY_LOW_TEMP = "load_low_temp_sensitivity"   # kW per deg below threshold
-CONF_LOAD_HIGH_TEMP_THRESHOLD = "load_high_temp_threshold"    # e.g. 25C
-CONF_LOAD_LOW_TEMP_THRESHOLD = "load_low_temp_threshold"      # e.g. 15C
+CONF_LOAD_SENSITIVITY_HIGH_TEMP = "load_high_temp_sensitivity"  # kW per deg above threshold
+CONF_LOAD_SENSITIVITY_LOW_TEMP = "load_low_temp_sensitivity"  # kW per deg below threshold
+CONF_LOAD_HIGH_TEMP_THRESHOLD = "load_high_temp_threshold"  # e.g. 25C
+CONF_LOAD_LOW_TEMP_THRESHOLD = "load_low_temp_threshold"  # e.g. 15C
 
 # Calibration
 CONF_BATTERY_CAPACITY = "battery_capacity"

@@ -1,4 +1,5 @@
 """Manages fetching weather forecasts from Home Assistant."""
+
 import logging
 from datetime import datetime
 from typing import List, TypedDict
@@ -8,10 +9,12 @@ from homeassistant.util import dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class WeatherInterval(TypedDict):
     datetime: datetime
     temperature: float
     condition: str
+
 
 class WeatherManager:
     """Manages fetching weather forecasts."""
@@ -72,11 +75,13 @@ class WeatherManager:
                 # Ensure timezone-aware (spec 4: TZ safety)
                 dt = dt_util.as_utc(dt)
 
-                parsed_data.append({
-                    "datetime": dt,
-                    "temperature": float(item.get("temperature", 0.0)),
-                    "condition": item.get("condition", "unknown")
-                })
+                parsed_data.append(
+                    {
+                        "datetime": dt,
+                        "temperature": float(item.get("temperature", 0.0)),
+                        "condition": item.get("condition", "unknown"),
+                    }
+                )
             except (ValueError, KeyError):
                 continue
 

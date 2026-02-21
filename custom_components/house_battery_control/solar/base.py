@@ -5,7 +5,8 @@ from typing import List, TypedDict
 
 class SolarForecastData(TypedDict):
     start: datetime
-    kw: float # Power in kW
+    kw: float  # Power in kW
+
 
 class SolarForecastProvider(ABC):
     """Abstract Base Class for Solar Forecast Providers."""

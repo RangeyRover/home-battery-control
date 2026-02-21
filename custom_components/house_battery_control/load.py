@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class LoadPredictor:
     """Predicts house load based on history and (optionally) weather."""
 
@@ -41,8 +42,7 @@ class LoadPredictor:
             past_end = past_start + timedelta(hours=duration_hours + 1)
 
             states_dict = await self._hass.async_add_executor_job(
-                history.get_significant_states,
-                self._hass, past_start, past_end, [load_entity_id]
+                history.get_significant_states, self._hass, past_start, past_end, [load_entity_id]
             )
             historic_states = states_dict.get(load_entity_id, [])
 
@@ -51,10 +51,12 @@ class LoadPredictor:
         current_state = self._hass.states.get(load_entity_id)
         if current_state:
             unit = current_state.attributes.get("unit_of_measurement", "").lower()
-            if "wh" in unit: # kWh, Wh, mWh
+            if "wh" in unit:  # kWh, Wh, mWh
                 is_energy_sensor = True
 
-        self.last_history = [{"state": s.state, "last_changed": s.last_changed.isoformat()} for s in historic_states]
+        self.last_history = [
+            {"state": s.state, "last_changed": s.last_changed.isoformat()} for s in historic_states
+        ]
         self.last_history_derived = []
 
         def get_historic_val_at(target_time: datetime) -> float | None:
@@ -77,7 +79,7 @@ class LoadPredictor:
         # Naive lookup for temperature at a given time
         def get_temp_at(target_time: datetime) -> float:
             if not temp_forecast:
-                return 20.0 # Standard mild temp
+                return 20.0  # Standard mild temp
             # Find closest interval in forecast
             closest = temp_forecast[0]
             if "datetime" in closest:
@@ -95,15 +97,15 @@ class LoadPredictor:
         for _ in range(intervals):
             past_start = current - timedelta(days=7)
             past_end = past_start + timedelta(minutes=5)
-            
+
             val_start = get_historic_val_at(past_start)
             val_end = get_historic_val_at(past_end)
 
             # Heuristic: If values are high (e.g. > 10) and increasing, treat as energy kWh
             # If they are low and fluctuant, they might be power kW.
-            # But the user explicitly said "correctly dividing for each 5 minute section", 
+            # But the user explicitly said "correctly dividing for each 5 minute section",
             # implying we should treat it as energy.
-            
+
             derived_kw = None
             if val_start is not None and val_end is not None:
                 if val_end >= val_start:
@@ -124,17 +126,17 @@ class LoadPredictor:
                 if hist_val is not None:
                     # If we don't have a delta, but it's an energy sensor, we can't trust the absolute value
                     if is_energy_sensor:
-                         derived_kw = None 
+                        derived_kw = None
                     else:
-                         derived_kw = hist_val
+                        derived_kw = hist_val
 
             if derived_kw is None:
                 # Fallback Dummy Profile
                 hour = current.hour
                 derived_kw = 0.5
-                if 17 <= hour <= 21: # Evening Peak
+                if 17 <= hour <= 21:  # Evening Peak
                     derived_kw = 2.5
-                elif 7 <= hour <= 9: # Morning Peak
+                elif 7 <= hour <= 9:  # Morning Peak
                     derived_kw = 1.5
 
             # Temperature Adjustment
@@ -147,12 +149,14 @@ class LoadPredictor:
             # Round off to 2 decimals for saner display
             kw_final = round(max(0.0, derived_kw), 2)
             prediction.append({"start": current.isoformat(), "kw": kw_final})
-            self.last_history_derived.append({
-                "start": current.isoformat(), 
-                "kw": kw_final,
-                "raw_start": val_start,
-                "raw_end": val_end
-            })
+            self.last_history_derived.append(
+                {
+                    "start": current.isoformat(),
+                    "kw": kw_final,
+                    "raw_start": val_start,
+                    "raw_end": val_end,
+                }
+            )
             current += timedelta(minutes=5)
 
         return prediction

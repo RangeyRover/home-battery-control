@@ -1,4 +1,5 @@
 """Sensor platform for House Battery Control."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -28,6 +29,7 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
+
 class HBCSensorBase(CoordinatorEntity[HBCDataUpdateCoordinator], SensorEntity):
     """Base class for HBC sensors."""
 
@@ -42,6 +44,7 @@ class HBCSensorBase(CoordinatorEntity[HBCDataUpdateCoordinator], SensorEntity):
             "model": "Deterministic FSM",
         }
 
+
 class HBCStateSensor(HBCSensorBase):
     """Sensor that displays the current FSM state."""
 
@@ -54,6 +57,7 @@ class HBCStateSensor(HBCSensorBase):
         # This will come from the FSM result stored in the coordinator data
         # For now, it might be None if FSM isn't run yet
         return self.coordinator.data.get("state", "IDLE")
+
 
 class HBCReasonSensor(HBCSensorBase):
     """Sensor that displays why the current state was chosen."""
@@ -69,6 +73,4 @@ class HBCReasonSensor(HBCSensorBase):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
-        return {
-            ATTR_PLAN_HTML: self.coordinator.data.get("plan_html", "")
-        }
+        return {ATTR_PLAN_HTML: self.coordinator.data.get("plan_html", "")}

@@ -5,20 +5,22 @@ from typing import List
 
 @dataclass
 class FSMContext:
-    soc: float              # Current Battery %
-    solar_production: float # Current kW
-    load_power: float       # Current kW
-    grid_voltage: float     # Volts (Optional)
-    current_price: float    # c/kWh
-    forecast_solar: List[dict] # Next 24h
+    soc: float  # Current Battery %
+    solar_production: float  # Current kW
+    load_power: float  # Current kW
+    grid_voltage: float  # Volts (Optional)
+    current_price: float  # c/kWh
+    forecast_solar: List[dict]  # Next 24h
     forecast_load: List[dict]  # Next 24h
-    forecast_price: List[dict] # Next 24h
+    forecast_price: List[dict]  # Next 24h
+
 
 @dataclass
 class FSMResult:
     state: str
     limit_kw: float
     reason: str
+
 
 class BatteryStateMachine(ABC):
     """Abstract Base Class for Battery Control Logic."""

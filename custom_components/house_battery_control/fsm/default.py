@@ -7,6 +7,7 @@ Decision logic considers:
 - Battery SoC and reserve levels
 - Next cheap charge opportunity vs upcoming peak
 """
+
 import logging
 from typing import List, Optional
 
@@ -22,12 +23,12 @@ from .base import BatteryStateMachine, FSMContext, FSMResult
 _LOGGER = logging.getLogger(__name__)
 
 # --- Thresholds (could be made configurable later) ---
-RESERVE_SOC = 15.0           # Don't discharge below this %
-FULL_SOC = 95.0              # Consider battery "full" above this
+RESERVE_SOC = 15.0  # Don't discharge below this %
+FULL_SOC = 95.0  # Consider battery "full" above this
 CHEAP_PRICE_PERCENTILE = 25  # Bottom 25% of forecast = "cheap"
-PEAK_PRICE_PERCENTILE = 75   # Top 25% of forecast = "peak"
-PEAK_PRICE_ABSOLUTE = 35.0   # Absolute c/kWh above which = peak
-SOLAR_MEANINGFUL_KW = 0.3    # Solar below this is negligible
+PEAK_PRICE_PERCENTILE = 75  # Top 25% of forecast = "peak"
+PEAK_PRICE_ABSOLUTE = 35.0  # Absolute c/kWh above which = peak
+SOLAR_MEANINGFUL_KW = 0.3  # Solar below this is negligible
 
 
 class DefaultBatteryStateMachine(BatteryStateMachine):

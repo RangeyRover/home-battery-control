@@ -7,12 +7,14 @@ from homeassistant.util import dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class RateInterval(TypedDict):
     start: datetime
     end: datetime
     import_price: float  # c/kWh
     export_price: float  # c/kWh
     type: str  # ACTUAL or FORECAST
+
 
 class RatesManager:
     """Manages fetching and processing tariff rates from Amber Electric."""
@@ -81,8 +83,12 @@ class RatesManager:
         parsed = []
         for interval in raw_data:
             try:
-                start_ts = dt_util.parse_datetime(interval.get("start_time") or interval.get("periodStart", ""))
-                end_ts = dt_util.parse_datetime(interval.get("end_time") or interval.get("periodEnd", ""))
+                start_ts = dt_util.parse_datetime(
+                    interval.get("start_time") or interval.get("periodStart", "")
+                )
+                end_ts = dt_util.parse_datetime(
+                    interval.get("end_time") or interval.get("periodEnd", "")
+                )
 
                 if not start_ts or not end_ts:
                     continue
@@ -102,12 +108,14 @@ class RatesManager:
                     if next_ts > end_ts:
                         next_ts = end_ts
 
-                    parsed.append({
-                        "start": current_ts,
-                        "end": next_ts,
-                        "price": price,
-                        "type": interval.get("type") or interval.get("periodType", "UNKNOWN"),
-                    })
+                    parsed.append(
+                        {
+                            "start": current_ts,
+                            "end": next_ts,
+                            "price": price,
+                            "type": interval.get("type") or interval.get("periodType", "UNKNOWN"),
+                        }
+                    )
                     current_ts = next_ts
 
             except (ValueError, KeyError) as e:
