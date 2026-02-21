@@ -155,6 +155,7 @@ class HBCPanel extends LitElement {
 
     const cols = [
       "Time",
+      "Local Time",
       "Import",
       "Export",
       "State",
@@ -170,6 +171,7 @@ class HBCPanel extends LitElement {
     const rows = plan.map((r) => {
       return {
         time: r["Time"] || "—",
+        localTime: r["Local Time"] || "—",
         imp: r["Import Rate"] || "0.0",
         exp: r["Export Rate"] || "0.0",
         state: r["FSM State"] || "—",
@@ -198,6 +200,7 @@ class HBCPanel extends LitElement {
       (r) => html`
                   <tr>
                     <td>${r.time}</td>
+                    <td>${r.localTime}</td>
                     <td>${r.imp}</td>
                     <td>${r.exp}</td>
                     <td>${r.state}</td>

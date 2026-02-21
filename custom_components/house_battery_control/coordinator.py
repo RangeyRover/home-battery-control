@@ -288,7 +288,8 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 next_soc = simulated_soc
 
             table.append({
-                "Time": dt_util.as_local(start).strftime("%H:%M") if hasattr(start, "strftime") else str(start),
+                "Time": start.strftime("%H:%M") if hasattr(start, "strftime") else str(start),
+                "Local Time": dt_util.as_local(start).strftime("%H:%M") if hasattr(start, "strftime") else str(start),
                 "Import Rate": f"{price:.2f}",
                 "Export Rate": f"{export_price:.2f}",
                 "FSM State": state,
@@ -412,10 +413,10 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                     self.rates.get_rates(), solar_forecast, load_forecast,
                     self.weather.get_forecast(), soc, fsm_result.state
                 ),
-                # Diagnostics (spec 2.4)
                 "sensors": self._build_sensor_diagnostics(),
                 "last_update": dt_util.utcnow().isoformat(),
                 "update_count": self._update_count,
+                "load_history": getattr(self.load_predictor, "last_history", []),
             }
         except Exception as err:
             raise UpdateFailed(f"Error in HBC update cycle: {err}")

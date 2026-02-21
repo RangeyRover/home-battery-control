@@ -12,6 +12,7 @@ import pytest
 
 REQUIRED_PLAN_COLUMNS = [
     "Time",
+    "Local Time",
     "Import Rate",
     "Export Rate",
     "FSM State",
@@ -237,6 +238,7 @@ def test_plan_table_time_format():
 
     table = _build_test_table(data)
     assert re.match(r"\d{2}:\d{2}", table[0]["Time"])
+    assert re.match(r"\d{2}:\d{2}", table[0]["Local Time"])
 
 
 def test_plan_table_interpolates_mixed_intervals():

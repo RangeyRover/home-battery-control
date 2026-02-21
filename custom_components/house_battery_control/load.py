@@ -12,6 +12,7 @@ class LoadPredictor:
 
     def __init__(self, hass: HomeAssistant):
         self._hass = hass
+        self.last_history = []
 
     async def async_predict(
         self,
@@ -44,6 +45,8 @@ class LoadPredictor:
                 self._hass, past_start, past_end, [load_entity_id]
             )
             historic_states = states_dict.get(load_entity_id, [])
+
+        self.last_history = [{"state": s.state, "last_changed": s.last_changed.isoformat()} for s in historic_states]
 
         def get_historic_load_at(target_past_time: datetime) -> float | None:
             if not historic_states:
