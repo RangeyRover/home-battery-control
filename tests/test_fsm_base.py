@@ -1,4 +1,5 @@
 """Tests for the FSM base classes (dataclasses and ABC)."""
+
 import pytest
 from custom_components.house_battery_control.fsm.base import (
     BatteryStateMachine,

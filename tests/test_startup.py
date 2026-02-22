@@ -1,4 +1,5 @@
 """Tests for the Home Assistant startup event handling (Phase 15)."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -19,9 +20,10 @@ async def test_coordinator_refreshes_on_ha_start():
 
     # Store listeners manually to simulate event firing
     listeners = {}
+
     def mock_listen_once(event_type, callback):
         listeners[event_type] = callback
-        return MagicMock() # Unsubscribe mock
+        return MagicMock()  # Unsubscribe mock
 
     hass.bus.async_listen_once = mock_listen_once
 
@@ -33,7 +35,9 @@ async def test_coordinator_refreshes_on_ha_start():
     mock_entry.add_update_listener = MagicMock()
 
     # 3. Patch HBCDataUpdateCoordinator and setup_entry dependencies
-    with patch("custom_components.house_battery_control.HBCDataUpdateCoordinator") as mock_coord_class:
+    with patch(
+        "custom_components.house_battery_control.HBCDataUpdateCoordinator"
+    ) as mock_coord_class:
         mock_coordinator = MagicMock()
         mock_coordinator.async_request_refresh = AsyncMock()
         mock_coordinator.async_config_entry_first_refresh = AsyncMock()
@@ -42,9 +46,10 @@ async def test_coordinator_refreshes_on_ha_start():
         # Ensure the mock hass has an awaitable for entry setups
         hass.config_entries.async_forward_entry_setups = AsyncMock()
 
-        with patch("homeassistant.components.http.StaticPathConfig"), \
-             patch("homeassistant.components.frontend.async_register_built_in_panel"):
-
+        with (
+            patch("homeassistant.components.http.StaticPathConfig"),
+            patch("homeassistant.components.frontend.async_register_built_in_panel"),
+        ):
             await async_setup_entry(hass, mock_entry)
 
         # 4. Verify EVENT_HOMEASSISTANT_STARTED listener was registered

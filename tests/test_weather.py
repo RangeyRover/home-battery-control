@@ -4,6 +4,7 @@ Tests written FIRST per @speckit.implement TDD.
 Spec 3.3: Weather must use weather.get_forecasts service (HA 2023.9+)
           with fallback to legacy forecast attribute.
 """
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -21,6 +22,7 @@ def mock_hass():
 
 # --- Spec 3.3: Service-based weather (primary method) ---
 
+
 @pytest.mark.asyncio
 async def test_weather_async_update_service(mock_hass):
     """async_update must call weather.get_forecasts service (spec 3.3)."""
@@ -30,8 +32,16 @@ async def test_weather_async_update_service(mock_hass):
     mock_hass.services.async_call.return_value = {
         "weather.hewett_hourly": {
             "forecast": [
-                {"datetime": "2025-02-20T12:00:00+00:00", "temperature": 20.5, "condition": "sunny"},
-                {"datetime": "2025-02-20T13:00:00+00:00", "temperature": 21.0, "condition": "cloudy"},
+                {
+                    "datetime": "2025-02-20T12:00:00+00:00",
+                    "temperature": 20.5,
+                    "condition": "sunny",
+                },
+                {
+                    "datetime": "2025-02-20T13:00:00+00:00",
+                    "temperature": 21.0,
+                    "condition": "cloudy",
+                },
             ]
         }
     }
@@ -45,13 +55,16 @@ async def test_weather_async_update_service(mock_hass):
 
     # Verify service was called correctly
     mock_hass.services.async_call.assert_called_once_with(
-        "weather", "get_forecasts",
+        "weather",
+        "get_forecasts",
         {"entity_id": "weather.hewett_hourly", "type": "hourly"},
-        blocking=True, return_response=True,
+        blocking=True,
+        return_response=True,
     )
 
 
 # --- Spec 3.3: Attribute fallback ---
+
 
 @pytest.mark.asyncio
 async def test_weather_fallback_to_attribute(mock_hass):
@@ -79,6 +92,7 @@ async def test_weather_fallback_to_attribute(mock_hass):
 
 # --- Missing entity ---
 
+
 @pytest.mark.asyncio
 async def test_weather_missing_entity(mock_hass):
     """Missing entity should result in empty forecast."""
@@ -91,6 +105,7 @@ async def test_weather_missing_entity(mock_hass):
 
 
 # --- REGRESSION: TZ-naive weather datetimes (Production 2026-02-20) ---
+
 
 @pytest.mark.asyncio
 async def test_weather_forecast_datetimes_are_utc_aware(mock_hass):
@@ -117,4 +132,3 @@ async def test_weather_forecast_datetimes_are_utc_aware(mock_hass):
     assert len(forecast) == 1
     # The datetime MUST have timezone info (not None)
     assert forecast[0]["datetime"].tzinfo is not None
-

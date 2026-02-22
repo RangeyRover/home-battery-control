@@ -40,7 +40,7 @@ class SolcastSolar(SolarForecastProvider):
 
     async def async_get_forecast(self) -> List[SolarForecastData]:
         """Read forecast from Solcast HA entities."""
-        result = []
+        result: list[SolarForecastData] = []
 
         for entity_id in [self._forecast_today_entity, self._forecast_tomorrow_entity]:
             state = self._hass.states.get(entity_id)

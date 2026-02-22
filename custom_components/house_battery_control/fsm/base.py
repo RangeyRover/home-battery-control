@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
-
+from typing import Any, List
 
 @dataclass
 class FSMContext:
@@ -10,10 +9,10 @@ class FSMContext:
     load_power: float  # Current kW
     grid_voltage: float  # Volts (Optional)
     current_price: float  # c/kWh
-    forecast_solar: List[dict]  # Next 24h
-    forecast_load: List[dict]  # Next 24h
-    forecast_price: List[dict]  # Next 24h
-    config: dict  # System config constraints
+    forecast_solar: list[Any]  # Next 24h
+    forecast_load: list[Any]  # Next 24h
+    forecast_price: list[Any]  # Next 24h
+    config: dict[str, Any]  # System config constraints
 
 
 @dataclass
@@ -21,6 +20,7 @@ class FSMResult:
     state: str
     limit_kw: float
     reason: str
+    target_soc: float | None = None
 
 
 class BatteryStateMachine(ABC):

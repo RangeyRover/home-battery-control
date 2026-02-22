@@ -72,6 +72,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         self.entry_id = entry_id
         self.config = config
         self._update_count = 0
+        self.dp_target_soc = None
 
         # Initialize Managers
         self.rates = RatesManager(
@@ -165,13 +166,13 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _build_diagnostic_plan_table(
         self,
-        rates: list[dict],
-        solar_forecast: list[dict],
-        load_forecast: list[dict],
-        weather: list[dict],
+        rates: list[Any],
+        solar_forecast: list[Any],
+        load_forecast: list[Any],
+        weather: list[Any],
         current_soc: float,
         current_state: str,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Iterate over the rates timeline to simulate the internal FSM calculation engine's execution path.
 
         Outputs an interpolation table with explicitly rounded strings that matches the precise
@@ -249,7 +250,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             pv_kwh = pv_kw_avg * duration_hours
 
             # --- 2. Load Interpolation ---
-            matched_loads = [lf["kw"] for lf in parsed_loads if start <= lf["start"] < end]
+            matched_loads = [float(str(lf["kw"])) for lf in parsed_loads if start <= lf["start"] < end]  # type: ignore
             load_kw_avg = sum(matched_loads) / len(matched_loads) if matched_loads else 0.0
 
             # --- 3. Weather Interpolation (Nearest Neighbor) ---
@@ -430,6 +431,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             # Apply state to Powerwall
             await self.executor.apply_state(fsm_result.state, fsm_result.limit_kw)
 
+            # Store native DP target SOC state
+            self.dp_target_soc = getattr(fsm_result, "target_soc", None)
+
             # Return data for sensors and dashboard
             self._update_count += 1
             return {
@@ -454,6 +458,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "state": fsm_result.state,
                 "reason": fsm_result.reason,
                 "limit_kw": fsm_result.limit_kw,
+                "target_soc": self.dp_target_soc,
                 "plan_html": self.executor.get_command_summary(),
                 "plan": await self.hass.async_add_executor_job(
                     self._build_diagnostic_plan_table,

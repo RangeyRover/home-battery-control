@@ -4,6 +4,7 @@ Tests the coordinator's _get_sensor_value method and the inversion/load
 derivation logic WITHOUT constructing the full DataUpdateCoordinator
 (which requires an event loop). We test the logic directly.
 """
+
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -31,6 +32,7 @@ from custom_components.house_battery_control.const import (
 def mock_hass():
     """Mock HomeAssistant fixture."""
     from homeassistant.core import HomeAssistant
+
     hass = MagicMock(spec=HomeAssistant)
     hass.states = MagicMock()
     return hass
@@ -63,6 +65,7 @@ def _get_sensor_value(hass, entity_id: str) -> float:
 
 
 # --- _get_sensor_value logic tests ---
+
 
 def test_get_sensor_value_normal():
     """Normal numeric state should return float."""
@@ -98,6 +101,7 @@ def test_get_sensor_value_non_numeric():
 
 # --- Inversion logic tests ---
 
+
 def test_battery_power_no_inversion():
     """Without inversion, battery_power should be raw value."""
     raw = 5.0
@@ -124,6 +128,7 @@ def test_grid_power_with_inversion():
 
 # --- Load derivation tests ---
 
+
 def test_load_derivation_positive():
     """load = solar + grid - battery should work correctly."""
     solar_p = 4.0
@@ -145,6 +150,7 @@ def test_load_derivation_clamped_to_zero():
 
 
 # --- Diagnostics tests ---
+
 
 def test_build_sensor_diagnostics_includes_all_entities():
     """Spec 2.4: Diagnostics must include Solcast and the 4 control scripts."""
@@ -220,11 +226,18 @@ def test_coordinator_tracks_state_changes_on_init():
         CONF_BATTERY_POWER_ENTITY: "sensor.battery_power",
         CONF_SOLAR_ENTITY: "sensor.solar_power",
         CONF_GRID_ENTITY: "sensor.grid_power",
-        CONF_LOAD_TODAY_ENTITY: "sensor.load_power"
+        CONF_LOAD_TODAY_ENTITY: "sensor.load_power",
     }
 
-    with patch("custom_components.house_battery_control.coordinator.async_track_state_change_event") as mock_track, \
-         patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None):
+    with (
+        patch(
+            "custom_components.house_battery_control.coordinator.async_track_state_change_event"
+        ) as mock_track,
+        patch(
+            "custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__",
+            return_value=None,
+        ),
+    ):
         coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config)
         coordinator.hass = mock_hass
 
@@ -250,11 +263,12 @@ def test_coordinator_rounded_outputs():
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
 
     mock_hass = MagicMock()
-    
+
     async def mock_async_add_executor_job(func, *args, **kwargs):
         return func(*args, **kwargs)
+
     mock_hass.async_add_executor_job = mock_async_add_executor_job
-    
+
     mock_hass.states.get.return_value = _make_state("5.555")
 
     config = {
@@ -267,8 +281,13 @@ def test_coordinator_rounded_outputs():
         CONF_EXPORT_TODAY_ENTITY: "sensor.export",
     }
 
-    with patch("custom_components.house_battery_control.coordinator.async_track_state_change_event"), \
-         patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None):
+    with (
+        patch("custom_components.house_battery_control.coordinator.async_track_state_change_event"),
+        patch(
+            "custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__",
+            return_value=None,
+        ),
+    ):
         coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config)
         coordinator.hass = mock_hass
         coordinator._update_count = 0
@@ -282,7 +301,9 @@ def test_coordinator_rounded_outputs():
         coordinator.load_predictor = MagicMock()
         coordinator.load_predictor.async_predict = AsyncMock(return_value=[])
         coordinator.fsm = MagicMock()
-        coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(state="standby", reason="test", limit_kw=0.0)
+        coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(
+            state="standby", reason="test", limit_kw=0.0
+        )
         coordinator.executor = MagicMock()
         coordinator.executor.apply_state = AsyncMock()
         coordinator.executor.get_command_summary.return_value = ""
@@ -300,6 +321,7 @@ def test_coordinator_rounded_outputs():
         assert result["export_today"] == 5.55
         assert result["soc"] == 5.6  # SOC is rounded to 1 decimal
 
+
 def test_pv_interpolation():
     """Spec: Simulate a PV input from Solcast and check that it gets properly chopped into its 5 min rows."""
     from datetime import datetime, timedelta, timezone
@@ -315,26 +337,29 @@ def test_pv_interpolation():
     now = datetime(2025, 2, 20, 12, 0, tzinfo=timezone.utc)
 
     # 30-minute Solcast block at 6.0 kW
-    solar_forecast = [
-        {"period_start": now.isoformat(), "pv_estimate": 6.0}
-    ]
+    solar_forecast = [{"period_start": now.isoformat(), "pv_estimate": 6.0}]
 
     # Six 5-minute rate intervals covering the same 30-minute period
     rates = []
     for i in range(6):
-        rates.append({
-            "start": now + timedelta(minutes=5 * i),
-            "end": now + timedelta(minutes=5 * (i + 1)),
-            "import_price": 10.0,
-            "export_price": 5.0
-        })
+        rates.append(
+            {
+                "start": now + timedelta(minutes=5 * i),
+                "end": now + timedelta(minutes=5 * (i + 1)),
+                "import_price": 10.0,
+                "export_price": 5.0,
+            }
+        )
 
     # We will invoke the (soon to be implemented) diagnostic plan builder
     # _build_diagnostic_plan_table(rates, solar_forecast, load_forecast, weather, current_soc, current_state)
     coordinator.fsm = MagicMock()
     # Mock the FSM to just return an IDLE state
     from types import SimpleNamespace
-    coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(state="IDLE", limit_kw=0.0, reason="Test")
+
+    coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(
+        state="IDLE", limit_kw=0.0, reason="Test"
+    )
     coordinator.capacity_kwh = 27.0
     coordinator.inverter_limit_kw = 10.0
 
@@ -344,7 +369,7 @@ def test_pv_interpolation():
         load_forecast=[],
         weather=[],
         current_soc=50.0,
-        current_state="IDLE"
+        current_state="IDLE",
     )
 
     assert len(table) == 6
@@ -356,6 +381,7 @@ def test_pv_interpolation():
         # The string time should match
         expected_time_str = (now + timedelta(minutes=5 * i)).strftime("%H:%M")
         assert row["Time"] == expected_time_str
+
 
 @pytest.mark.asyncio
 async def test_coordinator_update_data_exception_recovery(mock_hass):
@@ -369,6 +395,7 @@ async def test_coordinator_update_data_exception_recovery(mock_hass):
 
     async def mock_async_add_executor_job(func, *args, **kwargs):
         return func(*args, **kwargs)
+
     mock_hass.async_add_executor_job = mock_async_add_executor_job
 
     config = {
@@ -381,8 +408,13 @@ async def test_coordinator_update_data_exception_recovery(mock_hass):
         CONF_EXPORT_TODAY_ENTITY: "sensor.export",
     }
 
-    with patch("custom_components.house_battery_control.coordinator.async_track_state_change_event"), \
-         patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None):
+    with (
+        patch("custom_components.house_battery_control.coordinator.async_track_state_change_event"),
+        patch(
+            "custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__",
+            return_value=None,
+        ),
+    ):
         coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config)
         coordinator.hass = mock_hass
         coordinator._update_count = 0
@@ -391,7 +423,9 @@ async def test_coordinator_update_data_exception_recovery(mock_hass):
         coordinator.solar = AsyncMock()
         coordinator.load_predictor = AsyncMock()
         coordinator.fsm = MagicMock()
-        coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(state="standby", reason="test", limit_kw=0.0)
+        coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(
+            state="standby", reason="test", limit_kw=0.0
+        )
         coordinator.executor = AsyncMock()
 
         # OVERRIDE to simulate catastrophic failure from underlying third-party API integration
@@ -404,43 +438,61 @@ async def test_coordinator_update_data_exception_recovery(mock_hass):
         assert result["solar_power"] == 5.55
         assert result["state"] == "standby"
 
+
 def test_diagnostic_plan_table_energy_conversion():
     """
     Test that the diagnostic table correctly scales instantaneous kW power
     into integrated kWh energy for the 'Load Forecast' and 'PV Forecast' columns
     over a 5-minute (0.0833 hr) interval.
     """
-    from homeassistant.util import dt as dt_util
     from datetime import timedelta
-    from unittest.mock import MagicMock
+
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
-    
+    from homeassistant.util import dt as dt_util
+
     coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
     coordinator.config = {}
-    coordinator.fsm = None # Do not run actual State Machine in table formatter
-    
+    coordinator.fsm = None  # Do not run actual State Machine in table formatter
+
     start_time = dt_util.utcnow()
-    
-    rates = [{"start": start_time, "end": start_time + timedelta(minutes=5), "import_price": 0.20, "export_price": 0.05}]
-    
+
+    rates = [
+        {
+            "start": start_time,
+            "end": start_time + timedelta(minutes=5),
+            "import_price": 0.20,
+            "export_price": 0.05,
+        }
+    ]
+
     # 4.0 kW instantaneous Load, 2.0 kW instantaneous Solar
     load_forecast = [{"start": start_time, "kw": 4.0}]
-    solar_forecast = [{"period_start": start_time, "period_end": start_time + timedelta(minutes=5), "pv_estimate": 2.0}]
+    solar_forecast = [
+        {
+            "period_start": start_time,
+            "period_end": start_time + timedelta(minutes=5),
+            "pv_estimate": 2.0,
+        }
+    ]
     weather = [{"datetime": start_time, "temperature": 25.0}]
-    
+
     table = coordinator._build_diagnostic_plan_table(
         rates=rates,
         solar_forecast=solar_forecast,
         load_forecast=load_forecast,
         weather=weather,
         current_soc=50.0,
-        current_state="IDLE"
+        current_state="IDLE",
     )
-    
+
     assert len(table) == 1
     row = table[0]
-    
+
     # 4.0 kW * (5 mins / 60) = 0.33 kWh
-    assert row["Load Forecast"] == "0.33", f"Expected '0.33', got {row['Load Forecast']} (Likely reporting raw kW)"
+    assert row["Load Forecast"] == "0.33", (
+        f"Expected '0.33', got {row['Load Forecast']} (Likely reporting raw kW)"
+    )
     # 2.0 kW * (5 mins / 60) = 0.17 kWh
-    assert row["PV Forecast"] == "0.17", f"Expected '0.17', got {row['PV Forecast']} (Likely reporting raw kW)"
+    assert row["PV Forecast"] == "0.17", (
+        f"Expected '0.17', got {row['PV Forecast']} (Likely reporting raw kW)"
+    )

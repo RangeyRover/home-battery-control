@@ -3,52 +3,52 @@ from datetime import datetime, timezone
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def parse_isoformat(dt_str: str) -> datetime:
     """Safely parse HA history ISO format strings."""
-    return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+    return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+
 
 def extract_valid_data(historic_states_parsed: list) -> list:
     """Parse raw HA state dicts into a time-sorted list of floats."""
     valid_data = []
     for entry in historic_states_parsed:
-        state = entry.get('state')
-        if state not in ('unavailable', 'unknown', None, ''):
+        state = entry.get("state")
+        if state not in ("unavailable", "unknown", None, ""):
             try:
                 # Compatibility for both raw API dicts and mock dt objects
-                time_str = entry.get('last_changed')
+                time_str = entry.get("last_changed")
                 if isinstance(time_str, datetime):
                     dt = time_str
                 else:
                     dt = parse_isoformat(time_str)
 
                 val = float(state)
-                valid_data.append({
-                    'time': dt.timestamp(),
-                    'value': val
-                })
+                valid_data.append({"time": dt.timestamp(), "value": val})
             except (ValueError, TypeError, KeyError):
                 continue
 
     if valid_data:
-        valid_data.sort(key=lambda x: x['time'])
+        valid_data.sort(key=lambda x: x["time"])
     return valid_data
+
 
 def interpolate(target_t: float, valid_data: list) -> float:
     """Linear interpolation natively adapted from standalone script."""
     if not valid_data:
         return 0.0
     if len(valid_data) == 1:
-        return valid_data[0]['value']
-    if target_t <= valid_data[0]['time']:
-        return valid_data[0]['value']
-    if target_t >= valid_data[-1]['time']:
-        return valid_data[-1]['value']
+        return valid_data[0]["value"]
+    if target_t <= valid_data[0]["time"]:
+        return valid_data[0]["value"]
+    if target_t >= valid_data[-1]["time"]:
+        return valid_data[-1]["value"]
 
     for i in range(len(valid_data) - 1):
-        t1 = valid_data[i]['time']
-        v1 = valid_data[i]['value']
-        t2 = valid_data[i+1]['time']
-        v2 = valid_data[i+1]['value']
+        t1 = valid_data[i]["time"]
+        v1 = valid_data[i]["value"]
+        t2 = valid_data[i + 1]["time"]
+        v2 = valid_data[i + 1]["value"]
 
         if t1 <= target_t <= t2:
             if t2 == t1:
@@ -57,19 +57,22 @@ def interpolate(target_t: float, valid_data: list) -> float:
 
     return 0.0
 
-def build_historical_profile(valid_data: list, target_tz=None, is_energy_sensor: bool = True) -> dict:
+
+def build_historical_profile(
+    valid_data: list, target_tz=None, is_energy_sensor: bool = True
+) -> dict:
     """
     Chronologically iterate over all valid history data, compute 5-minute intervals,
     handle midnight reset gaps, and average the results into a 24-hour HH:MM dictionary
     matching the exact mathematical logic of `extract_kwh_usage.py`.
     """
-    historical_profile = {}
+    historical_profile: dict[str, float] = {}
     if not valid_data or len(valid_data) < 2:
         return historical_profile
 
     try:
-        start_time = valid_data[0]['time']
-        end_time = valid_data[-1]['time']
+        start_time = valid_data[0]["time"]
+        end_time = valid_data[-1]["time"]
 
         remainder = start_time % 300
         aligned_start = start_time + (300 - remainder) if remainder != 0 else start_time
@@ -97,7 +100,7 @@ def build_historical_profile(valid_data: list, target_tz=None, is_energy_sensor:
                 else:
                     hist_prev_usage = usage
             else:
-                usage = next_value # For power sensors
+                usage = next_value  # For power sensors
 
             # Convert to defined timezone, fallback to UTC
             start_dt_utc = datetime.fromtimestamp(current_t, tz=timezone.utc)

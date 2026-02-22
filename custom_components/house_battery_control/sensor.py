@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import PERCENTAGE, UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -25,6 +26,8 @@ async def async_setup_entry(
     entities = [
         HBCStateSensor(coordinator),
         HBCReasonSensor(coordinator),
+        HBCLimitKwSensor(coordinator),
+        HBCDpTargetSocSensor(coordinator),
     ]
 
     async_add_entities(entities)
@@ -74,3 +77,31 @@ class HBCReasonSensor(HBCSensorBase):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra attributes."""
         return {ATTR_PLAN_HTML: self.coordinator.data.get("plan_html", "")}
+
+
+class HBCLimitKwSensor(HBCSensorBase):
+    """Sensor that displays the raw fractional mathematical target limit for the current DP tick."""
+
+    _attr_translation_key = "hbc_limit_kw"
+    _attr_unique_id = "hbc_limit_kw"
+    _attr_device_class = SensorDeviceClass.POWER
+    _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the precise raw limit_kw constraint sent to the physical layer."""
+        return self.coordinator.data.get("limit_kw")
+
+
+class HBCDpTargetSocSensor(HBCSensorBase):
+    """Sensor that explicitly tracks the raw unabridged target SOC from the mathematical DP Engine."""
+
+    _attr_translation_key = "hbc_dp_target_soc"
+    _attr_unique_id = "hbc_dp_target_soc"
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_native_unit_of_measurement = PERCENTAGE
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the target_soc constraint the engine is pathfinding on."""
+        return self.coordinator.data.get("target_soc")

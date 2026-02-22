@@ -3,6 +3,7 @@
 Written BEFORE implementation per TDD discipline.
 Tests cover: Window Discovery, State Transitions, and Look-ahead Logic.
 """
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -18,6 +19,7 @@ from custom_components.house_battery_control.fsm.default import DefaultBatterySt
 
 # --- Helpers ---
 
+
 def _make_context(**overrides) -> FSMContext:
     """Build a default FSMContext, overridable per test."""
     defaults = dict(
@@ -32,7 +34,7 @@ def _make_context(**overrides) -> FSMContext:
         config={"capacity_kwh": 27.0, "inverter_limit_kw": 10.0},
     )
     defaults.update(overrides)
-    return FSMContext(**defaults)
+    return FSMContext(**defaults)  # type: ignore
 
 
 def _make_price_forecast(prices: list[float], start=None, interval_min=5) -> list[dict]:
@@ -40,11 +42,13 @@ def _make_price_forecast(prices: list[float], start=None, interval_min=5) -> lis
     start = start or datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
     result = []
     for i, price in enumerate(prices):
-        result.append({
-            "start": start + timedelta(minutes=i * interval_min),
-            "end": start + timedelta(minutes=(i + 1) * interval_min),
-            "price": price,
-        })
+        result.append(
+            {
+                "start": start + timedelta(minutes=i * interval_min),
+                "end": start + timedelta(minutes=(i + 1) * interval_min),
+                "price": price,
+            }
+        )
     return result
 
 
@@ -53,10 +57,12 @@ def _make_solar_forecast(values: list[float], start=None, interval_min=5) -> lis
     start = start or datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
     result = []
     for i, kw in enumerate(values):
-        result.append({
-            "start": start + timedelta(minutes=i * interval_min),
-            "kw": kw,
-        })
+        result.append(
+            {
+                "start": start + timedelta(minutes=i * interval_min),
+                "kw": kw,
+            }
+        )
     return result
 
 
@@ -68,6 +74,7 @@ def fsm():
 # ============================================================
 # 1. NEGATIVE PRICE → ALWAYS CHARGE FROM GRID
 # ============================================================
+
 
 def test_negative_price_charges_from_grid(fsm):
     """When current price is negative, always charge from grid."""
@@ -87,6 +94,7 @@ def test_negative_price_charges_even_at_high_soc(fsm):
 # ============================================================
 # 2. CHEAP WINDOW DISCOVERY → CHARGE WHEN IN CHEAPEST WINDOW
 # ============================================================
+
 
 def test_cheap_window_triggers_charge(fsm):
     """When current price is in the cheapest window and SoC is low, charge."""
@@ -116,6 +124,7 @@ def test_cheap_window_no_charge_when_full(fsm):
 # ============================================================
 # 3. SOLAR LOOK-AHEAD → CHARGE FROM SOLAR WHEN EXCESS
 # ============================================================
+
 
 def test_excess_solar_charges_battery(fsm):
     """When solar > load and SoC < 100%, charge from solar."""
@@ -149,6 +158,7 @@ def test_solar_sunrise_awareness(fsm):
 # 4. PEAK PRICE → DISCHARGE TO HOME
 # ============================================================
 
+
 def test_high_price_discharges_home(fsm):
     """During expensive prices, discharge battery to serve house load."""
     ctx = _make_context(
@@ -176,6 +186,7 @@ def test_high_price_no_discharge_when_low_soc(fsm):
 # 5. PRESERVE → HOLD CHARGE FOR UPCOMING PEAK / LOW SOLAR
 # ============================================================
 
+
 def test_preserve_before_peak(fsm):
     """When a peak is coming and SoC is ok, preserve charge."""
     # Prices: 5 (cheap slots), 25 (moderate NOW), then spike to 60
@@ -197,6 +208,7 @@ def test_preserve_before_peak(fsm):
 # 6. IDLE → DEFAULT STATE
 # ============================================================
 
+
 def test_idle_when_nothing_special(fsm):
     """When conditions are normal, return IDLE."""
     ctx = _make_context(
@@ -213,6 +225,7 @@ def test_idle_when_nothing_special(fsm):
 # 7. LOAD CONSIDERATION
 # ============================================================
 
+
 def test_high_load_triggers_discharge(fsm):
     """When house load is high and price is above average, discharge."""
     ctx = _make_context(
@@ -228,6 +241,7 @@ def test_high_load_triggers_discharge(fsm):
 # ============================================================
 # 8. RESULT STRUCTURE
 # ============================================================
+
 
 def test_result_has_required_fields(fsm):
     """FSMResult must always have state, limit_kw, and reason."""
@@ -251,17 +265,20 @@ def test_result_reason_is_not_empty(fsm):
 # 9. IMPORT_PRICE KEY COMPATIBILITY (Spec 3.1 + 3.4)
 # ============================================================
 
+
 def _make_import_price_forecast(prices: list[float], start=None, interval_min=5) -> list[dict]:
     """Build a price forecast using the new import_price/export_price keys."""
     start = start or datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
     result = []
     for i, price in enumerate(prices):
-        result.append({
-            "start": start + timedelta(minutes=i * interval_min),
-            "end": start + timedelta(minutes=(i + 1) * interval_min),
-            "import_price": price,
-            "export_price": price * 0.3,
-        })
+        result.append(
+            {
+                "start": start + timedelta(minutes=i * interval_min),
+                "end": start + timedelta(minutes=(i + 1) * interval_min),
+                "import_price": price,
+                "export_price": price * 0.3,
+            }
+        )
     return result
 
 
@@ -309,6 +326,7 @@ def test_peak_coming_soon_with_import_price_key(fsm):
 # 10. REGRESSION: KeyError 'price' (Production Crash 2026-02-20)
 # ============================================================
 
+
 def test_no_keyerror_when_price_key_missing(fsm):
     """REGRESSION: FSM must NOT crash with KeyError when forecast dicts
     have 'import_price' but NO 'price' key.
@@ -322,7 +340,8 @@ def test_no_keyerror_when_price_key_missing(fsm):
     forecast = [
         {
             "start": datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc) + timedelta(minutes=i * 5),
-            "end": datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc) + timedelta(minutes=(i + 1) * 5),
+            "end": datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc)
+            + timedelta(minutes=(i + 1) * 5),
             "import_price": 25.0 + i,
             "export_price": 8.0,
             # NO "price" key — this is what caused the crash

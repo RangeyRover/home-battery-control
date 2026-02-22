@@ -6,10 +6,10 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-import yaml
+import yaml  # type: ignore
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
@@ -77,14 +77,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Create the options flow."""
         return HBCOptionsFlowHandler(config_entry)
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step 0: Choose configuration method."""
         return self.async_show_menu(
             step_id="user",
             menu_options=["manual", "yaml"],
         )
 
-    async def async_step_yaml(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_yaml(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Configure using YAML (S2)."""
         errors = {}
         if user_input is not None:
@@ -110,7 +110,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step 1: Telemetry (Power)."""
         if user_input is not None:
             self._data.update(user_input)
@@ -138,7 +138,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
-    async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step 2: Energy & Metrics (Cumulative)."""
         if user_input is not None:
             self._data.update(user_input)
@@ -203,7 +203,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
-    async def async_step_control(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_control(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step 3: Control Services (Optional — skip for debug mode)."""
         if user_input is not None:
             # If skip is checked, create entry without control entities
@@ -256,14 +256,14 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
         if config_entry.options:
             self._data.update(config_entry.options)
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Manage the options."""
         return self.async_show_menu(
             step_id="init",
             menu_options=["manual", "energy", "control"],
         )
 
-    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Update Telemetry (Power) options."""
         if user_input is not None:
             self._data.update(user_input)
@@ -297,7 +297,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
             ),
         )
 
-    async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Update Energy & Metrics (Cumulative)."""
         if user_input is not None:
             self._data.update(user_input)
@@ -384,7 +384,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
             ),
         )
 
-    async def async_step_control(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_control(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Update Control Services options."""
         if user_input is not None:
             self._data.update(user_input)

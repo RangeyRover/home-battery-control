@@ -36,13 +36,20 @@ class WeatherManager:
                 return_response=True,
             )
 
-            if not result or self._entity_id not in result:
+            if not result or not isinstance(result, dict) or self._entity_id not in result:
                 _LOGGER.warning(f"No forecast result for {self._entity_id}")
                 # Fallback to attribute
                 self._try_attribute_fallback()
                 return
 
-            raw_forecast = result[self._entity_id].get("forecast", [])
+            result_entity = result[self._entity_id]
+            if not isinstance(result_entity, dict):
+                self._try_attribute_fallback()
+                return
+
+            raw_forecast = result_entity.get("forecast", [])
+            if not isinstance(raw_forecast, list):
+                raw_forecast = []
             self._parse_forecast(raw_forecast)
 
         except Exception as e:
@@ -65,7 +72,7 @@ class WeatherManager:
 
     def _parse_forecast(self, raw_forecast: list) -> None:
         """Parse forecast data into WeatherInterval list."""
-        parsed_data = []
+        parsed_data: list[WeatherInterval] = []
         for item in raw_forecast:
             try:
                 dt = dt_util.parse_datetime(str(item["datetime"]))

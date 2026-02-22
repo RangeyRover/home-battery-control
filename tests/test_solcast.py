@@ -4,6 +4,7 @@ Tests written FIRST per @speckit.implement TDD.
 Spec 3.2: Solar forecast must read from Solcast HA integration entities,
           NOT call the Solcast API directly.
 """
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,6 +27,7 @@ def _make_solcast_state(detailed_forecast):
 
 # --- Spec 3.2: Entity-based init (no API key) ---
 
+
 def test_solcast_no_api_key_required(mock_hass):
     """SolcastSolar must NOT require an API key (spec 3.2)."""
     # Should construct without api_key or site_id
@@ -45,6 +47,7 @@ def test_solcast_accepts_custom_entities(mock_hass):
 
 
 # --- Spec 3.2: Reading from entities ---
+
 
 @pytest.mark.asyncio
 async def test_solcast_reads_from_entity(mock_hass):

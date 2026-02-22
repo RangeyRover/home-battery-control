@@ -2,6 +2,7 @@
 
 Written BEFORE implementation per TDD discipline.
 """
+
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -44,6 +45,7 @@ def executor(mock_hass, config):
 
 
 # --- State to command mapping ---
+
 
 def test_executor_init(executor):
     """Executor should construct without errors."""

@@ -30,12 +30,12 @@ async def main():
 
     print("Initializing Home Assistant Mocks...")
     mock_hass = MagicMock()
+
     async def mock_add_executor_job(func, *args):
         return func(*args)
+
     mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
-    mock_hass.states.get.return_value = MagicMock(
-        attributes={"unit_of_measurement": "kWh"}
-    )
+    mock_hass.states.get.return_value = MagicMock(attributes={"unit_of_measurement": "kWh"})
 
     try:
         adelaide_tz = zoneinfo.ZoneInfo("Australia/Adelaide")
@@ -72,6 +72,7 @@ async def main():
     print(f"Total buckets generated: {len(prediction)}")
     print(f"Average kW per bucket : {total_kw / len(prediction):.2f} kW")
     print("=" * 45)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

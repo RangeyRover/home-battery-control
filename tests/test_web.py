@@ -5,6 +5,7 @@ Spec 2.2: Plan table columns.
 Spec 2.3: Authentication flags.
 Spec 3.1: Separate import/export rates in plan table.
 """
+
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -16,6 +17,7 @@ from homeassistant.core import HomeAssistant
 def mock_hass():
     """Mock HomeAssistant fixture."""
     return MagicMock(spec=HomeAssistant)
+
 
 # --- Plan Table Requirements (from system_requirements.md 2.2) ---
 
@@ -38,39 +40,46 @@ REQUIRED_PLAN_COLUMNS = [
 def test_web_module_importable():
     """web.py module should be importable."""
     from custom_components.house_battery_control.web import HBCDashboardView
+
     assert HBCDashboardView is not None
 
 
 def test_web_has_plan_view():
     """web.py should have a plan view class."""
     from custom_components.house_battery_control.web import HBCPlanView
+
     assert HBCPlanView is not None
 
 
 def test_web_has_api_status():
     """web.py should have a JSON API status view."""
     from custom_components.house_battery_control.web import HBCApiStatusView
+
     assert HBCApiStatusView is not None
 
 
 def test_web_has_api_ping():
     """web.py should have a health-check ping view."""
     from custom_components.house_battery_control.web import HBCApiPingView
+
     assert HBCApiPingView is not None
 
 
 # --- Auth Flags (Spec 2.3 — Custom Panel) ---
 # All views are public; auth handled by HA frontend framework for the panel.
 
+
 def test_dashboard_is_public():
     """Dashboard view must be public (spec 2.3 — panel handles auth)."""
     from custom_components.house_battery_control.web import HBCDashboardView
+
     assert HBCDashboardView.requires_auth is False
 
 
 def test_plan_is_public():
     """Plan view must be public."""
     from custom_components.house_battery_control.web import HBCPlanView
+
     assert HBCPlanView.requires_auth is False
 
 
@@ -95,16 +104,10 @@ async def test_dashboard_html_rendering_and_svg(mock_hass):
         "load_power": 1.5,
         "current_price": 12.3,
         "state": "IDLE",
-        "reason": "Stable operation"
+        "reason": "Stable operation",
     }
 
-    mock_hass.data = {
-        DOMAIN: {
-            "entry_1": {
-                "coordinator": mock_coord
-            }
-        }
-    }
+    mock_hass.data = {DOMAIN: {"entry_1": {"coordinator": mock_coord}}}
 
     response = await view.get(mock_request)
 
@@ -122,7 +125,7 @@ async def test_dashboard_html_rendering_and_svg(mock_hass):
     assert "Battery" in html
 
     # Assert statistics formatting
-    assert "66%" in html # Rounded from 65.5
+    assert "66%" in html  # Rounded from 65.5
     assert "4.1" in html
     assert "1.5" in html
     assert "IDLE" in html
@@ -130,10 +133,13 @@ async def test_dashboard_html_rendering_and_svg(mock_hass):
 
 # --- YAML Config Endpoint (Spec 4.1) ---
 
+
 def test_web_has_config_yaml_view():
     """web.py should have a YAML config export view (S2)."""
     import custom_components.house_battery_control.web as web
+
     assert hasattr(web, "HBCConfigYamlView"), "Missing HBCConfigYamlView for YAML export"
+
 
 @pytest.mark.asyncio
 async def test_config_yaml_handles_mappingproxytype():
@@ -149,11 +155,7 @@ async def test_config_yaml_handles_mappingproxytype():
     mock_request = MagicMock()
     mock_hass = MagicMock()
     mock_hass.data = {
-        DOMAIN: {
-            "entry_1": {
-                "config": MappingProxyType({"foo": "bar", "capacity": 27.0})
-            }
-        }
+        DOMAIN: {"entry_1": {"config": MappingProxyType({"foo": "bar", "capacity": 27.0})}}
     }
     mock_request.app = {"hass": mock_hass}
 
@@ -163,6 +165,7 @@ async def test_config_yaml_handles_mappingproxytype():
 
 
 # --- Retroactive JS Data Structure Tests (S3) ---
+
 
 def test_js_plan_data_structures():
     """Verify the data structures expected by the JS Plan tab are maintained (S3)."""
@@ -177,9 +180,7 @@ def test_js_plan_data_structures():
         "rates": [
             {"start": "2026-02-19T13:30:00+00:00", "import_price": 25.0, "export_price": 8.0}
         ],
-        "solar_forecast": [
-            {"start": "2026-02-19T13:30:00+00:00", "kw": 3.4}
-        ]
+        "solar_forecast": [{"start": "2026-02-19T13:30:00+00:00", "kw": 3.4}],
     }
     status = build_status_data(mock_data)
 
@@ -197,22 +198,26 @@ def test_js_plan_data_structures():
 def test_api_status_is_public():
     """API status must be public (spec 2.3 — consumed by panel JS)."""
     from custom_components.house_battery_control.web import HBCApiStatusView
+
     assert HBCApiStatusView.requires_auth is False
 
 
 def test_api_ping_public():
     """Ping endpoint must be public (spec 2.3)."""
     from custom_components.house_battery_control.web import HBCApiPingView
+
     assert HBCApiPingView.requires_auth is False
 
 
 def test_load_history_api_public():
     """Load history API must be public."""
     from custom_components.house_battery_control.web import HBCLoadHistoryView
+
     assert HBCLoadHistoryView.requires_auth is False
 
 
 # --- Plan Table ---
+
 
 def _make_plan_data(**overrides):
     """Helper: build minimal plan table input data."""
@@ -229,9 +234,7 @@ def _make_plan_data(**overrides):
                 "type": "ACTUAL",
             }
         ],
-        "solar_forecast": [
-            {"start": datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc), "kw": 3.0}
-        ],
+        "solar_forecast": [{"start": datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc), "kw": 3.0}],
         "load_forecast": [0.5],
         "capacity": 27.0,
         "charge_rate_max": 6.3,
@@ -251,9 +254,7 @@ def _build_test_table(data):
     coord = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
     coord.fsm = MagicMock()
     coord.fsm.calculate_next_state.return_value = SimpleNamespace(
-        state=data.get("state", "IDLE"),
-        limit_kw=0.0,
-        reason="Test"
+        state=data.get("state", "IDLE"), limit_kw=0.0, reason="Test"
     )
     coord.capacity_kwh = data.get("capacity", 27.0)
     coord.inverter_limit_kw = data.get("inverter_limit", 10.0)
@@ -264,7 +265,7 @@ def _build_test_table(data):
         load_forecast=data.get("load_forecast", []),
         weather=data.get("weather", []),
         current_soc=data.get("soc", 50.0),
-        current_state=data.get("state", "IDLE")
+        current_state=data.get("state", "IDLE"),
     )
 
 
@@ -286,8 +287,9 @@ def test_plan_table_uses_actual_export_rate():
 
     table = _build_test_table(_make_plan_data())
     row = table[0]
-    assert row["Export Rate"] == "8.00", \
+    assert row["Export Rate"] == "8.00", (
         f"Export Rate should be 8.00 from data, got {row['Export Rate']}"
+    )
 
 
 def test_plan_table_time_format():
@@ -295,16 +297,16 @@ def test_plan_table_time_format():
     import re
 
     data = _make_plan_data(
-        rates=[{
-            "start": datetime(2025, 6, 15, 14, 30, tzinfo=timezone.utc),
-            "end": datetime(2025, 6, 15, 14, 35, tzinfo=timezone.utc),
-            "import_price": 20.0,
-            "export_price": 8.0,
-            "type": "ACTUAL",
-        }],
-        solar_forecast=[
-            {"start": datetime(2025, 6, 15, 14, 30, tzinfo=timezone.utc), "kw": 3.0}
+        rates=[
+            {
+                "start": datetime(2025, 6, 15, 14, 30, tzinfo=timezone.utc),
+                "end": datetime(2025, 6, 15, 14, 35, tzinfo=timezone.utc),
+                "import_price": 20.0,
+                "export_price": 8.0,
+                "type": "ACTUAL",
+            }
         ],
+        solar_forecast=[{"start": datetime(2025, 6, 15, 14, 30, tzinfo=timezone.utc), "kw": 3.0}],
     )
 
     table = _build_test_table(data)
@@ -321,34 +323,44 @@ def test_plan_table_interpolates_mixed_intervals():
     # 1st row: 5 min. 2nd row: 30 min.
     rates = [
         {"start": start_time, "end": start_time + dt.timedelta(minutes=5), "price": 10.0},
-        {"start": start_time + dt.timedelta(minutes=5), "end": start_time + dt.timedelta(minutes=35), "price": 12.0}
+        {
+            "start": start_time + dt.timedelta(minutes=5),
+            "end": start_time + dt.timedelta(minutes=35),
+            "price": 12.0,
+        },
     ]
 
     # PV: Hourly block "12:00" = 6.0 kW total.
     solar_forecast = [
-        {"period_start": start_time.isoformat(), "pv_estimate": 3.0}, # First 30 mins
-        {"period_start": (start_time + dt.timedelta(minutes=30)).isoformat(), "pv_estimate": 3.0} # Second 30 mins
+        {"period_start": start_time.isoformat(), "pv_estimate": 3.0},  # First 30 mins
+        {
+            "period_start": (start_time + dt.timedelta(minutes=30)).isoformat(),
+            "pv_estimate": 3.0,
+        },  # Second 30 mins
     ]
 
     # Load: 5 min blocks
     load_forecast = [
-        {"start": start_time.isoformat(), "kw": 1.0}, # 12:00 - 12:05
-        {"start": (start_time + dt.timedelta(minutes=5)).isoformat(), "kw": 2.0}, # 12:05 - 12:10
-        {"start": (start_time + dt.timedelta(minutes=10)).isoformat(), "kw": 4.0}, # 12:10 - 12:15
+        {"start": start_time.isoformat(), "kw": 1.0},  # 12:00 - 12:05
+        {"start": (start_time + dt.timedelta(minutes=5)).isoformat(), "kw": 2.0},  # 12:05 - 12:10
+        {"start": (start_time + dt.timedelta(minutes=10)).isoformat(), "kw": 4.0},  # 12:10 - 12:15
         # Avg for the 30-min row (assuming these 2 match inside it, others missing/0) = 3.0
     ]
 
     # Weather
     weather = [
-        {"datetime": start_time - dt.timedelta(minutes=10), "temperature": 15.0}, # Closest to 12:00 row
-        {"datetime": start_time + dt.timedelta(minutes=40), "temperature": 20.0}  # Closest to 12:05 (30min) row? Diff to 12:05 is 35min. Diff from 15.0 to 12:05 is 15min. So 15.0 should win!
+        {
+            "datetime": start_time - dt.timedelta(minutes=10),
+            "temperature": 15.0,
+        },  # Closest to 12:00 row
+        {
+            "datetime": start_time + dt.timedelta(minutes=40),
+            "temperature": 20.0,
+        },  # Closest to 12:05 (30min) row? Diff to 12:05 is 35min. Diff from 15.0 to 12:05 is 15min. So 15.0 should win!
     ]
 
     data = _make_plan_data(
-        rates=rates,
-        solar_forecast=solar_forecast,
-        load_forecast=load_forecast,
-        weather=weather
+        rates=rates, solar_forecast=solar_forecast, load_forecast=load_forecast, weather=weather
     )
 
     table = _build_test_table(data)
@@ -366,14 +378,15 @@ def test_plan_table_interpolates_mixed_intervals():
     assert row_5m["PV Forecast"] == "0.25"
     assert row_30m["PV Forecast"] == "1.50"
 
-    # 3. Load average
-    # 5 min row (12:00-12:05) matches only the first load block (1.0). Total avg = 1.0
-    assert row_5m["Load Forecast"] == "1.00"
-    # 30 min row (12:05-12:35) matches the next two load blocks (2.0 and 4.0). Avg = 3.0
-    assert row_30m["Load Forecast"] == "3.00"
+    # 3. Load Integrated Energy (kWh)
+    # 5 min row (12:00-12:05) matches only the first load block (1.0kW). Energy = 1.0 * (5/60) = 0.08 kWh
+    assert row_5m["Load Forecast"] == "0.08"
+    # 30 min row (12:05-12:35) matches the next two load blocks (2.0kW and 4.0kW). Avg = 3.0kW. Energy = 3.0 * (30/60) = 1.50 kWh
+    assert row_30m["Load Forecast"] == "1.50"
 
 
 # --- API Status ---
+
 
 def test_api_status_returns_dict():
     """Status API helper should return a dict with key fields."""
@@ -400,6 +413,7 @@ def test_api_status_returns_dict():
 
 # --- Power Flow Diagram ---
 
+
 def test_power_flow_svg():
     """Power flow diagram generator must return valid SVG string."""
     from custom_components.house_battery_control.web import build_power_flow_svg
@@ -422,6 +436,7 @@ def test_power_flow_svg():
 
 # --- API Diagnostics (Spec 2.4 — Full Passthrough) ---
 
+
 def test_build_status_data_passes_all_coordinator_keys():
     """build_status_data must pass through ALL coordinator data, not cherry-pick (spec 2.4)."""
     from custom_components.house_battery_control.web import build_status_data
@@ -439,7 +454,9 @@ def test_build_status_data_passes_all_coordinator_keys():
         "export_today": 4.1,
         # Pricing
         "current_price": 25.5,
-        "rates": [{"start": "2025-06-15T00:00:00+00:00", "import_price": 25.5, "export_price": 8.0}],
+        "rates": [
+            {"start": "2025-06-15T00:00:00+00:00", "import_price": 25.5, "export_price": 8.0}
+        ],
         # Forecasts
         "weather": [{"temperature": 22.0}],
         "solar_forecast": [{"kw": 3.0}],
@@ -455,7 +472,12 @@ def test_build_status_data_passes_all_coordinator_keys():
         "plan_html": "<p>Plan</p>",
         # Diagnostics
         "sensors": [
-            {"entity_id": "sensor.soc", "state": "75.0", "available": True, "attributes": {"unit": "%"}},
+            {
+                "entity_id": "sensor.soc",
+                "state": "75.0",
+                "available": True,
+                "attributes": {"unit": "%"},
+            },
         ],
         "last_update": "2025-06-15T12:00:00+00:00",
         "update_count": 42,
@@ -510,10 +532,12 @@ def test_plan_html_includes_local_time_column():
     # Verify that "Local Time" is present in both the headers and row generators.
     # We inspect the source code by calling the internal column list.
     import inspect
+
     source = inspect.getsource(view.get)
 
-    assert '"Local Time"' in source, \
+    assert '"Local Time"' in source, (
         "HBCPlanView.get() must include 'Local Time' in its column list"
+    )
 
 
 @pytest.mark.asyncio
@@ -534,15 +558,12 @@ async def test_load_history_api_returns_data(mock_hass):
     mock_predictor.last_history_raw = [[{"state": "10.0"}]]
 
     mock_hass.data = {
-        DOMAIN: {
-            "entry_1": {
-                "coordinator": MagicMock(load_predictor=mock_predictor)
-            }
-        }
+        DOMAIN: {"entry_1": {"coordinator": MagicMock(load_predictor=mock_predictor)}}
     }
 
     response = await view.get(mock_request)
     import json
+
     data = json.loads(response.text)
 
     # Asserts testing the REST-equivalent 2D array payload schema

@@ -34,6 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CACHE_MAX_SIZE = 2**20
 
+
 class Period(object):
     def __init__(self, price_sell, price_buy, load, pv, balance, timesteps=None):
         self.price_sell = price_sell
@@ -47,6 +48,7 @@ class Period(object):
     def __len__(self):
         return self._len
 
+
 class FakeBattery:
     def __init__(self, capacity, current_charge, charge_limit, discharge_limit):
         self.capacity = capacity
@@ -57,8 +59,9 @@ class FakeBattery:
         self.charging_efficiency = 0.95
         self.discharging_efficiency = 0.95
 
+
 class PeriodOptimizer(object):
-    def __init__(self, period, battery, allow_end_optimization=True):
+    def __init__(self, period, battery, allow_end_optimization=True, lookahead_blocks=36):
         self.period = period
         self.battery = battery
         self.period_summary = summarize_period(period, battery)
@@ -70,19 +73,21 @@ class PeriodOptimizer(object):
         self.cost = None
         self.max_charge_variations = self._compute_max_charge_variation()
         self.balance_matches = self._compute_exact_balance_match()
-        self.is_low_price = self._compute_is_low_price(3)
-        self.is_wait_condition = self._compute_is_low_price(1)
+        self.is_low_price = self._compute_is_low_price(lookahead_blocks)
+        self.is_wait_condition = self._compute_is_low_price(max(1, lookahead_blocks // 3))
         self.allow_end_optimization = allow_end_optimization
 
     def optimize(self):
         # We need to use integer epochs here: 0, 1, ..., len
         initial_charge = float(self.battery.current_charge)
-        self.cost, self.policy = self._find_best_cost_and_policy(initial_charge, 0, len(self.period_summary))
+        self.cost, self.policy = self._find_best_cost_and_policy(
+            initial_charge, 0, len(self.period_summary)
+        )
         return self.policy
 
     @lru_cache(maxsize=CACHE_MAX_SIZE)
     def _find_best_cost_and_policy(self, initial_charge, initial_epoch, end_epoch):
-        initial_charge = round(initial_charge, 5) # Prevent cache miss due to floats
+        initial_charge = round(initial_charge, 5)  # Prevent cache miss due to floats
         if initial_epoch == end_epoch:
             return 0, []
 
@@ -91,7 +96,7 @@ class PeriodOptimizer(object):
         paths = []
         for target_charge in target_charge_range:
             cost = self._block_cost(initial_charge, target_charge, initial_epoch)
-            ret = self._find_best_cost_and_policy(target_charge, initial_epoch+1, end_epoch)
+            ret = self._find_best_cost_and_policy(target_charge, initial_epoch + 1, end_epoch)
             costs.append(cost + ret[0])
             paths.append([target_charge] + ret[1])
 
@@ -117,8 +122,8 @@ class PeriodOptimizer(object):
         else:
             if self.is_wait_condition[block_idx]:
                 if block_idx < len(self.period_summary) - 1:
-                    next_balance_match = self.balance_matches[block_idx+1]
-                    target_battery = - next_balance_match
+                    next_balance_match = self.balance_matches[block_idx + 1]
+                    target_battery = -next_balance_match
                     battery_change = target_battery - current_charge
                     if target_battery - current_charge > 0:
                         battery_change = min(battery_change, max_battery_charge)
@@ -128,6 +133,10 @@ class PeriodOptimizer(object):
 
         if self.is_low_price[block_idx]:
             target_battery_range.append(current_charge + max_battery_charge)
+        else:
+            # We are at a high price peak! Allow the engine to explore full grid-exporting
+            # to validate if selling excess charge generates mathematical profit.
+            target_battery_range.append(current_charge + max_battery_discharge)
 
         optimize_end = self.allow_end_optimization and len(self.period_summary) - block_idx < 4
         if optimize_end:
@@ -140,7 +149,7 @@ class PeriodOptimizer(object):
 
     @lru_cache(maxsize=CACHE_MAX_SIZE)
     def _block_cost(self, current_charge, target_charge, block_idx):
-        battery_energy = (target_charge - current_charge)*self.battery.capacity
+        battery_energy = (target_charge - current_charge) * self.battery.capacity
         if battery_energy > 0:
             battery_energy /= self.battery.charging_efficiency
         else:
@@ -150,19 +159,29 @@ class PeriodOptimizer(object):
 
         if total_balance < 0:
             price_sell = self.period_summary.price_sell[block_idx]
-            cost = total_balance*price_sell
+            cost = total_balance * price_sell
         else:
             price_buy = self.period_summary.price_buy[block_idx]
-            cost = total_balance*price_buy
-        return cost/1000
+            cost = total_balance * price_buy
+        return cost / 1000
 
     def _compute_max_charge_variation(self):
         max_charge_variations = []
         for block_idx, _ in enumerate(self.period_summary.balance):
             # ADAPTATION: 5-minute ticks -> hours = timesteps * (5/60)
             hours = self.period_summary.timesteps[block_idx] * (5.0 / 60.0)
-            max_battery_charge = hours*self.battery.charging_power_limit/self.battery.capacity*self.battery.charging_efficiency
-            max_battery_discharge = hours*(-self.battery.discharging_power_limit)/self.battery.capacity/self.battery.discharging_efficiency
+            max_battery_charge = (
+                hours
+                * self.battery.charging_power_limit
+                / self.battery.capacity
+                * self.battery.charging_efficiency
+            )
+            max_battery_discharge = (
+                hours
+                * (-self.battery.discharging_power_limit)
+                / self.battery.capacity
+                / self.battery.discharging_efficiency
+            )
             # Ensure discharge is negative logic
             if max_battery_discharge > 0:
                 max_battery_discharge = -max_battery_discharge
@@ -172,7 +191,9 @@ class PeriodOptimizer(object):
     def _compute_exact_balance_match(self):
         balance_matches = []
         for block_idx, _ in enumerate(self.period_summary.balance):
-            battery_change = energy_to_battery_change(-self.period_summary.balance[block_idx], self.battery)
+            battery_change = energy_to_battery_change(
+                -self.period_summary.balance[block_idx], self.battery
+            )
             max_battery_charge, max_battery_discharge = self.max_charge_variations[block_idx]
             if battery_change > 0:
                 balance_matches.append(min(battery_change, max_battery_charge))
@@ -183,11 +204,11 @@ class PeriodOptimizer(object):
     def _compute_is_low_price(self, n_blocks):
         prices = self.period_summary.price_buy
         is_low_price = [0] * len(prices)
-        if len(prices) > n_blocks:
-            for i in range(1, n_blocks + 1):
-                for j in range(len(prices) - i):
-                    if prices[j] < prices[j + i]:
-                        is_low_price[j] = 1
+        actual_blocks = min(n_blocks, len(prices) - 1)
+        for i in range(1, actual_blocks + 1):
+            for j in range(len(prices) - i):
+                if prices[j] < prices[j + i]:
+                    is_low_price[j] = 1
         return is_low_price
 
     def get_fine_grain_policy(self, n_steps_required=None):
@@ -195,9 +216,10 @@ class PeriodOptimizer(object):
         policy = [self._initial_battery_charge] + self.policy
         timestep_idx = 0
         for i, n_steps in enumerate(self.period_summary.timesteps):
-            block_timestep_balances = self.period.balance[timestep_idx:timestep_idx + n_steps]
+            block_timestep_balances = self.period.balance[timestep_idx : timestep_idx + n_steps]
             fine_grain_policy += get_fine_grain_policy_for_block(
-                i, policy, self.period_summary.balance, block_timestep_balances, self.battery)
+                i, policy, self.period_summary.balance, block_timestep_balances, self.battery
+            )
             timestep_idx += n_steps
             if n_steps_required is not None and timestep_idx >= n_steps_required:
                 break
@@ -206,13 +228,17 @@ class PeriodOptimizer(object):
     def get_fine_grain_policy_for_timestep(self, timestep_idx, timestep_balance, current_charge):
         policy = [self._initial_battery_charge] + self.policy
         if len(policy) < 2:
-            return current_charge # Failsafe
+            return current_charge  # Failsafe
 
         next_charge = get_fine_grain_policy_for_timestep(
-            timestep_idx, policy, balances=self.period_summary.balance,
-            timestep_balance=timestep_balance, battery=self.battery,
+            timestep_idx,
+            policy,
+            balances=self.period_summary.balance,
+            timestep_balance=timestep_balance,
+            battery=self.battery,
             block_length=self.period_summary.timesteps[0],
-            current_charge=current_charge)
+            current_charge=current_charge,
+        )
         return next_charge
 
 
@@ -221,8 +247,8 @@ def summarize_period(period, battery=None):
     energy_balance = period.balance
     if battery is not None:
         # ADAPTATION: Multiply by 5/60 to translate kW to kWh for a 5 min chunk
-        lower_bound = -battery.discharging_power_limit*(5.0/60.0)
-        upper_bound = battery.charging_power_limit*(5.0/60.0)
+        lower_bound = -battery.discharging_power_limit * (5.0 / 60.0)
+        upper_bound = battery.charging_power_limit * (5.0 / 60.0)
         energy_balance = [max(lower_bound, min(upper_bound, e)) for e in energy_balance]
 
     start_points, end_points = find_division_points(period)
@@ -230,10 +256,11 @@ def summarize_period(period, battery=None):
         balance.append(sum(energy_balance[start:end]))
         price_buy.append(period.price_buy[start])
         price_sell.append(period.price_sell[start])
-        timesteps.append(end-start)
+        timesteps.append(end - start)
 
     period = Period(list(price_sell), list(price_buy), None, None, list(balance), timesteps)
     return period
+
 
 def find_division_points(period):
     price_buy_change_points = _find_price_change_points(period.price_buy)
@@ -241,48 +268,64 @@ def find_division_points(period):
     balance_change_points = _find_balance_change_points(period)
 
     # Pad to length
-    division_points = [a + b + c for a, b, c in zip(price_buy_change_points, price_sell_change_points, balance_change_points)]
+    division_points = [
+        a + b + c
+        for a, b, c in zip(price_buy_change_points, price_sell_change_points, balance_change_points)
+    ]
     division_indices = [i + 1 for i, v in enumerate(division_points) if v > 0]
     start_points = [0] + division_indices
     end_points = division_indices + [len(period)]
     return start_points, end_points
 
+
 def _find_price_change_points(prices):
     if len(prices) < 2:
         return []
-    return [1 if prices[i] != prices[i+1] else 0 for i in range(len(prices)-1)] + [0] # match zip sizing correctly by not padding until loop but actually needs padding to length-1!
-    
+    return (
+        [1 if prices[i] != prices[i + 1] else 0 for i in range(len(prices) - 1)] + [0]
+    )  # match zip sizing correctly by not padding until loop but actually needs padding to length-1!
+
+
 def _find_balance_change_points(period):
     energy_balance = period.balance
     if len(energy_balance) < 2:
         return []
     balance_change_points = []
-    for i in range(len(energy_balance)-1):
+    for i in range(len(energy_balance) - 1):
         sgn1 = 1 if energy_balance[i] > 0 else (-1 if energy_balance[i] < 0 else 0)
-        sgn2 = 1 if energy_balance[i+1] > 0 else (-1 if energy_balance[i+1] < 0 else 0)
+        sgn2 = 1 if energy_balance[i + 1] > 0 else (-1 if energy_balance[i + 1] < 0 else 0)
         balance_change_points.append(1 if sgn1 != sgn2 else 0)
     return balance_change_points
 
+
 def get_fine_grain_policy_for_block(i, policy, balances, timestep_balances, battery):
-    battery_change = policy[i+1] - policy[i]
+    battery_change = policy[i + 1] - policy[i]
     balance = balances[i]
     initial_charge = policy[i]
     n_steps = len(timestep_balances)
 
     if battery_change == 0:
-        return [initial_charge]*n_steps
-    elif balance*battery_change < 0:
+        return [initial_charge] * n_steps
+    elif balance * battery_change < 0:
         return _sincronize_battery_and_system(
-            initial_charge=policy[i], final_charge=policy[i+1], balance=balance,
-            battery=battery, timestep_balances=timestep_balances)
+            initial_charge=policy[i],
+            final_charge=policy[i + 1],
+            balance=balance,
+            battery=battery,
+            timestep_balances=timestep_balances,
+        )
     else:
-        return _distribute_change_over_timesteps(n_steps, initial_charge=policy[i],
-                                                 final_charge=policy[i+1])
+        return _distribute_change_over_timesteps(
+            n_steps, initial_charge=policy[i], final_charge=policy[i + 1]
+        )
 
-def _sincronize_battery_and_system(initial_charge, final_charge, balance, battery, timestep_balances):
+
+def _sincronize_battery_and_system(
+    initial_charge, final_charge, balance, battery, timestep_balances
+):
     battery_energy = battery_change_to_energy(final_charge - initial_charge, battery)
     if balance == 0:
-        return [initial_charge]*len(timestep_balances)
+        return [initial_charge] * len(timestep_balances)
     ratio = battery_energy / balance
     fine_grain_policy = []
     previous_charge = initial_charge
@@ -296,12 +339,14 @@ def _sincronize_battery_and_system(initial_charge, final_charge, balance, batter
     fine_grain_policy = [max(lower_bound, min(upper_bound, x)) for x in fine_grain_policy]
     return fine_grain_policy
 
+
 def _timestep_balance_to_battery_change(timestep_balance, ratio, battery):
     timestep_balance *= ratio
     # ADAPTATION: 5 min chunk
-    timestep_balance = apply_battery_power_limit(timestep_balance, 5.0/60.0, battery)
+    timestep_balance = apply_battery_power_limit(timestep_balance, 5.0 / 60.0, battery)
     battery_change = energy_to_battery_change(timestep_balance, battery)
     return battery_change
+
 
 def _distribute_change_over_timesteps(n_steps, initial_charge, final_charge):
     step_size = (initial_charge - final_charge) / n_steps
@@ -309,12 +354,13 @@ def _distribute_change_over_timesteps(n_steps, initial_charge, final_charge):
     fine_grain_policy = fine_grain_policy[::-1]
     return fine_grain_policy
 
-def get_fine_grain_policy_for_timestep(timestep_idx, policy, balances,
-                                       timestep_balance, battery, block_length,
-                                       current_charge):
+
+def get_fine_grain_policy_for_timestep(
+    timestep_idx, policy, balances, timestep_balance, battery, block_length, current_charge
+):
     block_idx = 0
     initial_charge = policy[block_idx]
-    final_charge = policy[block_idx+1]
+    final_charge = policy[block_idx + 1]
     battery_change = final_charge - initial_charge
     balance = balances[block_idx]
 
@@ -327,7 +373,7 @@ def get_fine_grain_policy_for_timestep(timestep_idx, policy, balances,
 
     if battery_change == 0:
         return current_charge
-    elif balance*battery_change < 0:
+    elif balance * battery_change < 0:
         battery_energy = battery_change_to_energy(final_charge - initial_charge, battery)
         if balance == 0:
             return current_charge
@@ -339,16 +385,18 @@ def get_fine_grain_policy_for_timestep(timestep_idx, policy, balances,
         next_charge = max(lower_bound, min(upper_bound, next_charge))
         return next_charge
     else:
-        return (final_charge - current_charge)/remaining_steps + current_charge
+        return (final_charge - current_charge) / remaining_steps + current_charge
+
 
 def battery_change_to_energy(battery_change, battery):
-    energy = battery_change*battery.capacity
+    energy = battery_change * battery.capacity
     is_charging = energy > 0
     if is_charging:
         energy /= battery.charging_efficiency
     else:
         energy *= battery.discharging_efficiency
     return energy
+
 
 def energy_to_battery_change(energy, battery):
     is_charging = energy > 0
@@ -359,12 +407,17 @@ def energy_to_battery_change(energy, battery):
     battery_change = energy / battery.capacity
     return battery_change
 
+
 def apply_battery_power_limit(energy, hours, battery):
-    return max(-battery.discharging_power_limit*hours, min(battery.charging_power_limit*hours, energy))
+    return max(
+        -battery.discharging_power_limit * hours, min(battery.charging_power_limit * hours, energy)
+    )
+
 
 # ==========================================================
 # WRAPPER FOR FSM
 # ==========================================================
+
 
 class DpBatteryController(object):
     def __init__(self):
@@ -377,19 +430,25 @@ class DpBatteryController(object):
         self.PERIOD_DURATION = 288
         self.FORECAST_LENGTH = 288
 
-    def propose_state_of_charge(self, battery, current_balance, price_sell, price_buy, pv_forecast, load_forecast):
+    def propose_state_of_charge(
+        self, battery, current_balance, price_sell, price_buy, pv_forecast, load_forecast
+    ):
         # Dynamic Programming solver treats every call statelessly based on the forecast provided.
         balance = [ld - pv for ld, pv in zip(load_forecast, pv_forecast)]
         balance[0] = current_balance
 
         period = Period(price_sell, price_buy, load_forecast, pv_forecast, balance)
+        horizon_length = len(balance)
 
-        optimizer = PeriodOptimizer(period, battery, allow_end_optimization=False)
+        optimizer = PeriodOptimizer(
+            period, battery, allow_end_optimization=False, lookahead_blocks=horizon_length
+        )
         self.optimizer = optimizer
         optimizer.optimize()
 
         next_state = optimizer.get_fine_grain_policy_for_timestep(
-            self.timestep_idx, current_balance, battery.current_charge)
+            self.timestep_idx, current_balance, battery.current_charge
+        )
 
         # Failsafe
         if next_state is None:
@@ -403,14 +462,13 @@ class DpBatteryStateMachine(BatteryStateMachine):
     """
     Experimental implementation using Dynamic Programming translation from Data Competition.
     """
+
     def __init__(self):
         self.controller = DpBatteryController()
 
     def calculate_next_state(self, context: FSMContext) -> FSMResult:
         forecast_len = min(
-            len(context.forecast_price),
-            len(context.forecast_solar),
-            len(context.forecast_load)
+            len(context.forecast_price), len(context.forecast_solar), len(context.forecast_load)
         )
         if forecast_len < 1:
             return FSMResult(state="IDLE", limit_kw=0.0, reason="Forecast too short")
@@ -435,27 +493,30 @@ class DpBatteryStateMachine(BatteryStateMachine):
             if isinstance(context.forecast_solar[t], dict):
                 pv_f[t] = float(context.forecast_solar[t].get("kw", 0.0))
             else:
-                pv_f[t] = float(context.forecast_solar[t])
+                pv_f[t] = float(context.forecast_solar[t])  # type: ignore
 
             if isinstance(context.forecast_load[t], dict):
-                load_f[t] = float(context.forecast_load[t].get("kw", 0.0))
+                load_f[t] = float(context.forecast_load[t].get("kw", 0.0))  # type: ignore
             else:
-                load_f[t] = float(context.forecast_load[t])
+                load_f[t] = float(context.forecast_load[t])  # type: ignore
 
         # ADAPTATION: Convert Power (kW) to discrete 5-minute Energy blocks (kWh) for the mathematical PeriodOptimizer
         # The optimizer explicitly bounds against fractional kWh chunks.
         load_f = [kw * (5.0 / 60.0) for kw in load_f]
         pv_f = [kw * (5.0 / 60.0) for kw in pv_f]
 
-        capacity = max(13.5, context.config.get("battery_capacity", context.config.get("capacity_kwh", 27.0)))
-        limit_kw = max(6.3, context.config.get("inverter_limit", context.config.get("inverter_limit_kw", 10.0)))
+        capacity = max(
+            13.5, context.config.get("battery_capacity", context.config.get("capacity_kwh", 27.0))
+        )
+        limit_kw_charge = float(context.config.get("battery_rate_max", 6.3))
+        limit_kw_discharge = float(context.config.get("inverter_limit", 10.0))
         current_soc_perc = max(0.0, min(100.0, context.soc)) / 100.0
 
         battery = FakeBattery(
             capacity=capacity,
             current_charge=current_soc_perc,
-            charge_limit=limit_kw,
-            discharge_limit=limit_kw
+            charge_limit=limit_kw_charge,
+            discharge_limit=limit_kw_discharge,
         )
 
         current_balance = (context.load_power - context.solar_production) * (5.0 / 60.0)
@@ -492,9 +553,36 @@ class DpBatteryStateMachine(BatteryStateMachine):
 
         if power_kw > 0.1:
             req_power = power_kw / battery.charging_efficiency
-            return FSMResult(state="CHARGE_GRID", limit_kw=round(min(limit_kw, req_power), 2), reason="DP Optimized Charge")
+            return FSMResult(
+                state="CHARGE_GRID",
+                limit_kw=round(min(limit_kw_charge, req_power), 2),
+                reason="DP Optimized Charge",
+                target_soc=target_soc_perc * 100.0,
+            )
         elif power_kw < -0.1:
             req_power = abs(power_kw) * battery.discharging_efficiency
-            return FSMResult(state="DISCHARGE_HOME", limit_kw=round(min(limit_kw, req_power), 2), reason="DP Optimized Discharge")
+            net_home_load = context.load_power - context.solar_production
 
-        return FSMResult(state="IDLE", limit_kw=0.0, reason="DP Optimization: Idle optimal")
+            # If the engine is demanding we discharge more than the house actually needs,
+            # it implies it mathematically budgeted for selling energy to the grid.
+            if req_power > max(0.0, net_home_load) + 0.1:
+                return FSMResult(
+                    state="DISCHARGE_GRID",
+                    limit_kw=round(min(limit_kw_discharge, req_power), 2),
+                    reason="DP Optimized Grid Export",
+                    target_soc=target_soc_perc * 100.0,
+                )
+            else:
+                return FSMResult(
+                    state="DISCHARGE_HOME",
+                    limit_kw=round(min(limit_kw_discharge, req_power), 2),
+                    reason="DP Optimized Home Discharge",
+                    target_soc=target_soc_perc * 100.0,
+                )
+
+        return FSMResult(
+            state="IDLE",
+            limit_kw=0.0,
+            reason="DP Optimization: Idle optimal",
+            target_soc=target_soc_perc * 100.0,
+        )

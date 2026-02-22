@@ -1,4 +1,5 @@
 """Reproduction script for Phase 17 Truth Table verification."""
+
 import datetime as dt
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,11 +12,14 @@ from homeassistant.core import HomeAssistant, State
 def mock_hass():
     mock = MagicMock(spec=HomeAssistant)
     mock.states = MagicMock()
+
     # Mock executor job
     async def mock_add_executor_job(func, *args):
         return func(*args)
+
     mock.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
     return mock
+
 
 @pytest.mark.asyncio
 async def test_load_truth_table_repro(mock_hass):
@@ -41,9 +45,7 @@ async def test_load_truth_table_repro(mock_hass):
     # JSON data is mostly 2026-02-15.
     # So start should be 2026-02-22.
 
-    mock_hass.states.get.return_value = MagicMock(
-        attributes={"unit_of_measurement": "kWh"}
-    )
+    mock_hass.states.get.return_value = MagicMock(attributes={"unit_of_measurement": "kWh"})
 
     # Mock states from user JSON (subset around 02:30 - 04:00 period)
     # "15.9135" at "2026-02-15T02:29:48"
@@ -69,7 +71,7 @@ async def test_load_truth_table_repro(mock_hass):
 
     with patch(
         "custom_components.house_battery_control.load.history.get_significant_states",
-        return_value={"sensor.load": mock_states}
+        return_value={"sensor.load": mock_states},
     ):
         # We test the predicted slots around the high delta (05:40 - 05:45)
         # 7 days later = 2026-02-22 05:40
@@ -83,8 +85,8 @@ async def test_load_truth_table_repro(mock_hass):
             duration_hours=1,
             load_entity_id="sensor.load",
             temp_forecast=temp_forecast,
-            high_sensitivity=1.0, # Default was aggressive
-            high_threshold=25.0
+            high_sensitivity=1.0,  # Default was aggressive
+            high_threshold=25.0,
         )
 
         # Base math for 05:40 slot:

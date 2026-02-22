@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime, timedelta
-from typing import List
+from typing import Any, List
 
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -12,18 +13,19 @@ class LoadPredictor:
 
     def __init__(self, hass: HomeAssistant):
         self._hass = hass
-        self.last_history = []
+        self.last_history_raw: list[list[dict]] = []
+        self.last_history: list[dict] = []
 
     async def async_predict(
         self,
         start_time: datetime,
-        temp_forecast: List[dict] = None,
+        temp_forecast: List[Any] | None = None,
         high_sensitivity: float = 0.0,
         low_sensitivity: float = 0.0,
         high_threshold: float = 25.0,
         low_threshold: float = 15.0,
         duration_hours: int = 24,
-        load_entity_id: str = None,
+        load_entity_id: str | None = None,
         max_load_kw: float = 4.0,
     ) -> List[dict]:
         """
@@ -36,10 +38,15 @@ class LoadPredictor:
         current = start_time
 
         # Robustly detect if this is an energy sensor (kWh) or power sensor (kW)
+        if not load_entity_id:
+            return []
+            
+        # Get history for the specified duration
+        end_time = dt_util.utcnow()
+        state = self._hass.states.get(load_entity_id)
         is_energy_sensor = False
-        current_state = self._hass.states.get(load_entity_id)
-        if current_state:
-            unit = current_state.attributes.get("unit_of_measurement", "").lower()
+        if state:
+            unit = state.attributes.get("unit_of_measurement", "").lower()
             if "wh" in unit:  # kWh, Wh, mWh
                 is_energy_sensor = True
 
@@ -49,7 +56,6 @@ class LoadPredictor:
 
         # Fetch history via internal API exactly 5 days up to start_time
         if load_entity_id and not getattr(self, "testing_bypass_history", False):
-
             from homeassistant.components.recorder import history
 
             end_date = start_time
@@ -57,23 +63,29 @@ class LoadPredictor:
 
             try:
                 states_dict = await self._hass.async_add_executor_job(
-                    history.get_significant_states, self._hass, start_date, end_date, [load_entity_id]
+                    history.get_significant_states,
+                    self._hass,
+                    start_date,
+                    end_date,
+                    [load_entity_id],
                 )
                 historic_states_raw = states_dict.get(load_entity_id, [])
 
                 # Format to exact REST API match
                 formatted_states = []
                 for s in historic_states_raw:
-                    formatted_states.append({
-                        "entity_id": s.entity_id,
-                        "state": s.state,
-                        # Preserve exact isoformat with original timezone (like +00:00)
-                        # We use .replace(microsecond=0) because standard HA REST API
-                        # usually trims microseconds in this endpoint.
-                        "last_changed": s.last_changed.replace(microsecond=0).isoformat(),
-                        "last_updated": s.last_updated.replace(microsecond=0).isoformat(),
-                        "attributes": dict(s.attributes),
-                    })
+                    formatted_states.append(
+                        {
+                            "entity_id": s.entity_id,  # type: ignore
+                            "state": s.state,  # type: ignore
+                            # Preserve exact isoformat with original timezone (like +00:00)
+                            # We use .replace(microsecond=0) because standard HA REST API
+                            # usually trims microseconds in this endpoint.
+                            "last_changed": s.last_changed.replace(microsecond=0).isoformat(),  # type: ignore
+                            "last_updated": s.last_updated.replace(microsecond=0).isoformat(),  # type: ignore
+                            "attributes": dict(s.attributes),  # type: ignore
+                        }
+                    )
 
                 # REST API returns a list of lists (one per entity)
                 if formatted_states:

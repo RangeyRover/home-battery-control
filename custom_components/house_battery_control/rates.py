@@ -36,7 +36,7 @@ class RatesManager:
         export_rates = self._parse_entity(self._export_entity_id, "export")
 
         # Merge by matching start times
-        merged = {}
+        merged: dict[datetime, RateInterval] = {}
         for r in import_rates:
             key = r["start"]
             merged[key] = {

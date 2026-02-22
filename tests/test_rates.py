@@ -4,6 +4,7 @@ Tests written FIRST per @speckit.implement TDD.
 Spec 3.1: Separate import/export price entities from Amber Electric.
 Spec 4: Timezone safety — all datetimes must be UTC-aware.
 """
+
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
@@ -20,6 +21,7 @@ def mock_hass():
 
 # --- Init (Spec 3.1: two entity IDs) ---
 
+
 def test_rates_manager_init_dual_entity(mock_hass):
     """RatesManager must accept separate import and export entity IDs."""
     manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export")
@@ -29,6 +31,7 @@ def test_rates_manager_init_dual_entity(mock_hass):
 
 
 # --- Update with merged rates ---
+
 
 def _make_amber_state(prices, key="future_prices"):
     """Helper: build a mock state with the given attribute key containing prices."""
@@ -81,6 +84,7 @@ def test_rates_update_missing_entity(mock_hass):
 
 # --- Price Lookups (separate import/export) ---
 
+
 def test_get_import_price_at(mock_hass):
     """get_import_price_at returns import price for a given time."""
     manager = RatesManager(mock_hass, "sensor.imp", "sensor.exp")
@@ -113,6 +117,7 @@ def test_get_export_price_at(mock_hass):
 # ============================================================
 # REGRESSION: TZ-naive vs TZ-aware crash (Production 2026-02-20)
 # ============================================================
+
 
 def test_price_lookup_with_utc_aware_time(mock_hass):
     """REGRESSION: get_import_price_at must work with UTC-aware query time.

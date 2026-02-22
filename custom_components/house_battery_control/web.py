@@ -11,7 +11,7 @@ Registers with HA's built-in aiohttp server via hass.http.register_view().
 import logging
 from typing import Any
 
-import yaml
+import yaml  # type: ignore
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import callback
@@ -314,7 +314,7 @@ class HBCLoadHistoryView(HomeAssistantView):
         hass = request.app["hass"]
         domain_data = hass.data.get(DOMAIN, {})
 
-        history_data = {"raw_states": [], "derived_forecast": []}
+        history_data: Any = {"raw_states": [], "derived_forecast": []}
 
         for entry_data in domain_data.values():
             coord = entry_data.get("coordinator")

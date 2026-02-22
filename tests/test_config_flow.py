@@ -96,12 +96,14 @@ def test_config_keys_are_unique():
 def test_config_flow_class_exists():
     """ConfigFlow class should be importable."""
     from custom_components.house_battery_control.config_flow import ConfigFlow
+
     assert ConfigFlow is not None
 
 
 def test_config_flow_has_menu_and_steps():
     """ConfigFlow should have menu, manual, yaml, energy, and control steps (S2)."""
     from custom_components.house_battery_control.config_flow import ConfigFlow
+
     assert hasattr(ConfigFlow, "async_step_user")
     assert hasattr(ConfigFlow, "async_step_manual")
     assert hasattr(ConfigFlow, "async_step_yaml")
@@ -112,11 +114,14 @@ def test_config_flow_has_menu_and_steps():
 def test_config_flow_has_options():
     """ConfigFlow should support OptionsFlow for runtime reconfiguration (Spec 3.8)."""
     from custom_components.house_battery_control.config_flow import ConfigFlow
+
     assert hasattr(ConfigFlow, "async_get_options_flow"), "Options flow not implemented"
 
 
 def test_no_tariff_entity_constant():
     """CONF_TARIFF_ENTITY should no longer exist (replaced by split rates)."""
     from custom_components.house_battery_control import const
-    assert not hasattr(const, "CONF_TARIFF_ENTITY"), \
+
+    assert not hasattr(const, "CONF_TARIFF_ENTITY"), (
         "CONF_TARIFF_ENTITY should be removed — replaced by CONF_IMPORT/EXPORT_PRICE_ENTITY"
+    )
