@@ -22,10 +22,8 @@ class LinearBatteryController(object):
 
 
         self.step -= 1
-        if self.step == 1:
-            return 0
-        if self.step > 1:
-            number_step = min(288, self.step)
+        if (self.step == 1): return 0
+        if (self.step > 1): number_step = min(288, self.step)
 
         #
         energy = [None] * number_step
@@ -45,59 +43,79 @@ class LinearBatteryController(object):
         limit = limit * (5.0 / 60.0)
         dis_limit = dis_limit * (5.0 / 60.0)
 
-        # PuLP
-        import pulp
-        prob = pulp.LpProblem("Battery", pulp.LpMinimize)
+        # SciPy Migration (replaces ortools)
+        import numpy as np
+        from scipy.optimize import linprog
 
-        # Variables: all are continous
-        charge = [pulp.LpVariable("c"+str(i), 0.0, limit) for i in range(number_step)]
+        N = number_step
+        num_vars = 5 * N + 1
 
-        dis_charge_home = []
-        dis_charge_grid = []
-        for i in range(number_step):
-            # Home discharge is strictly bounded by the net energy requirement
-            # It cannot exceed the physical home load (otherwise it would be grid export)
+        # Determine bounds
+        bounds = []
+        # c_i
+        for i in range(N):
+            bounds.append((0.0, limit))
+        # dh_i
+        for i in range(N):
             max_home_kwh = max(0.0, energy[i])
-            # Grid discharge is bounded by whatever inverter capacity is left over
+            bounds.append((-max_home_kwh, 0.0))
+        # dg_i
+        for i in range(N):
+            max_home_kwh = max(0.0, energy[i])
             max_grid_kwh = max(0.0, dis_limit - max_home_kwh)
+            bounds.append((-max_grid_kwh, 0.0))
+        # g_i
+        for i in range(N):
+            bounds.append((0.0, None))
+        # b_i
+        for i in range(N + 1):
+            bounds.append((0.0, capacity))
 
-            dis_charge_home.append(pulp.LpVariable("dh"+str(i), -max_home_kwh, 0.0))
-            dis_charge_grid.append(pulp.LpVariable("dg"+str(i), -max_grid_kwh, 0.0))
+        # Objective 'c'
+        c_obj = np.zeros(num_vars)
+        for i in range(N):
+            c_obj[i] = price_sell[i] + price_buy[i] / 1000.0                   # c_i
+            c_obj[N + i] = price_buy[i]                                        # dh_i
+            c_obj[2*N + i] = price_sell[i]                                     # dg_i
+            c_obj[3*N + i] = price_buy[i] - price_sell[i]                      # g_i
+        c_obj[5*N] = -max(0.001, acquisition_cost)                             # b_N (last one)
 
-        battery_power = [pulp.LpVariable("b"+str(i), 0.0, capacity) for i in range(number_step+1)]
-        grid = [pulp.LpVariable("g"+str(i), 0.0, None) for i in range(number_step)]
+        # Inequality Constraints A_ub x <= b_ub
+        # -g_i + c_i + dh_i + dg_i <= -energy[i]
+        A_ub = np.zeros((N, num_vars))
+        b_ub = np.zeros(N)
+        for i in range(N):
+            A_ub[i, i] = 1.0           # c_i
+            A_ub[i, N + i] = 1.0       # dh_i
+            A_ub[i, 2*N + i] = 1.0     # dg_i
+            A_ub[i, 3*N + i] = -1.0    # g_i
+            b_ub[i] = -energy[i]
 
-        # Objective function
-        prob += pulp.lpSum([
-            grid[i] * (price_buy[i] - price_sell[i]) for i in range(number_step)
-        ] + [
-            charge[i] * (price_sell[i] + price_buy[i] / 1000.) for i in range(number_step)
-        ] + [
-            dis_charge_home[i] * price_buy[i] for i in range(number_step)
-        ] + [
-            dis_charge_grid[i] * price_sell[i] for i in range(number_step)
-        ] + [
-            battery_power[-1] * -max(0.001, acquisition_cost)
-        ])
+        # Equality Constraints A_eq x == b_eq
+        # 1. b_0 == current
+        # 2. eff_c * c_i + eff_d * dh_i + eff_d * dg_i + b_i - b_{i+1} == 0
+        A_eq = np.zeros((1 + N, num_vars))
+        b_eq = np.zeros(1 + N)
 
-        # Constraints
-        # first constraint
-        prob += battery_power[0] == current
+        A_eq[0, 4*N] = 1.0
+        b_eq[0] = current
 
-        for i in range(0, number_step):
-            # second constraint
-            prob += grid[i] - charge[i] - dis_charge_home[i] - dis_charge_grid[i] >= energy[i]
-            # third constraint
-            prob += charge[i] * charging_efficiency + dis_charge_home[i] * discharging_efficiency + dis_charge_grid[i] * discharging_efficiency + battery_power[i] - battery_power[i+1] == 0
+        for i in range(N):
+            A_eq[1 + i, i] = charging_efficiency                # c_i
+            A_eq[1 + i, N + i] = discharging_efficiency         # dh_i
+            A_eq[1 + i, 2*N + i] = discharging_efficiency       # dg_i
+            A_eq[1 + i, 4*N + i] = 1.0                          # b_i
+            A_eq[1 + i, 4*N + i + 1] = -1.0                     # b_{i+1}
+            b_eq[1 + i] = 0.0
 
-        #solve the model
-        status = prob.solve(pulp.PULP_CBC_CMD(msg=False))
+        # Run SciPy Linprog
+        res = linprog(c_obj, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
 
-        if status != pulp.LpStatusOptimal:
-            _LOGGER.warning("Linear solver could not find optimal solution.")
+        if not res.success:
+            _LOGGER.warning("Linear solver could not find optimal solution: %s", res.message)
             return battery.current_charge, 0.0, 0.0, 0.0
 
-        return battery_power[1].varValue / capacity, pulp.value(prob.objective), abs(dis_charge_home[0].varValue or 0.0), abs(dis_charge_grid[0].varValue or 0.0)
+        return res.x[4*N + 1] / capacity, float(res.fun), float(abs(res.x[N])), float(abs(res.x[2*N]))
 
 
 class FakeBattery:

@@ -39,7 +39,7 @@ def test_linear_solver_basic_execution(base_context):
     """Test 1: Ensure the solver executes without raising exceptions."""
     fsm = LinearBatteryStateMachine()
     result = fsm.calculate_next_state(base_context)
-    
+
     # Asserting that the solver evaluated without crashing and returned a valid state
     assert result is not None
     assert result.state in ["IDLE", "CHARGE_GRID", "DISCHARGE_HOME", "DISCHARGE_GRID"]
@@ -58,12 +58,13 @@ def test_linear_solver_target_soc_calculation(base_context):
     # But later in the day, import goes back up to force it to charge now
     for i in range(14, 28):
         base_context.forecast_price[i]["import_price"] = 50.0
-    
+
     base_context.soc = 10.0 # battery is almost empty
 
     fsm = LinearBatteryStateMachine()
     result = fsm.calculate_next_state(base_context)
-    
+    print("TEST 2 RESULT:", vars(result))
+
     # Ideally, it should choose to charge grid due to massive deficit and low cost
     assert result.state == "CHARGE_GRID"
     assert result.target_soc > 10.0  # Target SOC should be much higher to cover 5kW load
@@ -77,17 +78,18 @@ def test_inverter_physical_bounds_limit_kw(base_context):
         base_context.forecast_price[i]["export_price"] = -100.0
         base_context.forecast_load[i]["kw"] = 0.0
         base_context.forecast_solar[i]["kw"] = 0.0
-    
+
     # Must have a future positive price to make holding it worthwhile
     base_context.forecast_price[20]["import_price"] = 100.0
     base_context.forecast_load[20]["kw"] = 5.0
-    
+
     base_context.soc = 10.0
     base_context.config["battery_rate_max"] = 5.0  # strictly clamp physical battery limit
 
     fsm = LinearBatteryStateMachine()
     result = fsm.calculate_next_state(base_context)
-    
+    print("TEST 3 RESULT:", vars(result))
+
     assert result.state == "CHARGE_GRID"
     # Even if mathematical optimum requires more, it is bound by `battery_rate_max`
     assert result.limit_kw <= 5.0
@@ -96,10 +98,10 @@ def test_inverter_physical_bounds_limit_kw(base_context):
 def test_solver_failure_fallback(base_context):
     """Test 4: Assert solver falls back to IDLE when arrays are malformed."""
     base_context.forecast_price = []  # length 0 implies missing data or crash context
-    
+
     fsm = LinearBatteryStateMachine()
     result = fsm.calculate_next_state(base_context)
-    
+
     # Forecast length < 1 should trigger early exit safe fallback
     assert result.state == "IDLE"
     assert result.limit_kw == 0.0

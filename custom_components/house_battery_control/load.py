@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from typing import Any, List
 
 from homeassistant.core import HomeAssistant
-from homeassistant.util import dt as dt_util
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,9 +39,8 @@ class LoadPredictor:
         # Robustly detect if this is an energy sensor (kWh) or power sensor (kW)
         if not load_entity_id:
             return []
-            
+
         # Get history for the specified duration
-        end_time = dt_util.utcnow()
         state = self._hass.states.get(load_entity_id)
         is_energy_sensor = False
         if state:
