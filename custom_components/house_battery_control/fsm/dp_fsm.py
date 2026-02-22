@@ -418,8 +418,8 @@ class DpBatteryStateMachine(BatteryStateMachine):
             len(context.forecast_solar),
             len(context.forecast_load)
         )
-        if forecast_len == 0:
-            return FSMResult(state="IDLE", limit_kw=0.0)
+        if forecast_len < 1:
+            return FSMResult(state="IDLE", limit_kw=0.0, reason="Forecast too short")
 
         number_step = min(forecast_len, 288)
         self.controller.PERIOD_DURATION = number_step
