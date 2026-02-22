@@ -23,7 +23,7 @@ async def test_load_predict_basic(mock_hass):
     """Base load at midday should be 0.5 kW."""
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 12, 0, 0)
-    prediction = await predictor.async_predict(start, duration_hours=1)
+    prediction = await predictor.async_predict(start, duration_hours=1, load_entity_id="sensor.load")
     assert len(prediction) == 12
     assert prediction[0]["kw"] == 0.5
     assert "start" in prediction[0]
@@ -35,7 +35,7 @@ async def test_load_predict_evening_peak(mock_hass):
     """Evening peak (18:00) should be 2.5 kW base."""
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 18, 0, 0)
-    prediction = await predictor.async_predict(start, duration_hours=1)
+    prediction = await predictor.async_predict(start, duration_hours=1, load_entity_id="sensor.load")
     assert prediction[0]["kw"] == 2.5
 
 
@@ -44,7 +44,7 @@ async def test_load_predict_morning_peak(mock_hass):
     """Morning peak (08:00) should be 1.5 kW base."""
     predictor = LoadPredictor(mock_hass)
     start = datetime(2025, 2, 20, 8, 0, 0)
-    prediction = await predictor.async_predict(start, duration_hours=1)
+    prediction = await predictor.async_predict(start, duration_hours=1, load_entity_id="sensor.load")
     assert prediction[0]["kw"] == 1.5
 
 
@@ -66,6 +66,7 @@ async def test_load_high_temp_increases_load(mock_hass):
         high_sensitivity=0.2,  # 0.2 kW per degree
         high_threshold=25.0,
         duration_hours=1,
+        load_entity_id="sensor.load",
     )
 
     # Base 0.5 + (35-25)*0.2 = 0.5 + 2.0 = 2.5
@@ -87,6 +88,7 @@ async def test_load_low_temp_increases_load(mock_hass):
         low_sensitivity=0.3,  # 0.3 kW per degree
         low_threshold=15.0,
         duration_hours=1,
+        load_entity_id="sensor.load",
     )
 
     # Base 0.5 + (15-5)*0.3 = 0.5 + 3.0 = 3.5
@@ -107,6 +109,7 @@ async def test_load_no_forecast_defaults_mild(mock_hass):
         high_threshold=25.0,
         low_threshold=15.0,
         duration_hours=1,
+        load_entity_id="sensor.load",
     )
 
     # 20°C is between thresholds, so no adjustment: base 0.5
@@ -119,7 +122,7 @@ async def test_load_never_negative(mock_hass):
     predictor = LoadPredictor(mock_hass)
     # Night time (base 0.5) with mild weather — should stay positive
     start = datetime(2025, 2, 20, 3, 0, 0)
-    prediction = await predictor.async_predict(start, duration_hours=1)
+    prediction = await predictor.async_predict(start, duration_hours=1, load_entity_id="sensor.load")
     assert all(v["kw"] >= 0.0 for v in prediction)
 
 

@@ -13,6 +13,7 @@ class FSMContext:
     forecast_load: list[Any]  # Next 24h
     forecast_price: list[Any]  # Next 24h
     config: dict[str, Any]  # System config constraints
+    acquisition_cost: float = 0.0  # c/kWh accumulator
 
 
 @dataclass
@@ -21,6 +22,7 @@ class FSMResult:
     limit_kw: float
     reason: str
     target_soc: float | None = None
+    projected_cost: float | None = None
 
 
 class BatteryStateMachine(ABC):
