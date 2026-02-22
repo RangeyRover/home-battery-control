@@ -452,6 +452,11 @@ class DpBatteryStateMachine(BatteryStateMachine):
             else:
                 load_f[t] = float(context.forecast_load[t])
 
+        # ADAPTATION: Convert Power (kW) to discrete 5-minute Energy blocks (kWh) for the mathematical PeriodOptimizer
+        # The optimizer explicitly bounds against fractional kWh chunks.
+        load_f = [kw * (5.0 / 60.0) for kw in load_f]
+        pv_f = [kw * (5.0 / 60.0) for kw in pv_f]
+
         capacity = max(13.5, context.config.get("battery_capacity", context.config.get("capacity_kwh", 27.0)))
         limit_kw = max(6.3, context.config.get("inverter_limit", context.config.get("inverter_limit_kw", 10.0)))
         current_soc_perc = max(0.0, min(100.0, context.soc)) / 100.0
@@ -463,7 +468,7 @@ class DpBatteryStateMachine(BatteryStateMachine):
             discharge_limit=limit_kw
         )
 
-        current_balance = context.load_power - context.solar_production
+        current_balance = (context.load_power - context.solar_production) * (5.0 / 60.0)
 
         # To avoid infinite cache explosion across ticks, clear the cache inside the FSM
         c1 = PeriodOptimizer._find_best_cost_and_policy

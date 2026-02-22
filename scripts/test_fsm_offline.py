@@ -164,7 +164,11 @@ def main():
         # Prevent physical impossibility
         next_soc = max(0.0, min(100.0, soc + soc_delta))
         
-        print(f"{t_str:<6} | {current_price:<6.1f} | {current_load:<5.2f} | {current_pv:<5.2f} | {state_str:<15} | {lim_str:<10} | {soc:>5.1f}%")
+        # Output energy (kWh) instead of instantaneous power (kW) to match the Web UI Spec
+        current_load_kwh = current_load * (5.0 / 60.0)
+        current_pv_kwh = current_pv * (5.0 / 60.0)
+        
+        print(f"{t_str:<6} | {current_price:<6.1f} | {current_load_kwh:<5.2f} | {current_pv_kwh:<5.2f} | {state_str:<15} | {lim_str:<10} | {soc:>5.1f}%")
         
         # Advance clock
         soc = next_soc
