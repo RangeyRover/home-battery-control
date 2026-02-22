@@ -139,7 +139,8 @@ def main():
             current_price=current_price,
             forecast_solar=f_solar,
             forecast_load=f_load,
-            forecast_price=f_rates
+            forecast_price=f_rates,
+            config={}
         )
         
         # Determine State

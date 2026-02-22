@@ -318,6 +318,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 interval_cost = 0.0
                 next_soc = simulated_soc
 
+            # Spec: Output total integrated energy (kWh) over the duration, not instantaneous power
+            load_kwh = load_kw_avg * duration_hours
+
             table.append(
                 {
                     "Time": start.strftime("%H:%M") if hasattr(start, "strftime") else str(start),
@@ -329,7 +332,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                     "FSM State": state,
                     "Inverter Limit": f"{limit_pct:.0f}%",
                     "PV Forecast": f"{pv_kwh:.2f}",
-                    "Load Forecast": f"{load_kw_avg:.2f}",
+                    "Load Forecast": f"{load_kwh:.2f}",
                     "Air Temp Forecast": f"{temp_c:.1f}°C" if temp_c is not None else "—",
                     "SoC Forecast": f"{simulated_soc:.1f}%",
                     "Interval Cost": f"${interval_cost:.4f}",

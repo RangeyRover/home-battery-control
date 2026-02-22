@@ -403,3 +403,44 @@ async def test_coordinator_update_data_exception_recovery(mock_hass):
         assert result is not None
         assert result["solar_power"] == 5.55
         assert result["state"] == "standby"
+
+def test_diagnostic_plan_table_energy_conversion():
+    """
+    Test that the diagnostic table correctly scales instantaneous kW power
+    into integrated kWh energy for the 'Load Forecast' and 'PV Forecast' columns
+    over a 5-minute (0.0833 hr) interval.
+    """
+    from homeassistant.util import dt as dt_util
+    from datetime import timedelta
+    from unittest.mock import MagicMock
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.config = {}
+    coordinator.fsm = None # Do not run actual State Machine in table formatter
+    
+    start_time = dt_util.utcnow()
+    
+    rates = [{"start": start_time, "end": start_time + timedelta(minutes=5), "import_price": 0.20, "export_price": 0.05}]
+    
+    # 4.0 kW instantaneous Load, 2.0 kW instantaneous Solar
+    load_forecast = [{"start": start_time, "kw": 4.0}]
+    solar_forecast = [{"period_start": start_time, "period_end": start_time + timedelta(minutes=5), "pv_estimate": 2.0}]
+    weather = [{"datetime": start_time, "temperature": 25.0}]
+    
+    table = coordinator._build_diagnostic_plan_table(
+        rates=rates,
+        solar_forecast=solar_forecast,
+        load_forecast=load_forecast,
+        weather=weather,
+        current_soc=50.0,
+        current_state="IDLE"
+    )
+    
+    assert len(table) == 1
+    row = table[0]
+    
+    # 4.0 kW * (5 mins / 60) = 0.33 kWh
+    assert row["Load Forecast"] == "0.33", f"Expected '0.33', got {row['Load Forecast']} (Likely reporting raw kW)"
+    # 2.0 kW * (5 mins / 60) = 0.17 kWh
+    assert row["PV Forecast"] == "0.17", f"Expected '0.17', got {row['PV Forecast']} (Likely reporting raw kW)"
