@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from custom_components.house_battery_control.fsm.base import FSMContext
-from custom_components.house_battery_control.fsm.default import DefaultBatteryStateMachine
+from custom_components.house_battery_control.fsm.dp_fsm import DpBatteryStateMachine
 
 def load_json(filepath):
     with open(filepath, 'r') as f:
@@ -109,7 +109,7 @@ def main():
         current += timedelta(minutes=5)
         
     # 2. Setup FSM
-    fsm = DefaultBatteryStateMachine()
+    fsm = DpBatteryStateMachine()
     
     # Physics Tracking
     soc = 20.0  # Start day emptyish

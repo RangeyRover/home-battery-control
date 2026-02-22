@@ -378,18 +378,9 @@ class DpBatteryController(object):
         self.FORECAST_LENGTH = 288
 
     def propose_state_of_charge(self, battery, current_balance, price_sell, price_buy, pv_forecast, load_forecast):
-        # We completely bypass the Keras coefficient logic and rely only on the actual DP math
-        epochs_to_end = self.PERIOD_DURATION - self.epoch
-
+        # Dynamic Programming solver treats every call statelessly based on the forecast provided.
         balance = [ld - pv for ld, pv in zip(load_forecast, pv_forecast)]
         balance[0] = current_balance
-
-        if epochs_to_end < self.FORECAST_LENGTH:
-            price_sell = price_sell[:epochs_to_end]
-            price_buy = price_buy[:epochs_to_end]
-            load_forecast = load_forecast[:epochs_to_end]
-            pv_forecast = pv_forecast[:epochs_to_end]
-            balance = balance[:epochs_to_end]
 
         period = Period(price_sell, price_buy, load_forecast, pv_forecast, balance)
 
@@ -405,7 +396,6 @@ class DpBatteryController(object):
             next_state = battery.current_charge
 
         self.timestep_idx = 0  # Re-evaluate perfectly every tick in FSM
-        self.epoch += 1
         return next_state
 
 
