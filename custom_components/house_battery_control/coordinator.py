@@ -44,7 +44,7 @@ from .const import (
 )
 from .execute import PowerwallExecutor
 from .fsm.base import FSMContext
-from .fsm.default import DefaultBatteryStateMachine
+from .fsm.dp_fsm import DpBatteryStateMachine
 from .load import LoadPredictor
 from .rates import RatesManager
 from .solar.solcast import SolcastSolar
@@ -92,7 +92,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
         # FSM + Executor
-        self.fsm = DefaultBatteryStateMachine()
+        self.fsm = DpBatteryStateMachine()
         self.executor = PowerwallExecutor(hass, config)
 
         # Set up state tracking for immediate FSM recalculation
@@ -415,7 +415,10 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 forecast_load=load_forecast,
                 forecast_price=self.rates.get_rates(),
             )
-            fsm_result = self.fsm.calculate_next_state(fsm_context)
+            # Run decision logic in background thread
+            fsm_result = await self.hass.async_add_executor_job(
+                self.fsm.calculate_next_state, fsm_context
+            )
 
             # Apply state to Powerwall
             await self.executor.apply_state(fsm_result.state, fsm_result.limit_kw)
@@ -445,7 +448,8 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "reason": fsm_result.reason,
                 "limit_kw": fsm_result.limit_kw,
                 "plan_html": self.executor.get_command_summary(),
-                "plan": self._build_diagnostic_plan_table(
+                "plan": await self.hass.async_add_executor_job(
+                    self._build_diagnostic_plan_table,
                     self.rates.get_rates(),
                     solar_forecast,
                     load_forecast,

@@ -250,6 +250,11 @@ def test_coordinator_rounded_outputs():
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
 
     mock_hass = MagicMock()
+    
+    async def mock_async_add_executor_job(func, *args, **kwargs):
+        return func(*args, **kwargs)
+    mock_hass.async_add_executor_job = mock_async_add_executor_job
+    
     mock_hass.states.get.return_value = _make_state("5.555")
 
     config = {
@@ -361,6 +366,10 @@ async def test_coordinator_update_data_exception_recovery(mock_hass):
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
 
     mock_hass.states.get.return_value = _make_state("5.55")
+
+    async def mock_async_add_executor_job(func, *args, **kwargs):
+        return func(*args, **kwargs)
+    mock_hass.async_add_executor_job = mock_async_add_executor_job
 
     config = {
         CONF_BATTERY_SOC_ENTITY: "sensor.soc",
