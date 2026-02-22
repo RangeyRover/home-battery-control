@@ -1,4 +1,3 @@
-from ortools.linear_solver import pywraplp
 from .base import BatteryStateMachine, FSMContext, FSMResult
 import logging
 
@@ -44,6 +43,7 @@ class LinearBatteryController(object):
         dis_limit = dis_limit * (5.0 / 60.0)
 
         # Ortools
+        from ortools.linear_solver import pywraplp
         solver = pywraplp.Solver("B", pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
          
         # Variables: all are continous
