@@ -294,9 +294,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 elif state == "DISCHARGE_HOME":
                     sim_battery_p = -sim_res.limit_kw
                 else:
-                    # IDLE or unconstrained: battery natively absorbs PV or covers Load
-                    natural_flow = pv_kw_avg - load_kw_avg
-                    sim_battery_p = max(-inverter_limit, min(inverter_limit, natural_flow))
+                    sim_battery_p = 0.0
 
                 # Battery impact
                 soc_delta = (sim_battery_p * duration_hours) / capacity * 100.0

@@ -157,10 +157,6 @@ def main():
             sim_battery_kw = result.limit_kw # positive into battery
         elif state_str == "DISCHARGE_HOME":
             sim_battery_kw = -result.limit_kw # negative out of battery
-        else:
-            # IDLE or unconstrained: battery natively absorbs PV or covers Load
-            natural_kw = current_pv - current_load
-            sim_battery_kw = max(-10.0, min(10.0, natural_kw))
             
         kwh_diff = sim_battery_kw * (1.0 / 12.0)
         soc_delta = (kwh_diff / capacity_kwh) * 100.0
