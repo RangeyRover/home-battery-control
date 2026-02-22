@@ -29,6 +29,7 @@ def _make_context(**overrides) -> FSMContext:
         forecast_solar=[],
         forecast_load=[],
         forecast_price=[],
+        config={"capacity_kwh": 27.0, "inverter_limit_kw": 10.0},
     )
     defaults.update(overrides)
     return FSMContext(**defaults)

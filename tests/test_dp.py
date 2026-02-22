@@ -35,20 +35,20 @@ def mock_context():
         solar.append({"kw": pv_kw})
         load.append({"kw": ld_kw})
         
-    context =  FSMContext(
-        soc=20.0, # 20%
+    context = FSMContext(
+        soc=20.0,  # 20%
         solar_production=0.0,
         load_power=1.0,
         grid_voltage=240.0,
         current_price=10.0,
         forecast_solar=solar,
         forecast_load=load,
-        forecast_price=prices
+        forecast_price=prices,
+        config={
+            "capacity_kwh": 13.5,
+            "inverter_limit_kw": 5.0
+        }
     )
-    context.config = {
-        "capacity_kwh": 13.5,
-        "inverter_limit_kw": 5.0
-    }
     return context
 
 def test_dp_charges_before_peak(fsm, mock_context):

@@ -260,6 +260,10 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 )
                 temp_c = closest.get("temperature")
 
+            # FSM Constants
+            inverter_limit = getattr(self, "inverter_limit_kw", 10.0)
+            capacity = getattr(self, "capacity_kwh", 27.0)
+
             # Build FSM Context for simulation
             ctx = FSMContext(
                 soc=simulated_soc,
@@ -270,12 +274,12 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 forecast_solar=solar_forecast,
                 forecast_load=load_forecast,
                 forecast_price=rates,
+                config={"capacity_kwh": capacity, "inverter_limit_kw": inverter_limit},
             )
 
             if self.fsm:
                 sim_res = self.fsm.calculate_next_state(ctx)
                 state = sim_res.state
-                inverter_limit = getattr(self, "inverter_limit_kw", 10.0)
                 limit_pct = (
                     min(100.0, (abs(sim_res.limit_kw) / inverter_limit) * 100.0)
                     if inverter_limit > 0
@@ -283,7 +287,6 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 )
 
                 # Flow Physics
-                capacity = getattr(self, "capacity_kwh", 27.0)
                 if state == "CHARGE_GRID":
                     sim_battery_p = sim_res.limit_kw
                 elif state == "CHARGE_SOLAR":
@@ -414,6 +417,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 forecast_solar=solar_forecast,
                 forecast_load=load_forecast,
                 forecast_price=self.rates.get_rates(),
+                config=self.config,
             )
             # Run decision logic in background thread
             fsm_result = await self.hass.async_add_executor_job(

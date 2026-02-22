@@ -13,6 +13,7 @@ class FSMContext:
     forecast_solar: List[dict]  # Next 24h
     forecast_load: List[dict]  # Next 24h
     forecast_price: List[dict]  # Next 24h
+    config: dict  # System config constraints
 
 
 @dataclass

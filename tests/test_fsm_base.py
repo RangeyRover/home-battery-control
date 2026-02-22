@@ -18,6 +18,7 @@ def test_fsm_context_creation():
         forecast_solar=[{"start": "t0", "kwh": 2.5}],
         forecast_load=[{"start": "t0", "kwh": 1.0}],
         forecast_price=[{"start": "t0", "price": 10.0}],
+        config={"capacity_kwh": 27.0, "inverter_limit_kw": 10.0},
     )
     assert ctx.soc == 75.0
     assert ctx.solar_production == 3.5
@@ -59,6 +60,7 @@ def test_concrete_implementation():
         forecast_solar=[],
         forecast_load=[],
         forecast_price=[],
+        config={"capacity_kwh": 27.0, "inverter_limit_kw": 10.0},
     )
     result = fsm.calculate_next_state(ctx)
     assert result.state == "IDLE"
