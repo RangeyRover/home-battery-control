@@ -448,8 +448,8 @@ class DpBatteryStateMachine(BatteryStateMachine):
             else:
                 load_f[t] = float(context.forecast_load[t])
 
-        capacity = max(13.5, context.config["capacity_kwh"])
-        limit_kw = max(6.3, context.config["inverter_limit_kw"])
+        capacity = max(13.5, context.config.get("battery_capacity", context.config.get("capacity_kwh", 27.0)))
+        limit_kw = max(6.3, context.config.get("inverter_limit", context.config.get("inverter_limit_kw", 10.0)))
         current_soc_perc = max(0.0, min(100.0, context.soc)) / 100.0
 
         battery = FakeBattery(

@@ -110,3 +110,24 @@ def test_dp_negative_export_trap(fsm, mock_context):
     # The absolute optimal move is to NOT charge the battery right now, leaving it at 90%
     # so there is space for the toxic solar later.
     assert result.state == "IDLE" 
+
+def test_dp_fallback_config_keys(fsm, mock_context):
+    """
+    Test that the DP FSM gracefully accepts the integration constant config keys
+    (`battery_capacity`, `inverter_limit`) when the older test keys (`capacity_kwh`, 
+    `inverter_limit_kw`) are missing.
+    """
+    # Force the mock config to ONLY use the integration keys
+    mock_context.config = {
+        "battery_capacity": 10.0,
+        "inverter_limit": 5.0
+    }
+    
+    # Normally this would raise a KeyError before the fix
+    try:
+        result = fsm.calculate_next_state(mock_context)
+    except KeyError as e:
+        pytest.fail(f"FSM crashed with KeyError on config access: {e}")
+        
+    assert result is not None
+    assert isinstance(result.state, str)
