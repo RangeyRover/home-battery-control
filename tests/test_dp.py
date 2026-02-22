@@ -65,7 +65,7 @@ def test_dp_charges_before_peak(fsm, mock_context):
     # to avoid paying 50c later tonight!
     result = fsm.calculate_next_state(mock_context)
                 
-    assert result.state == "CHARGE_GRID"
+    assert result.state == "CHARGE_GRID", result.reason
     assert result.limit_kw > 0.0
 
 def test_dp_negative_export_trap(fsm, mock_context):

@@ -28,8 +28,6 @@ submission, modified for 5-minute ticks and integrated into the Home Assistant F
 import logging
 from functools import lru_cache
 
-import numpy as np
-
 from .base import BatteryStateMachine, FSMContext, FSMResult
 
 _LOGGER = logging.getLogger(__name__)
@@ -100,7 +98,8 @@ class PeriodOptimizer(object):
         if not costs:
             return 999999, []
 
-        min_index = np.argmin(costs)
+        min_cost = min(costs)
+        min_index = costs.index(min_cost)
         return costs[min_index], paths[min_index]
 
     @lru_cache(maxsize=CACHE_MAX_SIZE)
@@ -122,9 +121,9 @@ class PeriodOptimizer(object):
                     target_battery = - next_balance_match
                     battery_change = target_battery - current_charge
                     if target_battery - current_charge > 0:
-                        battery_change = np.minimum(battery_change, max_battery_charge)
+                        battery_change = min(battery_change, max_battery_charge)
                     else:
-                        battery_change = np.maximum(battery_change, max_battery_discharge)
+                        battery_change = max(battery_change, max_battery_discharge)
                     target_battery_range.append(current_charge + battery_change)
 
         if self.is_low_price[block_idx]:
@@ -135,8 +134,8 @@ class PeriodOptimizer(object):
             target_battery_range.append(current_charge + max_battery_discharge)
             target_battery_range.append(current_charge)
 
-        target_battery_range = np.clip(target_battery_range, 0, 1).round(5)
-        target_battery_range = np.unique(target_battery_range)
+        target_battery_range = [round(max(0.0, min(1.0, x)), 5) for x in target_battery_range]
+        target_battery_range = sorted(list(set(target_battery_range)))
         return target_battery_range
 
     @lru_cache(maxsize=CACHE_MAX_SIZE)
@@ -176,18 +175,19 @@ class PeriodOptimizer(object):
             battery_change = energy_to_battery_change(-self.period_summary.balance[block_idx], self.battery)
             max_battery_charge, max_battery_discharge = self.max_charge_variations[block_idx]
             if battery_change > 0:
-                balance_matches.append(np.minimum(battery_change, max_battery_charge))
+                balance_matches.append(min(battery_change, max_battery_charge))
             else:
-                balance_matches.append(np.maximum(battery_change, max_battery_discharge))
+                balance_matches.append(max(battery_change, max_battery_discharge))
         return balance_matches
 
     def _compute_is_low_price(self, n_blocks):
         prices = self.period_summary.price_buy
-        is_low_price = np.zeros_like(prices)
+        is_low_price = [0] * len(prices)
         if len(prices) > n_blocks:
             for i in range(1, n_blocks + 1):
-                mask = prices[:-i] < prices[i:]
-                is_low_price[:-i][mask] = 1
+                for j in range(len(prices) - i):
+                    if prices[j] < prices[j + i]:
+                        is_low_price[j] = 1
         return is_low_price
 
     def get_fine_grain_policy(self, n_steps_required=None):
@@ -221,17 +221,18 @@ def summarize_period(period, battery=None):
     energy_balance = period.balance
     if battery is not None:
         # ADAPTATION: Multiply by 5/60 to translate kW to kWh for a 5 min chunk
-        energy_balance = np.clip(
-            energy_balance, -battery.discharging_power_limit*(5.0/60.0), battery.charging_power_limit*(5.0/60.0))
+        lower_bound = -battery.discharging_power_limit*(5.0/60.0)
+        upper_bound = battery.charging_power_limit*(5.0/60.0)
+        energy_balance = [max(lower_bound, min(upper_bound, e)) for e in energy_balance]
 
     start_points, end_points = find_division_points(period)
     for start, end in zip(start_points, end_points):
-        balance.append((energy_balance[start:end]).sum())
+        balance.append(sum(energy_balance[start:end]))
         price_buy.append(period.price_buy[start])
         price_sell.append(period.price_sell[start])
         timesteps.append(end-start)
 
-    period = Period(np.asarray(price_sell), np.asarray(price_buy), None, None, np.asarray(balance), timesteps)
+    period = Period(list(price_sell), list(price_buy), None, None, list(balance), timesteps)
     return period
 
 def find_division_points(period):
@@ -240,26 +241,26 @@ def find_division_points(period):
     balance_change_points = _find_balance_change_points(period)
 
     # Pad to length
-    division_points = price_buy_change_points + price_sell_change_points + balance_change_points
-    division_points = np.arange(len(division_points))[division_points > 0] + 1
-    start_points = [0] + division_points.tolist()
-    end_points = division_points.tolist() + [len(period)]
+    division_points = [a + b + c for a, b, c in zip(price_buy_change_points, price_sell_change_points, balance_change_points)]
+    division_indices = [i + 1 for i, v in enumerate(division_points) if v > 0]
+    start_points = [0] + division_indices
+    end_points = division_indices + [len(period)]
     return start_points, end_points
 
 def _find_price_change_points(prices):
     if len(prices) < 2:
-        return np.array([])
-    price_change_points = prices[:-1] - prices[1:]
-    price_change_points[price_change_points != 0] = 1
-    return price_change_points
-
+        return []
+    return [1 if prices[i] != prices[i+1] else 0 for i in range(len(prices)-1)] + [0] # match zip sizing correctly by not padding until loop but actually needs padding to length-1!
+    
 def _find_balance_change_points(period):
     energy_balance = period.balance
     if len(energy_balance) < 2:
-        return np.array([])
-    energy_balance = np.sign(energy_balance)
-    balance_change_points = energy_balance[:-1] - energy_balance[1:]
-    balance_change_points[balance_change_points != 0] = 1
+        return []
+    balance_change_points = []
+    for i in range(len(energy_balance)-1):
+        sgn1 = 1 if energy_balance[i] > 0 else (-1 if energy_balance[i] < 0 else 0)
+        sgn2 = 1 if energy_balance[i+1] > 0 else (-1 if energy_balance[i+1] < 0 else 0)
+        balance_change_points.append(1 if sgn1 != sgn2 else 0)
     return balance_change_points
 
 def get_fine_grain_policy_for_block(i, policy, balances, timestep_balances, battery):
@@ -290,8 +291,9 @@ def _sincronize_battery_and_system(initial_charge, final_charge, balance, batter
         current_charge = previous_charge + battery_change
         fine_grain_policy.append(current_charge)
         previous_charge = current_charge
-    fine_grain_policy = np.clip(fine_grain_policy, np.min((initial_charge, final_charge)),
-                                np.max((initial_charge, final_charge))).tolist()
+    lower_bound = min(initial_charge, final_charge)
+    upper_bound = max(initial_charge, final_charge)
+    fine_grain_policy = [max(lower_bound, min(upper_bound, x)) for x in fine_grain_policy]
     return fine_grain_policy
 
 def _timestep_balance_to_battery_change(timestep_balance, ratio, battery):
@@ -302,8 +304,9 @@ def _timestep_balance_to_battery_change(timestep_balance, ratio, battery):
     return battery_change
 
 def _distribute_change_over_timesteps(n_steps, initial_charge, final_charge):
-    fine_grain_policy = np.linspace(final_charge, initial_charge, n_steps, endpoint=False)
-    fine_grain_policy = fine_grain_policy[::-1].tolist()
+    step_size = (initial_charge - final_charge) / n_steps
+    fine_grain_policy = [final_charge + i * step_size for i in range(n_steps)]
+    fine_grain_policy = fine_grain_policy[::-1]
     return fine_grain_policy
 
 def get_fine_grain_policy_for_timestep(timestep_idx, policy, balances,
@@ -331,8 +334,9 @@ def get_fine_grain_policy_for_timestep(timestep_idx, policy, balances,
         ratio = battery_energy / balance
         r_batt_change = _timestep_balance_to_battery_change(timestep_balance, ratio, battery)
         next_charge = current_charge + r_batt_change
-        next_charge = np.clip(next_charge, np.min((initial_charge, final_charge)),
-                                    np.max((initial_charge, final_charge))).tolist()
+        lower_bound = min(initial_charge, final_charge)
+        upper_bound = max(initial_charge, final_charge)
+        next_charge = max(lower_bound, min(upper_bound, next_charge))
         return next_charge
     else:
         return (final_charge - current_charge)/remaining_steps + current_charge
@@ -356,7 +360,7 @@ def energy_to_battery_change(energy, battery):
     return battery_change
 
 def apply_battery_power_limit(energy, hours, battery):
-    return np.clip(energy, -battery.discharging_power_limit*hours, battery.charging_power_limit*hours)
+    return max(-battery.discharging_power_limit*hours, min(battery.charging_power_limit*hours, energy))
 
 # ==========================================================
 # WRAPPER FOR FSM
@@ -377,7 +381,7 @@ class DpBatteryController(object):
         # We completely bypass the Keras coefficient logic and rely only on the actual DP math
         epochs_to_end = self.PERIOD_DURATION - self.epoch
 
-        balance = load_forecast - pv_forecast
+        balance = [ld - pv for ld, pv in zip(load_forecast, pv_forecast)]
         balance[0] = current_balance
 
         if epochs_to_end < self.FORECAST_LENGTH:
@@ -425,8 +429,8 @@ class DpBatteryStateMachine(BatteryStateMachine):
         self.controller.PERIOD_DURATION = number_step
         self.controller.FORECAST_LENGTH = number_step
 
-        price_buy = np.zeros(number_step)
-        price_sell = np.zeros(number_step)
+        price_buy = [0.0] * number_step
+        price_sell = [0.0] * number_step
         for t in range(number_step):
             if isinstance(context.forecast_price[t], dict):
                 price_buy[t] = float(context.forecast_price[t].get("import_price", 0.0))
@@ -435,8 +439,8 @@ class DpBatteryStateMachine(BatteryStateMachine):
                 price_buy[t] = float(context.current_price)
                 price_sell[t] = float(context.current_price * 0.8)
 
-        load_f = np.zeros(number_step)
-        pv_f = np.zeros(number_step)
+        load_f = [0.0] * number_step
+        pv_f = [0.0] * number_step
         for t in range(number_step):
             if isinstance(context.forecast_solar[t], dict):
                 pv_f[t] = float(context.forecast_solar[t].get("kw", 0.0))
