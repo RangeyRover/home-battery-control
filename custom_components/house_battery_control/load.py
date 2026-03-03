@@ -19,6 +19,7 @@ class LoadPredictor:
         # Feature 020: prediction cache (24hr TTL, refresh after 00:05)
         self._cache_date: date | None = None
         self._cache_history_done: bool = False
+        self._cached_temp_data: Any = None
 
     def _cache_is_valid(self) -> bool:
         """Cache is valid if built for the current effective date.
@@ -154,6 +155,12 @@ class LoadPredictor:
 
                 except Exception as e:
                     _LOGGER.warning(f"Could not fetch temperature history: {e}")
+
+                # Cache temp_data for subsequent calls
+                self._cached_temp_data = temp_data
+            else:
+                # Use cached temp data when DB fetch is skipped
+                temp_data = self._cached_temp_data
 
         # Build Profile with optional temperature data
         target_tz = start_time.tzinfo if start_time.tzinfo else None
