@@ -62,3 +62,30 @@ def test_reason_sensor_empty_plan_html(mock_coordinator):
     mock_coordinator.data = {"reason": "test", "plan_html": ""}
     sensor = HBCReasonSensor(mock_coordinator)
     assert sensor.extra_state_attributes[ATTR_PLAN_HTML] == ""
+
+
+def test_limit_kw_sensor_returns_value(mock_coordinator):
+    """HBCLimitKwSensor should return the limit_kw value from coordinator data."""
+    from custom_components.house_battery_control.sensor import HBCLimitKwSensor
+
+    mock_coordinator.data["limit_kw"] = 6.3
+    sensor = HBCLimitKwSensor(mock_coordinator)
+    assert sensor.native_value == 6.3
+
+
+def test_limit_kw_sensor_returns_none_when_missing(mock_coordinator):
+    """HBCLimitKwSensor should return None when limit_kw not in data."""
+    from custom_components.house_battery_control.sensor import HBCLimitKwSensor
+
+    mock_coordinator.data = {}
+    sensor = HBCLimitKwSensor(mock_coordinator)
+    assert sensor.native_value is None
+
+
+def test_dp_target_soc_sensor_returns_value(mock_coordinator):
+    """HBCDpTargetSocSensor should return the target_soc value from coordinator data."""
+    from custom_components.house_battery_control.sensor import HBCDpTargetSocSensor
+
+    mock_coordinator.data["target_soc"] = 85.0
+    sensor = HBCDpTargetSocSensor(mock_coordinator)
+    assert sensor.native_value == 85.0

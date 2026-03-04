@@ -202,3 +202,41 @@ def test_rates_splits_into_5_min_intervals(mock_hass):
     assert rates[-1]["start"] == datetime(2025, 2, 20, 12, 25, tzinfo=timezone.utc)
     assert rates[-1]["end"] == datetime(2025, 2, 20, 12, 30, tzinfo=timezone.utc)
     assert rates[-1]["import_price"] == 25.5
+
+
+def test_rates_parse_malformed_interval_graceful(mock_hass):
+    """Malformed rate intervals must be skipped without crashing."""
+    prices = [
+        {
+            # Missing periodStart/periodEnd → should be skipped
+            "periodType": "ACTUAL",
+            "perKwh": 10.0,
+        },
+        {
+            # Valid interval
+            "periodType": "ACTUAL",
+            "periodStart": "2025-02-20T12:00:00+00:00",
+            "periodEnd": "2025-02-20T12:05:00+00:00",
+            "perKwh": 20.0,
+        },
+        {
+            # Invalid date string → should be skipped
+            "periodType": "ACTUAL",
+            "periodStart": "not-a-date",
+            "periodEnd": "2025-02-20T12:30:00+00:00",
+            "perKwh": 30.0,
+        },
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amb_imp": _make_amber_state(prices, key="forecast"),
+        "sensor.amb_exp": _make_amber_state([], key="forecast"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amb_imp", "sensor.amb_exp")
+    manager.update()
+
+    rates = manager.get_rates()
+    # Only the valid interval should be parsed
+    assert len(rates) == 1
+    assert rates[0]["import_price"] == 20.0

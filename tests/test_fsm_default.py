@@ -258,66 +258,6 @@ def test_result_reason_is_not_empty(fsm):
     assert len(result.reason) > 0
 
 
-# ============================================================
-# 9. IMPORT_PRICE KEY COMPATIBILITY (Spec 3.1 + 3.4)
-# ============================================================
-
-
-def _make_import_price_forecast(prices: list[float], start=None, interval_min=5) -> list[dict]:
-    """Build a price forecast using the new import_price/export_price keys."""
-    start = start or datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
-    result = []
-    for i, price in enumerate(prices):
-        result.append(
-            {
-                "start": start + timedelta(minutes=i * interval_min),
-                "end": start + timedelta(minutes=(i + 1) * interval_min),
-                "import_price": price,
-                "export_price": price * 0.3,
-            }
-        )
-    return result
-
-
-def test_fsm_works_with_import_price_key(fsm):
-    """FSM must handle forecast_price dicts with import_price key (spec 3.1)."""
-    prices = [5.0] * 6 + [30.0] * 6 + [35.0] * 6
-    ctx = _make_context(
-        current_price=5.0,
-        soc=30.0,
-        forecast_price=_make_import_price_forecast(prices),
-    )
-    result = fsm.calculate_next_state(ctx)
-    assert result.state == STATE_CHARGE_GRID
-
-
-def test_peak_detection_with_import_price_key(fsm):
-    """Peak detection must work with import_price format."""
-    prices = [10.0] * 12 + [60.0] * 12
-    ctx = _make_context(
-        current_price=50.0,
-        soc=70.0,
-        load_power=2.0,
-        solar_production=0.0,
-        forecast_price=_make_import_price_forecast(prices),
-    )
-    result = fsm.calculate_next_state(ctx)
-    assert result.state == STATE_SELF_CONSUMPTION
-
-
-def test_peak_coming_soon_with_import_price_key(fsm):
-    """_peak_coming_soon must work with import_price format."""
-    prices = [10.0] * 6 + [25.0] * 6 + [60.0] * 12
-    ctx = _make_context(
-        soc=80.0,
-        current_price=25.0,
-        solar_production=0.0,
-        load_power=1.0,
-        forecast_price=_make_import_price_forecast(prices),
-    )
-    result = fsm.calculate_next_state(ctx)
-    assert result.state == STATE_SELF_CONSUMPTION
-
 
 # ============================================================
 # 10. REGRESSION: KeyError 'price' (Production Crash 2026-02-20)

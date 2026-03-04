@@ -75,7 +75,7 @@ After configuration:
 
 ```bash
 pip install -r requirements_test.txt
-python -m pytest tests/ -v      # 133 tests
+python -m pytest tests/ -v      # 191 tests
 ruff check custom_components/ tests/
 ```
 

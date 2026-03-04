@@ -68,6 +68,7 @@ The adjustment uses an **excess-based formula**: only the portion of temperature
 | `inverter_limit` | Inverter Limit | `10.0` | Maximum inverter throughput in kW |
 | `round_trip_efficiency` | Round-Trip Efficiency | `0.90` | Charging/discharging efficiency (0.0–1.0). Solver uses √(RTE) per conversion. |
 | `reserve_soc` | Reserve SoC | `0.0` | Minimum battery SoC (%) the solver will maintain |
+| `load_cache_ttl_minutes` | Load Cache TTL | `360` | How long to cache the 5-day load history (minutes, 5–1440). Default 360 = 6 hours. |
 
 ### Pricing & Forecast Sources
 
@@ -93,6 +94,9 @@ Scripts that HBC calls to control the Powerwall. Leave blank for observation/deb
 | `script_charge_stop` | Script: Stop Charging | Called when FSM exits charging states |
 | `script_discharge` | Script: Discharge to Grid | Called when FSM enters `DISCHARGE_GRID` state |
 | `script_discharge_stop` | Script: Stop Discharging | Called when FSM exits discharge states |
+| `allow_charge_entity` | Allow Grid Charge Entity | Optional Teslemetry toggle entity that enables/disables grid charging. |
+| `allow_export_entity` | Allow Export Entity | Optional Teslemetry toggle entity that enables/disables grid export. |
+| `observation_mode` | Observation Mode | Boolean. When ON, HBC calculates the optimal plan but does NOT send commands to the Powerwall. Useful for dry-run testing. |
 | `no_import_periods` | No-Import Periods | String format periods (e.g. `15:00-21:00`) restricting LP arbitrage charging. |
 | `panel_admin_only` | Panel Visible to Admins Only | Toggle: ON = sidebar entry visible to admin users only (default). OFF = visible to all users. |
 

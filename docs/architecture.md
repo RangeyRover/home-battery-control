@@ -122,7 +122,7 @@ FSMResult(
 
 ```bash
 pip install -r requirements_test.txt
-python -m pytest tests/ -v          # Full suite (176 tests)
+python -m pytest tests/ -v          # Full suite (191 tests)
 python -m pytest tests/ -v -k fsm   # FSM tests only
 ruff check custom_components/ tests/ # Linting
 ```

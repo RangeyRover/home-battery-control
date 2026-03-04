@@ -143,3 +143,30 @@ def test_options_control_has_panel_visibility():
     assert "BooleanSelector" in source, (
         "Panel visibility must use BooleanSelector"
     )
+
+
+def test_options_energy_step_has_cache_ttl():
+    """Options energy step must include CONF_LOAD_CACHE_TTL for cache configurability."""
+    import inspect
+
+    from custom_components.house_battery_control.config_flow import HBCOptionsFlowHandler
+
+    source = inspect.getsource(HBCOptionsFlowHandler.async_step_energy)
+    assert "CONF_LOAD_CACHE_TTL" in source, (
+        "Options energy step must include cache TTL field"
+    )
+    assert "NumberSelector" in source, (
+        "Cache TTL must use NumberSelector"
+    )
+
+
+def test_options_control_has_observation_mode():
+    """Options control step must include CONF_OBSERVATION_MODE."""
+    import inspect
+
+    from custom_components.house_battery_control.config_flow import HBCOptionsFlowHandler
+
+    source = inspect.getsource(HBCOptionsFlowHandler.async_step_control)
+    assert "CONF_OBSERVATION_MODE" in source, (
+        "Options control step must include observation_mode toggle"
+    )

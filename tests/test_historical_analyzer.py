@@ -208,3 +208,66 @@ class TestBuildHistoricalProfileWithTemp:
         # Each slot should have a temperature value
         for slot, data in profile.items():
             assert data["avg_temp"] is not None
+
+
+# --- Direct interpolate() tests ---
+
+
+class TestInterpolate:
+    """Direct tests for interpolate() — linear interpolation of time-series data."""
+
+    def test_empty_data_returns_zero(self):
+        from custom_components.house_battery_control.historical_analyzer import interpolate
+        assert interpolate(100.0, []) == 0.0
+
+    def test_single_point_returns_value(self):
+        from custom_components.house_battery_control.historical_analyzer import interpolate
+        data = [{"time": 100.0, "value": 5.0}]
+        assert interpolate(100.0, data) == 5.0
+        assert interpolate(200.0, data) == 5.0  # any time returns same value
+
+    def test_before_first_returns_first(self):
+        from custom_components.house_battery_control.historical_analyzer import interpolate
+        data = [
+            {"time": 100.0, "value": 10.0},
+            {"time": 200.0, "value": 20.0},
+        ]
+        assert interpolate(50.0, data) == 10.0
+
+    def test_midpoint_interpolation(self):
+        from custom_components.house_battery_control.historical_analyzer import interpolate
+        data = [
+            {"time": 100.0, "value": 10.0},
+            {"time": 200.0, "value": 20.0},
+        ]
+        assert interpolate(150.0, data) == 15.0
+
+    def test_after_last_returns_last(self):
+        from custom_components.house_battery_control.historical_analyzer import interpolate
+        data = [
+            {"time": 100.0, "value": 10.0},
+            {"time": 200.0, "value": 20.0},
+        ]
+        assert interpolate(300.0, data) == 20.0
+
+
+# --- Direct parse_isoformat() tests ---
+
+
+class TestParseIsoformat:
+    """Direct tests for parse_isoformat() — ISO datetime string parsing."""
+
+    def test_z_suffix(self):
+        from custom_components.house_battery_control.historical_analyzer import parse_isoformat
+        result = parse_isoformat("2025-02-20T12:00:00Z")
+        assert result.year == 2025
+        assert result.month == 2
+        assert result.day == 20
+        assert result.hour == 12
+        assert result.tzinfo is not None
+
+    def test_utc_offset(self):
+        from custom_components.house_battery_control.historical_analyzer import parse_isoformat
+        result = parse_isoformat("2025-02-20T12:00:00+10:30")
+        assert result.hour == 12
+        assert result.tzinfo is not None

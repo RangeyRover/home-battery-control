@@ -81,6 +81,19 @@ Different inverter brands report power direction differently. Positive values sh
 
 ---
 
+## HBC Without Amber or Solcast
+
+**Symptoms**: Integration loads but the solver doesn't seem to optimise effectively.
+
+**Explanation**: HBC still loads and runs without Amber or Solcast, but with reduced capabilities:
+
+- **Without Amber**: No price forecast is available. The solver sees flat/zero prices and defaults to `SELF_CONSUMPTION` — it has no price signal to arbitrage against.
+- **Without Solcast**: No solar forecast. The solver assumes zero PV generation, which may cause excessive grid charging during cheap windows that solar would have covered for free.
+
+HBC will not crash or refuse to load — it gracefully degrades. Check `/hbc/api/status` → `sensor_diagnostics` to see which data sources are available.
+
+---
+
 ## Getting Help
 
 - **GitHub Issues**: [Report a bug](https://github.com/RangeyRover/home-battery-control/issues)
