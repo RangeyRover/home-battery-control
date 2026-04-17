@@ -107,11 +107,34 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         self._previous_state: str | None = None
 
         # Initialize Managers
+        # BUG-036 FR-001: When Amber Express is enabled AND express entities are
+        # configured, use them as primary source. General forecast entities serve
+        # as fallback in case express entities are unavailable.
+        use_express = config.get(CONF_USE_AMBER_EXPRESS, False)
+        if use_express:
+            import_entity = (
+                config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY)
+                or config.get(CONF_IMPORT_PRICE_ENTITY, "")
+            )
+            export_entity = (
+                config.get(CONF_CURRENT_EXPORT_PRICE_ENTITY)
+                or config.get(CONF_EXPORT_PRICE_ENTITY, "")
+            )
+        else:
+            import_entity = config.get(CONF_IMPORT_PRICE_ENTITY, "")
+            export_entity = config.get(CONF_EXPORT_PRICE_ENTITY, "")
+
         self.rates = RatesManager(
             hass,
-            config.get(CONF_IMPORT_PRICE_ENTITY, ""),
-            config.get(CONF_EXPORT_PRICE_ENTITY, ""),
-            use_amber_express=config.get(CONF_USE_AMBER_EXPRESS, False),
+            import_entity,
+            export_entity,
+            use_amber_express=use_express,
+            fallback_import_entity_id=(
+                config.get(CONF_IMPORT_PRICE_ENTITY, "") if use_express else None
+            ),
+            fallback_export_entity_id=(
+                config.get(CONF_EXPORT_PRICE_ENTITY, "") if use_express else None
+            ),
         )
         self.weather = WeatherManager(hass, config.get(CONF_WEATHER_ENTITY, ""))
         self.load_predictor = LoadPredictor(hass)
@@ -287,9 +310,29 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         cumulative = 0.0
         simulated_soc = current_soc
 
-        for idx, rate in enumerate(rates):
-            start = rate["start"]
-            end = rate.get("end", start)
+        # BUG-036 FR-003: Iterate over the longer of rates or future_plan
+        # so the plan table always covers the full solver output, even when
+        # rates are empty (entity unavailability).
+        from datetime import timedelta
+
+        plan_length = max(len(rates), len(future_plan))
+        # Determine a reference start time for synthesizing timestamps when rates are missing
+        if rates:
+            start_ref = rates[0]["start"]
+        else:
+            start_ref = dt_util.utcnow()
+
+        for idx in range(plan_length):
+            # --- 1. Resolve rate interval for this step ---
+            if idx < len(rates):
+                rate = rates[idx]
+                start = rate["start"]
+                end = rate.get("end", start)
+            else:
+                # Synthesize timestamp from reference + step index
+                start = start_ref + timedelta(minutes=5 * idx)
+                end = start + timedelta(minutes=5)
+                rate = {"start": start, "end": end, "import_price": 0.0, "export_price": 0.0}
 
             duration_mins = max(1, int((end - start).total_seconds() / 60.0))
             duration_hours = duration_mins / 60.0

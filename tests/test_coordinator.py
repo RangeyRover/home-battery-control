@@ -781,3 +781,105 @@ class TestDebugReplaySnapshot:
         res = snapshot["result"]
         for key in ("state", "limit_kw", "target_soc"):
             assert key in res
+
+
+# ===================================================================
+# BUG-036: Plan Table Renders with Empty/Partial Rates
+# ===================================================================
+
+
+def test_plan_table_renders_with_empty_rates():
+    """BUG-036 T8: Plan table must render 288 rows when rates=[] but future_plan has 288 entries."""
+    from datetime import timedelta
+
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    from homeassistant.util import dt as dt_util
+
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.config = {}
+    coordinator.fsm = None
+
+    # Build a 288-step future plan with all SELF_CONSUMPTION
+    future_plan = []
+    for i in range(288):
+        future_plan.append({
+            "state": "SELF_CONSUMPTION",
+            "target_soc": 50.0,
+            "net_grid": 0.0,
+            "pv": 1.5,
+            "load": 0.8,
+            "import_price": 0.25,
+            "export_price": 0.05,
+            "acquisition_cost": 0.10,
+            "cumulative_cost": 0.0,
+        })
+
+    table = coordinator._build_diagnostic_plan_table(
+        rates=[],  # Empty rates — entity unavailable
+        solar_forecast=[],
+        load_forecast=[],
+        weather=[],
+        current_soc=50.0,
+        future_plan=future_plan,
+    )
+
+    # Must render all 288 rows despite empty rates
+    assert len(table) == 288
+    assert table[0]["FSM State"] == "SELF_CONSUMPTION"
+    assert table[0]["PV Forecast"] == "1.50"
+    assert table[0]["Load Forecast"] == "0.80"
+    assert table[0]["Import Rate"] == "0.25"
+
+
+def test_plan_table_renders_with_partial_rates():
+    """BUG-036 T9: When rates has fewer intervals than future_plan, table extends to cover all solver steps."""
+    from datetime import timedelta
+
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    from homeassistant.util import dt as dt_util
+
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.config = {}
+    coordinator.fsm = None
+
+    now = dt_util.utcnow()
+
+    # Only 3 rate intervals
+    rates = []
+    for i in range(3):
+        rates.append({
+            "start": now + timedelta(minutes=5 * i),
+            "end": now + timedelta(minutes=5 * (i + 1)),
+            "import_price": 0.30,
+            "export_price": 0.06,
+        })
+
+    # But 6 future plan steps
+    future_plan = []
+    for i in range(6):
+        future_plan.append({
+            "state": "CHARGE_GRID" if i < 3 else "SELF_CONSUMPTION",
+            "target_soc": 50.0 + i,
+            "net_grid": 2.0 if i < 3 else 0.0,
+            "pv": 0.5,
+            "load": 1.0,
+            "import_price": 0.30,
+            "export_price": 0.06,
+            "acquisition_cost": 0.10,
+            "cumulative_cost": 0.0,
+        })
+
+    table = coordinator._build_diagnostic_plan_table(
+        rates=rates,
+        solar_forecast=[],
+        load_forecast=[],
+        weather=[],
+        current_soc=50.0,
+        future_plan=future_plan,
+    )
+
+    # Table must cover all 6 solver steps, not just 3 rate intervals
+    assert len(table) == 6
+    assert table[0]["FSM State"] == "CHARGE_GRID"
+    assert table[3]["FSM State"] == "SELF_CONSUMPTION"
+

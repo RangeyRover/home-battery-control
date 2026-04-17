@@ -31,8 +31,8 @@
                     "import_price_entity": "Import Price Forecast Entity (e.g. Amber General)",
                     "export_price_entity": "Export Price Forecast Entity (e.g. Amber Feed-in)",
                     "use_amber_express": "Use Amber Express nested array format",
-                    "current_import_price_entity": "Import Price Entity (e.g. Amber Express General Price Detailed) [Optional - Only if Amber Express used]",
-                    "current_export_price_entity": "Export Price Entity (e.g. Amber Express Feed-in Price Detailed) [Optional - Only if Amber Express used]",
+                    "current_import_price_entity": "Amber Express Import Entity (Primary 24h source when Express enabled)",
+                    "current_export_price_entity": "Amber Express Export Entity (Primary 24h source when Express enabled)",
                     "weather_entity": "Weather Entity",
                     "solcast_today_entity": "Solcast Forecast Today (sensor)",
                     "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)"
@@ -96,8 +96,8 @@
                     "import_price_entity": "Import Price Forecast Entity (e.g. Amber General)",
                     "export_price_entity": "Export Price Forecast Entity (e.g. Amber Feed-in)",
                     "use_amber_express": "Use Amber Express nested array format",
-                    "current_import_price_entity": "Import Price Entity (e.g. Amber Express General Price Detailed) [Optional - Only if Amber Express used]",
-                    "current_export_price_entity": "Export Price Entity (e.g. Amber Express Feed-in Price Detailed) [Optional - Only if Amber Express used]",
+                    "current_import_price_entity": "Amber Express Import Entity (Primary 24h source when Express enabled)",
+                    "current_export_price_entity": "Amber Express Export Entity (Primary 24h source when Express enabled)",
                     "weather_entity": "Weather Entity",
                     "solcast_today_entity": "Solcast Forecast Today (sensor)",
                     "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)"

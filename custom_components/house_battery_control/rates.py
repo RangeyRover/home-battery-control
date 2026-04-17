@@ -25,11 +25,15 @@ class RatesManager:
         import_entity_id: str,
         export_entity_id: str,
         use_amber_express: bool = False,
+        fallback_import_entity_id: str | None = None,
+        fallback_export_entity_id: str | None = None,
     ):
         self._hass = hass
         self._import_entity_id = import_entity_id
         self._export_entity_id = export_entity_id
         self._use_amber_express = use_amber_express
+        self._fallback_import_entity_id = fallback_import_entity_id
+        self._fallback_export_entity_id = fallback_export_entity_id
         self._rates: List[RateInterval] = []
 
     def update(self) -> None:
@@ -37,6 +41,21 @@ class RatesManager:
         if self._use_amber_express:
             import_rates = self._parse_amber_express_entity(self._import_entity_id, "import")
             export_rates = self._parse_amber_express_entity(self._export_entity_id, "export")
+            # BUG-036 FR-002: Fallback to general parser when express returns empty
+            if not import_rates and self._fallback_import_entity_id:
+                _LOGGER.warning(
+                    "Amber Express import entity returned no data, "
+                    "falling back to general forecast entity %s",
+                    self._fallback_import_entity_id,
+                )
+                import_rates = self._parse_entity(self._fallback_import_entity_id, "import")
+            if not export_rates and self._fallback_export_entity_id:
+                _LOGGER.warning(
+                    "Amber Express export entity returned no data, "
+                    "falling back to general forecast entity %s",
+                    self._fallback_export_entity_id,
+                )
+                export_rates = self._parse_entity(self._fallback_export_entity_id, "export")
         else:
             import_rates = self._parse_entity(self._import_entity_id, "import")
             export_rates = self._parse_entity(self._export_entity_id, "export")

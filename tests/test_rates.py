@@ -202,3 +202,121 @@ def test_rates_splits_into_5_min_intervals(mock_hass):
     assert rates[-1]["start"] == datetime(2025, 2, 20, 12, 25, tzinfo=timezone.utc)
     assert rates[-1]["end"] == datetime(2025, 2, 20, 12, 30, tzinfo=timezone.utc)
     assert rates[-1]["import_price"] == 25.5
+
+
+# ============================================================
+# BUG-036: Forecast Fallback Resilience
+# ============================================================
+
+
+def _make_amber_express_state(forecasts):
+    """Helper: build a mock state with Amber Express 'forecasts' attribute."""
+    state = MagicMock()
+    state.attributes = {"forecasts": forecasts}
+    state.state = "12.34"
+    return state
+
+
+def test_rates_amber_express_uses_correct_entities(mock_hass):
+    """BUG-036 T5: When use_amber_express=True with express entities as primary,
+    RatesManager must parse the express entities, not the fallback general ones."""
+    express_forecasts = [
+        {
+            "start_time": "2026-04-17T00:00:00+00:00",
+            "end_time": "2026-04-17T00:30:00+00:00",
+            "per_kwh": 15.0,
+            "renewables": 40.0,
+            "advanced_price_predicted": {"predicted": 15.0, "high": 20.0},
+        },
+    ]
+    general_prices = [
+        {
+            "periodStart": "2026-04-17T00:00:00+00:00",
+            "periodEnd": "2026-04-17T00:30:00+00:00",
+            "perKwh": 99.99,
+        },
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.express_import": _make_amber_express_state(express_forecasts),
+        "sensor.express_export": _make_amber_express_state(express_forecasts),
+        "sensor.general_import": _make_amber_state(general_prices, key="forecast"),
+        "sensor.general_export": _make_amber_state(general_prices, key="forecast"),
+    }.get(eid)
+
+    manager = RatesManager(
+        mock_hass,
+        "sensor.express_import",
+        "sensor.express_export",
+        use_amber_express=True,
+        fallback_import_entity_id="sensor.general_import",
+        fallback_export_entity_id="sensor.general_export",
+    )
+    manager.update()
+
+    rates = manager.get_rates()
+    # Should have parsed the express entity (6 five-minute blocks from 30-min interval)
+    assert len(rates) == 6
+    # Price should be from express (15.0 per_kwh with renewables=40% > 35% → predicted price)
+    assert rates[0]["import_price"] == 15.0
+    # NOT the general forecast price of 99.99
+    assert rates[0]["import_price"] != 99.99
+
+
+def test_rates_amber_express_fallback_to_general(mock_hass):
+    """BUG-036 T6: When express entities return empty data, RatesManager must
+    fall back to parsing the general forecast entities with the standard parser."""
+    general_prices = [
+        {
+            "periodStart": "2026-04-17T00:00:00+00:00",
+            "periodEnd": "2026-04-17T00:30:00+00:00",
+            "perKwh": 22.0,
+        },
+    ]
+
+    # Express entity exists but has empty forecasts
+    express_empty = MagicMock()
+    express_empty.attributes = {"forecasts": []}
+    express_empty.state = "0"
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.express_import": express_empty,
+        "sensor.express_export": express_empty,
+        "sensor.general_import": _make_amber_state(general_prices, key="forecast"),
+        "sensor.general_export": _make_amber_state(general_prices, key="forecast"),
+    }.get(eid)
+
+    manager = RatesManager(
+        mock_hass,
+        "sensor.express_import",
+        "sensor.express_export",
+        use_amber_express=True,
+        fallback_import_entity_id="sensor.general_import",
+        fallback_export_entity_id="sensor.general_export",
+    )
+    manager.update()
+
+    rates = manager.get_rates()
+    # Should have fallen back to general forecast — 6 five-minute blocks
+    assert len(rates) == 6
+    # Price from general forecast
+    assert rates[0]["import_price"] == 22.0
+
+
+def test_rates_amber_express_both_unavailable(mock_hass):
+    """BUG-036 T7: When both express and general entities are unavailable,
+    RatesManager must return empty rates without raising."""
+    mock_hass.states.get.return_value = None
+
+    manager = RatesManager(
+        mock_hass,
+        "sensor.express_import",
+        "sensor.express_export",
+        use_amber_express=True,
+        fallback_import_entity_id="sensor.general_import",
+        fallback_export_entity_id="sensor.general_export",
+    )
+    manager.update()
+
+    assert manager.get_rates() == []
+
