@@ -110,16 +110,25 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         # BUG-036 FR-001: When Amber Express is enabled AND express entities are
         # configured, use them as primary source. General forecast entities serve
         # as fallback in case express entities are unavailable.
-        use_express = config.get(CONF_USE_AMBER_EXPRESS, False)
+        # If the switch is ON but express entities are NOT configured, fall back
+        # to general forecast with the STANDARD parser (not express parser).
+        use_express_toggle = config.get(CONF_USE_AMBER_EXPRESS, False)
+        express_import = config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY)
+        express_export = config.get(CONF_CURRENT_EXPORT_PRICE_ENTITY)
+        express_entities_configured = bool(express_import or express_export)
+
+        # Only engage the express parser when BOTH toggle AND entities are present
+        use_express = use_express_toggle and express_entities_configured
+
+        if use_express_toggle and not express_entities_configured:
+            _LOGGER.warning(
+                "Amber Express enabled but no express entities configured — "
+                "using general forecast entities with standard parser"
+            )
+
         if use_express:
-            import_entity = (
-                config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY)
-                or config.get(CONF_IMPORT_PRICE_ENTITY, "")
-            )
-            export_entity = (
-                config.get(CONF_CURRENT_EXPORT_PRICE_ENTITY)
-                or config.get(CONF_EXPORT_PRICE_ENTITY, "")
-            )
+            import_entity = express_import or config.get(CONF_IMPORT_PRICE_ENTITY, "")
+            export_entity = express_export or config.get(CONF_EXPORT_PRICE_ENTITY, "")
         else:
             import_entity = config.get(CONF_IMPORT_PRICE_ENTITY, "")
             export_entity = config.get(CONF_EXPORT_PRICE_ENTITY, "")
