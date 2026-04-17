@@ -790,10 +790,7 @@ class TestDebugReplaySnapshot:
 
 def test_plan_table_renders_with_empty_rates():
     """BUG-036 T8: Plan table must render 288 rows when rates=[] but future_plan has 288 entries."""
-    from datetime import timedelta
-
     from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
-    from homeassistant.util import dt as dt_util
 
     coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
     coordinator.config = {}
