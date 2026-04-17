@@ -9,100 +9,137 @@
 
 ## Problem Statement
 
-When a user has **Amber Express** enabled (`use_amber_express: true`) AND has the general forecast price entities (`import_price_entity` / `export_price_entity`) also configured, a failure or unavailability of the general forecast price entities causes the **entire 24-hour plan to disappear from the dashboard**.
+When a user has **Amber Express** enabled (`use_amber_express: true`) AND has both the general forecast price entities and Amber Express price entities configured, the system wires the Amber Express parser to the **wrong entity IDs**, causing the 24-hour pricing timeline to be empty or broken.
 
-This is a fault tolerance deficiency. The system should gracefully degrade: if Amber Express is the active pricing source and is healthy, the plan should still render regardless of the state of any co-configured general forecast entities.
+## Root Cause Analysis — Entity Wiring Defect
 
-## Root Cause Analysis
+### The configuration UI exposes five price-related fields:
 
-The `RatesManager` is constructed with the general forecast entity IDs (`CONF_IMPORT_PRICE_ENTITY` / `CONF_EXPORT_PRICE_ENTITY`). When `use_amber_express=True`, the `update()` method routes to `_parse_amber_express_entity()` using those same entity IDs.
+| UI Field | Config Key | User's Entity |
+|---|---|---|
+| Import Price Forecast Entity | `CONF_IMPORT_PRICE_ENTITY` | `4 Rosella - General Forecast` |
+| Export Price Forecast Entity | `CONF_EXPORT_PRICE_ENTITY` | `4 Rosella - Feed In Forecast` |
+| Use Amber Express | `CONF_USE_AMBER_EXPRESS` | `true` |
+| Import Price Entity (Amber Express) | `CONF_CURRENT_IMPORT_PRICE_ENTITY` | `General Price Detailed` |
+| Export Price Entity (Amber Express) | `CONF_CURRENT_EXPORT_PRICE_ENTITY` | `Feed In Price Detailed` |
 
-The fault mechanism has two potential pathways:
+### The wiring defect:
 
-1. **Entity unavailability cascade**: When the general forecast entity becomes unavailable (HA restart, Amber addon crash, network timeout), its state transitions to `unavailable`/`unknown`. The Amber Express parser looks for `state.attributes.get("forecasts", [])` — on an unavailable entity, attributes may be empty or the entity may not resolve, producing zero rates. With zero rates, `_build_diagnostic_plan_table` iterates over an empty `rates` list and produces zero table rows — rendering no plan.
+The `RatesManager` is constructed in `coordinator.py` as:
 
-2. **Diagnostic plan table dependency**: The `_build_diagnostic_plan_table` method (coordinator.py) iterates over the **rates** timeline — not the **future_plan** array. Even if the solver successfully ran with all-zero prices and produced a valid 288-step sequence, the diagnostic plan table renders zero rows because the outer loop is `for idx, rate in enumerate(rates)`.
+```
+RatesManager(
+    hass,
+    config.get(CONF_IMPORT_PRICE_ENTITY),    ← General Forecast entity
+    config.get(CONF_EXPORT_PRICE_ENTITY),    ← General Forecast entity
+    use_amber_express=True,                  ← switch to Express parser
+)
+```
+
+When `use_amber_express=True`, the system applies the **Amber Express parser** (`_parse_amber_express_entity`) to the **General Forecast entities**. But:
+
+- General Forecast entities have attribute `forecast` (standard Amber 30-minute blocks)
+- Amber Express entities have attribute `forecasts` (nested 5-minute express arrays with `renewables`, `advanced_price_predicted`, etc.)
+
+The Express parser looks for `state.attributes.get("forecasts", [])` on the General Forecast entity → gets an empty list → produces zero rates.
+
+Meanwhile, the actual Amber Express entities (`General Price Detailed` / `Feed In Price Detailed`) are wired to `CONF_CURRENT_IMPORT_PRICE_ENTITY` / `CONF_CURRENT_EXPORT_PRICE_ENTITY`, which the coordinator **only uses for instantaneous row-0 price override** — not the 24-hour forecast.
+
+### Impact:
+
+- The 24-hour pricing timeline is empty (zero rates)
+- The LP solver runs with all-zero prices, producing a degenerate SELF_CONSUMPTION plan
+- `_build_diagnostic_plan_table` iterates over the empty rates list, rendering zero table rows
+- The dashboard shows no plan
+
+### Secondary fault — Plan table coupling:
+
+Even if the rates were partially populated, the `_build_diagnostic_plan_table` method iterates over the **rates timeline** (`for idx, rate in enumerate(rates)`) rather than the **future_plan** array. This means the plan table row count is coupled to the rates list length, not the solver output.
 
 ## User Scenarios & Testing
 
-### User Story 1 — Plan Survives General Forecast Failure (Priority: P1)
+### User Story 1 — Amber Express Entities Used for 24h Forecast (Priority: P1)
 
-A user has configured Amber Express as their pricing source. They have also previously configured general forecast price entities (which may have been used before Amber Express was enabled). When those general forecast entities become unavailable (HA restart, sensor failure), the 24-hour plan continues to display correctly using Amber Express data.
+When a user enables Amber Express and configures Amber Express price entities (in the `current_import_price_entity` / `current_export_price_entity` fields), the system must use those entities for the full 24-hour pricing timeline, not just for instantaneous row-0 override.
 
-**Why this priority**: This is the core defect. The user's system loses all planning visibility during entity failures, defeating the purpose of the battery optimisation system.
+**Why this priority**: This is the primary wiring defect. Without this fix, Amber Express users get no meaningful pricing data in the solver.
 
-**Independent Test**: Configure `use_amber_express: true` with valid Amber Express data, set general forecast entities to `unavailable`, verify the plan table still renders with 288 rows.
+**Independent Test**: Configure Amber Express entities with valid `forecasts` data, enable `use_amber_express`, verify the rates list is populated with express-parsed pricing from the correct entities.
 
 **Acceptance Scenarios**:
 
-1. **Given** Amber Express is enabled and healthy, **When** the general forecast price entities become unavailable, **Then** the 24-hour plan table renders with the correct number of rows using Amber Express pricing data.
-2. **Given** Amber Express is enabled and healthy, **When** the general forecast price entities return `unknown` state, **Then** the system logs a warning but continues to render the full plan.
-3. **Given** Amber Express is enabled and healthy, **When** the general forecast price entities have empty `forecast` attributes, **Then** the plan still renders using the Amber Express `forecasts` attribute.
+1. **Given** Amber Express is enabled and express entities are configured in `current_import_price_entity` / `current_export_price_entity`, **When** the coordinator updates, **Then** `RatesManager` parses the express entities (not the general forecast entities) for the full 24-hour timeline.
+2. **Given** Amber Express is enabled but only general forecast entities are configured (no express entities), **When** the coordinator updates, **Then** the system falls back to parsing the general forecast entities using the standard parser.
+3. **Given** Amber Express is enabled and express entities are configured, **When** the express entities become temporarily unavailable, **Then** the system falls back to the general forecast entities.
 
 ---
 
-### User Story 2 — Solver Produces Valid Plan Despite Empty Rates (Priority: P2)
+### User Story 2 — Plan Table Renders from Solver Output (Priority: P2)
 
-When the rates timeline is empty for any reason, the LP solver should still produce a 288-step future plan. The diagnostic plan table should be able to render the plan using the solver's own output rather than depending on a populated rates list.
+The diagnostic plan table must render based on the solver's future plan output, not the rates timeline length.
 
-**Why this priority**: This is the secondary mechanism — even if the rates are empty, the solver already runs and produces output. The issue is that the plan table rendering discards that output.
+**Why this priority**: This is the secondary mechanism that causes a blank table even when the solver produces valid output.
 
-**Independent Test**: Pass empty rates to `_build_diagnostic_plan_table` but provide a valid 288-step `future_plan` array; verify 288 rows are rendered.
+**Independent Test**: Pass empty rates but valid 288-step `future_plan` to `_build_diagnostic_plan_table`; verify 288 rows render.
 
 **Acceptance Scenarios**:
 
-1. **Given** the rates timeline is empty, **When** the solver has produced a valid 288-step future plan, **Then** the diagnostic plan table renders all 288 steps using the solver's embedded price data.
-2. **Given** the rates timeline has fewer intervals than the future plan, **When** the plan table is built, **Then** the table extends to cover all solver steps, not just the rate intervals.
+1. **Given** the rates timeline has fewer intervals than the solver's future plan, **When** the plan table is built, **Then** the table renders rows for all solver steps, using solver-embedded pricing data where rates are missing.
+2. **Given** the rates timeline is empty, **When** the solver has produced a valid 288-step plan, **Then** the plan table still renders all 288 steps.
 
 ---
 
 ### User Story 3 — Dashboard Communicates Degraded State (Priority: P3)
 
-When the system is operating in a degraded mode (e.g., using fallback pricing, missing forecast entities), the dashboard should visually indicate which data sources are healthy and which are degraded.
+When the system is operating with fallback pricing (e.g., general forecast instead of express, or zero-price defaults), the dashboard should visually indicate degraded operation.
 
-**Why this priority**: User awareness of degraded operation prevents confusion and supports troubleshooting.
+**Why this priority**: User awareness prevents confusion during transient failures.
 
-**Independent Test**: Trigger a forecast entity failure and verify the dashboard displays a visible degradation indicator.
+**Independent Test**: Trigger a pricing entity fallback and verify the dashboard shows a degradation indicator.
 
 **Acceptance Scenarios**:
 
-1. **Given** one or more forecast entities are unavailable, **When** the dashboard renders, **Then** a visible warning indicator appears showing which data sources are degraded.
+1. **Given** one or more pricing entities are unavailable, **When** the dashboard renders, **Then** a visible warning indicator appears.
 
 ---
 
 ### Edge Cases
 
-- What happens when **both** Amber Express AND general forecast entities are unavailable simultaneously? System should still render a degraded plan (all-zero prices, SELF_CONSUMPTION states) rather than a blank table.
-- What happens when Amber Express entities are configured but return empty `forecasts` arrays? System should fall back gracefully with appropriate logging.
-- What happens when rates are available but have fewer than 288 intervals? The plan table should pad/extend to match the full 288-step solver output.
+- What happens when both express AND general forecast entities are unavailable simultaneously? → System should still render a degraded plan (all-zero prices, SELF_CONSUMPTION) rather than a blank table.
+- What happens when `use_amber_express` is true but `current_import_price_entity` is NOT configured? → System should fall back to parsing `import_price_entity` with the standard parser, not the express parser.
+- What happens when express entities are configured but return empty `forecasts` arrays? → System should fall back to general forecast entities.
+- What happens when rates are available but have fewer than 288 intervals? → Plan table should pad/extend to match full 288-step solver output.
 
 ## Requirements
 
 ### Functional Requirements
 
-- **FR-001**: When `use_amber_express` is enabled and the Amber Express entity returns valid `forecasts` data, the system MUST produce a full 24-hour plan regardless of the state of any co-configured general forecast entities.
-- **FR-002**: The diagnostic plan table builder MUST NOT depend exclusively on the rates timeline length for its iteration count. If the rates timeline is shorter than the solver's future plan, the table MUST extend to cover the full solver output.
-- **FR-003**: When a pricing entity is unavailable, the system MUST log a warning at `WARNING` level including the entity ID and failure reason, but MUST NOT abort the update cycle.
-- **FR-004**: When all pricing sources fail simultaneously, the system MUST still produce a valid (albeit degraded) 288-step plan using zero-price defaults, resulting in SELF_CONSUMPTION for all intervals.
+- **FR-001**: When `use_amber_express` is enabled AND `current_import_price_entity` / `current_export_price_entity` are configured, the `RatesManager` MUST use those entities (not `import_price_entity` / `export_price_entity`) for the 24-hour pricing forecast.
+- **FR-002**: When `use_amber_express` is enabled but express entities are NOT configured or are unavailable, the system MUST fall back to parsing the general forecast entities using the standard parser (`_parse_entity`), NOT the express parser.
+- **FR-003**: The diagnostic plan table builder MUST NOT depend exclusively on the rates timeline length. If the solver's future plan is longer than the rates list, the table MUST extend to cover the full solver output.
+- **FR-004**: When a pricing entity is unavailable, the system MUST log a warning but MUST NOT abort the update cycle.
 - **FR-005**: Existing behaviour for users who do NOT have Amber Express enabled MUST NOT be affected.
+- **FR-006**: The UI labels for `current_import_price_entity` / `current_export_price_entity` SHOULD be clarified to communicate that these are the primary data source for Amber Express mode.
 
 ### Key Entities
 
-- **RatesManager**: Responsible for parsing pricing data from configured entities; must be resilient to entity unavailability.
-- **Diagnostic Plan Table**: The `_build_diagnostic_plan_table` method in the coordinator; must decouple its row count from the rates timeline.
-- **Solver Inputs Builder**: The `_build_solver_inputs` method; already handles empty rates gracefully (produces zero-price arrays).
+- **RatesManager**: Must be modified to accept and prefer express entity IDs when available, falling back to general forecast entities.
+- **Coordinator**: Must pass the correct entity IDs to `RatesManager` based on configuration.
+- **Diagnostic Plan Table**: Must decouple row count from rates timeline length.
+- **Config Flow / Translations**: UI labels should clarify the relationship between the entity fields and Amber Express mode.
 
 ## Success Criteria
 
 ### Measurable Outcomes
 
-- **SC-001**: With Amber Express enabled and general forecast entities set to `unavailable`, the plan table renders exactly 288 rows — verified by automated test.
-- **SC-002**: Zero regression in the existing 216-test suite — all tests continue to pass.
-- **SC-003**: No `UpdateFailed` exception is raised when pricing entities are unavailable — the coordinator update cycle completes successfully.
-- **SC-004**: Warning-level log entries are emitted for each unavailable pricing entity, enabling user troubleshooting.
+- **SC-001**: With Amber Express enabled and express entities configured, the rates list is populated from the express entities — verified by automated test.
+- **SC-002**: With Amber Express enabled and express entities unavailable, the system falls back to general forecast entities — verified by automated test.
+- **SC-003**: With empty rates, the plan table renders 288 rows when the solver produces a 288-step plan — verified by automated test.
+- **SC-004**: Zero regression in the existing 216-test suite.
+- **SC-005**: No `UpdateFailed` exception raised when pricing entities are unavailable.
 
 ## Assumptions
 
 - The Amber Express `forecasts` attribute structure has not changed from the format documented in Feature 029.
-- The user's Amber Express entities and general forecast entities may share the same entity IDs (when the same sensor is parsed differently based on `use_amber_express`), or may be distinct entities.
-- The `_build_diagnostic_plan_table` fix should use the `future_plan` length as the primary iteration driver, falling back to `rates` for supplementary data (timestamps, pricing) where available.
+- The `current_import_price_entity` / `current_export_price_entity` config keys can be safely repurposed to serve as both the express forecast source AND the instantaneous price source, since Amber Express entities provide both.
+- General forecast entities (`import_price_entity` / `export_price_entity`) will remain configured alongside express entities for fallback purposes.
