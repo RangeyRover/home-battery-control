@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import homeassistant.util.dt as dt_util
-from homeassistant.components.recorder import get_instance
+from homeassistant.components.recorder import get_instance, history
 from homeassistant.core import HomeAssistant
 from sqlalchemy import text
 
@@ -150,7 +150,8 @@ class SyntheticRatesPredictor:
                         continue
 
                     dt = datetime.fromtimestamp(ts, tz=dt_util.UTC)
-                    minutes_since_midnight = dt.hour * 60 + dt.minute
+                    dt_local = dt_util.as_local(dt)
+                    minutes_since_midnight = dt_local.hour * 60 + dt_local.minute
                     idx = int(minutes_since_midnight / 5)
                     if 0 <= idx < 288:
                         curve[idx] = float(val)
@@ -199,7 +200,8 @@ class SyntheticRatesPredictor:
                             continue
 
                         dt = datetime.fromtimestamp(start_ts, tz=dt_util.UTC)
-                        forecast_date = (dt + timedelta(days=1)).date()
+                        dt_local = dt_util.as_local(dt)
+                        forecast_date = (dt_local + timedelta(days=1)).date()
 
                         current_max = daily_yields.get(forecast_date, 0)
                         daily_yields[forecast_date] = max(val, current_max)
@@ -232,20 +234,47 @@ class SyntheticRatesPredictor:
                     )
                     day_end = day_start + timedelta(days=1)
 
+                    entity_ids = []
+                    if self._import_price_entity_id:
+                        entity_ids.append(self._import_price_entity_id)
+                    if self._export_price_entity_id:
+                        entity_ids.append(self._export_price_entity_id)
+                    if self._load_entity_id:
+                        entity_ids.append(self._load_entity_id)
+
+                    day_states_dict = history.get_significant_states(
+                        self._hass,
+                        day_start,
+                        day_end,
+                        entity_ids=entity_ids,
+                    ) if entity_ids else {}
+
                     # Process Import Price
                     import_curve = [0.0] * 288
                     if self._import_price_entity_id:
-                        import_curve = self._get_lts_curve(conn, self._import_price_entity_id, day_start, day_end)
+                        states = day_states_dict.get(self._import_price_entity_id, [])
+                        if states:
+                            import_curve = self._normalize_to_288(states, day_start)
+                        else:
+                            import_curve = self._get_lts_curve(conn, self._import_price_entity_id, day_start, day_end)
 
                     # Process Export Price
                     export_curve = [0.0] * 288
                     if self._export_price_entity_id:
-                        export_curve = self._get_lts_curve(conn, self._export_price_entity_id, day_start, day_end)
+                        states = day_states_dict.get(self._export_price_entity_id, [])
+                        if states:
+                            export_curve = self._normalize_to_288(states, day_start)
+                        else:
+                            export_curve = self._get_lts_curve(conn, self._export_price_entity_id, day_start, day_end)
 
                     # Process Load Profile
                     load_curve = [0.0] * 288
                     if self._load_entity_id:
-                        load_curve = self._get_lts_curve(conn, self._load_entity_id, day_start, day_end)
+                        states = day_states_dict.get(self._load_entity_id, [])
+                        if states:
+                            load_curve = self._normalize_to_288(states, day_start)
+                        else:
+                            load_curve = self._get_lts_curve(conn, self._load_entity_id, day_start, day_end)
 
                     analog_days.append(
                         AnalogDay(

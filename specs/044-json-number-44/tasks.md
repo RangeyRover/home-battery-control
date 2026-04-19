@@ -32,4 +32,4 @@ Goal: Prove everything works successfully.
 
 - [x] T009 [US1] Run the refactored test suite to verify 100% pass rate.
 - [x] T010 [US1] Run `ruff check --fix` across the affected files.
-- [ ] T011 [US1] Commit changes to the `044` branch.
+- [x] T011 [US1] Commit changes to the `044` branch.

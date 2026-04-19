@@ -798,4 +798,67 @@ def test_coordinator_handles_576_step_inputs():
 
     # In TDD Phase 1 we verify the code can orchestrate 576 steps.
     # The actual truncation logic will be implemented in Phase 4.
+
+def test_coordinator_synthetic_outlook_iso_dates():
+    """T001: Ensure synthetic_analog_days (datetime.date) are converted to ISO format strings for JSON serialization."""
+    import asyncio
+    from datetime import date
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
+    mock_hass = MagicMock()
+    async def mock_async_add_executor_job(func, *args, **kwargs):
+        return func(*args, **kwargs)
+    mock_hass.async_add_executor_job = mock_async_add_executor_job
+
+    mock_tracker = MagicMock()
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.hass = mock_hass
+    coordinator.config = {}
+    coordinator.telemetry_tracker = mock_tracker
+    coordinator.acquisition_cost = 0.10
+    coordinator.telemetry_tracker.cumulative_cost = 0.0
+    coordinator._update_count = 0
+    coordinator._last_saved_acquisition = 0.10
+    coordinator.store = MagicMock()
+    coordinator._costs_loaded = True
+    coordinator._previous_state = None
+    coordinator._solver_snapshot = None
+    coordinator._state_transitions = []
+
+    coordinator.rates = MagicMock()
+    coordinator.rates.get_rates.return_value = []
+    coordinator.rates.get_import_price_at.return_value = 0.0
+    coordinator.weather = MagicMock()
+    coordinator.weather.async_update = AsyncMock()
+    coordinator.solar = MagicMock()
+    coordinator.solar.async_get_forecast = AsyncMock(return_value=[])
+    coordinator.load_predictor = MagicMock()
+    coordinator.load_predictor.async_predict = AsyncMock(return_value=[])
+    coordinator.fsm = MagicMock()
+    coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(
+        state="standby", reason="test", limit_kw=0.0, future_plan=[]
+    )
+    coordinator.executor = MagicMock()
+    coordinator.executor.apply_state = AsyncMock()
+
+    # Mock the synthetic predictor to return datetime.date objects
+    coordinator.synthetic_predictor = MagicMock()
+    mock_dates = [date(2026, 4, 1), date(2026, 4, 2)]
+    coordinator.synthetic_predictor.async_get_synthetic_outlook = AsyncMock(
+        return_value=(mock_dates, [0.0]*288, [0.0]*288, [0.0]*288)
+    )
+
+    # Bypass methods that need complex setup
+    coordinator._get_sensor_value = MagicMock(return_value=0.0)
+    coordinator._build_solver_inputs = MagicMock()
+
+    with patch("custom_components.house_battery_control.coordinator.dt_util.utcnow") as mock_now:
+        mock_now.return_value.isoformat.return_value = "2026-04-20T00:00:00Z"
+        result = asyncio.run(coordinator._async_update_data())
+
+    # Verify that the dates were converted to strings!
+    assert result["synthetic_analog_days"] == ["2026-04-01", "2026-04-02"]
+
     pass  # We'll assert this indirectly via the other T005 tests, or just prove it exists here.

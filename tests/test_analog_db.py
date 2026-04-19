@@ -29,9 +29,9 @@ def get_solcast_forecasts(conn):
     meta_id = row[0]
 
     cur.execute('''
-        SELECT start_ts, max, mean, state 
-        FROM statistics 
-        WHERE metadata_id = ? 
+        SELECT start_ts, max, mean, state
+        FROM statistics
+        WHERE metadata_id = ?
         ORDER BY start_ts ASC
     ''', (meta_id,))
 
@@ -66,8 +66,8 @@ def extract_day_curve(conn, entity_id, day_start, day_end):
         end_ts = day_end.timestamp()
 
         cur.execute('''
-            SELECT start_ts, mean, state 
-            FROM statistics 
+            SELECT start_ts, mean, state
+            FROM statistics
             WHERE metadata_id = ? AND start_ts >= ? AND start_ts < ?
             ORDER BY start_ts ASC
         ''', (meta_id, start_ts, end_ts))

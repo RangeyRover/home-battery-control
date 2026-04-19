@@ -62,13 +62,14 @@ def mock_hass(db_conn):
     # We patch homeassistant.components.recorder.get_instance
     return hass, recorder_instance
 
-@pytest.mark.parametrize("target_kwh", [30, 20, 14])
+@pytest.mark.parametrize("target_kwh", [28, 26, 24, 22, 20, 18, 16, 14])
 def test_online_analog_db_search(mock_hass, target_kwh, monkeypatch):
     hass, recorder_instance = mock_hass
 
     # Patch get_instance
     import custom_components.house_battery_control.rates_predictor as rp
     monkeypatch.setattr(rp, "get_instance", lambda h: recorder_instance, raising=False)
+    monkeypatch.setattr(rp.history, "get_significant_states", lambda hass, start, end, entity_ids=None: {}, raising=False)
 
     predictor = SyntheticRatesPredictor(
         hass,
