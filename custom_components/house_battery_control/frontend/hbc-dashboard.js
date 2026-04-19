@@ -9,6 +9,7 @@ export class HBCDashboard extends LitElement {
     return {
       data: { type: Object },
       synthetic_outlook: { type: Object },
+      hass: { type: Object },
     };
   }
 
@@ -32,7 +33,8 @@ export class HBCDashboard extends LitElement {
 
   async _fetchOutlook() {
     try {
-      const resp = await fetch("/hbc/api/synthetic_outlook");
+      if (!this.hass) return;
+      const resp = await this.hass.fetchWithAuth("/hbc/api/synthetic_outlook");
       if (resp.ok) {
         const json = await resp.json();
         // Rename keys to match expected test data format, or keep as is.

@@ -160,7 +160,7 @@ class HBCPanel extends LitElement {
       <div class="root">
         ${this._activeTab === "dashboard"
           ? html`
-              <hbc-dashboard .data=${this._data}></hbc-dashboard>
+              <hbc-dashboard .data=${this._data} .hass=${this.hass}></hbc-dashboard>
               <hbc-sensors .data=${this._data}></hbc-sensors>
             `
           : html`
