@@ -598,7 +598,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "solver_snapshot": self._solver_snapshot,
                 "state_transitions": list(self._state_transitions),
                 # Feature 037: Synthetic Outlook
-                "synthetic_analog_days": [d.isoformat() if hasattr(d, 'isoformat') else str(d) for d in synthetic_analog_days],
+                "synthetic_analog_days": [d.date.isoformat() if hasattr(d, 'date') else str(d) for d in synthetic_analog_days],
                 "synthetic_pricing_curve": synthetic_pricing_curve,
                 "synthetic_export_curve": synthetic_export_curve,
                 "synthetic_load_curve": synthetic_load_curve,
