@@ -214,6 +214,34 @@ export class HBCDashboard extends LitElement {
       return html`<p style="color: #8888aa; text-align: center;">Awaiting synthetic generation...</p>`;
     }
     
+    const renderChartWithScale = (title, curve, colorTitle, colorBarDefault) => {
+      if (!curve || curve.length === 0) {
+        return html`
+          <div>
+            <h3 style="color: ${colorTitle}; margin-bottom: 4px; font-size: 14px;">${title}</h3>
+            <div style="height: 50px; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px; color: #888;">No data</div>
+          </div>
+        `;
+      }
+      const max = Math.max(...curve);
+      const min = Math.min(...curve);
+      return html`
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <h3 style="color: ${colorTitle}; margin-bottom: 4px; font-size: 14px;">${title}</h3>
+            <span style="font-size: 11px; color: #8888aa;">Min: ${min.toFixed(1)} | Max: ${max.toFixed(1)}</span>
+          </div>
+          <div style="position: relative; height: 50px; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
+            <div style="position: absolute; top: 0; right: 0; font-size: 10px; color: #555577;">${max.toFixed(1)}</div>
+            <div style="position: absolute; bottom: 4px; right: 0; font-size: 10px; color: #555577;">${min.toFixed(1)}</div>
+            <div style="display: flex; gap: 2px; height: 100%; align-items: flex-end; margin-right: 30px;">
+              ${this._renderSparkline(curve, colorBarDefault)}
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
     return html`
       <div style="display: flex; gap: 20px;">
         <div style="flex: 1;">
@@ -223,36 +251,15 @@ export class HBCDashboard extends LitElement {
           </ul>
         </div>
         <div style="flex: 2; display: flex; flex-direction: column; gap: 10px;">
-          <div>
-            <h3 style="color: #00d4ff; margin-bottom: 4px; font-size: 14px;">Import Price Curve (c/kWh)</h3>
-            <div style="display: flex; gap: 2px; height: 50px; align-items: flex-end; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
-              ${outlook.pricing_curve && outlook.pricing_curve.length > 0 
-                ? this._renderSparkline(outlook.pricing_curve) 
-                : html`<span>No data</span>`}
-            </div>
-          </div>
-          <div>
-            <h3 style="color: #00ff88; margin-bottom: 4px; font-size: 14px;">Export Price Curve (c/kWh)</h3>
-            <div style="display: flex; gap: 2px; height: 50px; align-items: flex-end; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
-              ${outlook.export_curve && outlook.export_curve.length > 0 
-                ? this._renderSparkline(outlook.export_curve) 
-                : html`<span>No data</span>`}
-            </div>
-          </div>
-          <div>
-            <h3 style="color: #ffaa00; margin-bottom: 4px; font-size: 14px;">Load Profile (W)</h3>
-            <div style="display: flex; gap: 2px; height: 50px; align-items: flex-end; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
-              ${outlook.load_curve && outlook.load_curve.length > 0 
-                ? this._renderSparkline(outlook.load_curve) 
-                : html`<span>No data</span>`}
-            </div>
-          </div>
+          ${renderChartWithScale("Import Price Curve (c/kWh)", outlook.pricing_curve, "#00d4ff", "#ff4444")}
+          ${renderChartWithScale("Export Price Curve (c/kWh)", outlook.export_curve, "#00ff88", "#00ff88")}
+          ${renderChartWithScale("Load Profile (W)", outlook.load_curve, "#ffaa00", "#ffaa00")}
         </div>
       </div>
     `;
   }
 
-  _renderSparkline(curve) {
+  _renderSparkline(curve, defaultColor = null) {
     const max = Math.max(...curve, 1);
     const min = Math.min(...curve, 0);
     const range = max - min;
@@ -262,7 +269,10 @@ export class HBCDashboard extends LitElement {
       const heightPct = range === 0 ? 50 : ((val - min) / range) * 100;
       const displayHeight = Math.max(heightPct, 5); // min 5% height
       const isNegative = val < 0;
-      const color = isNegative ? "#00ff88" : "#ff4444";
+      let color = isNegative ? "#00ff88" : "#ff4444";
+      if (defaultColor && !isNegative) {
+          color = defaultColor;
+      }
       
       // We sample or downsample if the array is large. If it's 576 items, we just draw them thin.
       return html`
