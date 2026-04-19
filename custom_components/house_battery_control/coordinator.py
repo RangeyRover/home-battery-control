@@ -131,7 +131,10 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
 
         self.synthetic_predictor = SyntheticRatesPredictor(
             hass,
-            config.get(CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW)
+            config.get(CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW),
+            config.get(CONF_IMPORT_PRICE_ENTITY, ""),
+            config.get(CONF_EXPORT_PRICE_ENTITY, ""),
+            config.get(CONF_LOAD_POWER_ENTITY, "")
         )
 
         # FSM + Executor
@@ -558,8 +561,15 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             # Fetch synthetic outlook
             synthetic_analog_days = []
             synthetic_pricing_curve = []
+            synthetic_export_curve = []
+            synthetic_load_curve = []
             try:
-                synthetic_analog_days, synthetic_pricing_curve = await self.synthetic_predictor.async_get_synthetic_outlook()
+                (
+                    synthetic_analog_days,
+                    synthetic_pricing_curve,
+                    synthetic_export_curve,
+                    synthetic_load_curve
+                ) = await self.synthetic_predictor.async_get_synthetic_outlook()
             except Exception as e:
                 _LOGGER.error("Failed to generate synthetic outlook: %s", e)
 
@@ -789,6 +799,8 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 # Feature 037: Synthetic Outlook
                 "synthetic_analog_days": synthetic_analog_days,
                 "synthetic_pricing_curve": synthetic_pricing_curve,
+                "synthetic_export_curve": synthetic_export_curve,
+                "synthetic_load_curve": synthetic_load_curve,
             }
         except Exception as err:
             raise UpdateFailed(f"Error in HBC update cycle: {err}")
