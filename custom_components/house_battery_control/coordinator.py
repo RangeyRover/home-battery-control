@@ -131,8 +131,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
 
         self.synthetic_predictor = SyntheticRatesPredictor(
             hass,
-            self.rates,
-            self.solar,
+            config.get(CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW)
         )
 
         # FSM + Executor
