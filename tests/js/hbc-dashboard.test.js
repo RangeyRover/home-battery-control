@@ -46,4 +46,27 @@ describe('HBCDashboard', () => {
     expect(bar.querySelector('.no-import').textContent).to.include('10:00-11:00');
     expect(bar.querySelector('.observation')).to.exist;
   });
+
+  describe('Tomorrow\'s Outlook Tab', () => {
+    it('renders the outlook tab element', async () => {
+      const el = await fixture('<hbc-dashboard></hbc-dashboard>');
+      const tab = el.shadowRoot.querySelector('.outlook-tab');
+      expect(tab).to.exist;
+    });
+
+    it('displays the 5 analog days in the statistics pane', async () => {
+      const el = await fixture('<hbc-dashboard></hbc-dashboard>');
+      el.data = {
+        synthetic_outlook: {
+          analog_days: ["2025-01-01", "2025-01-02", "2025-01-03", "2025-01-04", "2025-01-05"],
+          pricing_curve: [3.0]
+        }
+      };
+      await el.updateComplete;
+      
+      const pane = el.shadowRoot.querySelector('.outlook-statistics');
+      expect(pane).to.exist;
+      expect(pane.textContent).to.include('2025-01-01');
+    });
+  });
 });

@@ -28,6 +28,7 @@ async def async_setup_entry(
         HBCReasonSensor(coordinator),
         HBCLimitKwSensor(coordinator),
         HBCDpTargetSocSensor(coordinator),
+        HBCSyntheticRatesDiagnosticSensor(coordinator),
     ]
 
     async_add_entities(entities)
@@ -105,3 +106,26 @@ class HBCDpTargetSocSensor(HBCSensorBase):
     def native_value(self) -> float | None:
         """Return the target_soc constraint the engine is pathfinding on."""
         return self.coordinator.data.get("target_soc")
+
+
+class HBCSyntheticRatesDiagnosticSensor(HBCSensorBase):
+    """Sensor that exposes the internal state of the Synthetic Rates Predictor."""
+
+    _attr_translation_key = "hbc_synthetic_rates_diagnostic"
+    _attr_unique_id = "hbc_synthetic_rates_diagnostic"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return Active if we have synthetic data, Inactive otherwise."""
+        if self.coordinator.data.get("synthetic_analog_days"):
+            return "Active"
+        return "Inactive"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the full JSON serializable analog_days data and synthesized curve."""
+        attrs = {}
+        if self.coordinator.data.get("synthetic_analog_days"):
+            attrs["analog_days"] = self.coordinator.data["synthetic_analog_days"]
+            attrs["pricing_curve"] = self.coordinator.data.get("synthetic_pricing_curve", [])
+        return attrs
