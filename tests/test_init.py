@@ -24,15 +24,23 @@ def test_frontend_dir_defined():
     assert FRONTEND_DIR.name == "frontend"
 
 
-def test_panel_js_exists():
-    """hbc-panel.js must exist in frontend directory."""
+def test_frontend_components_exist():
+    """All required frontend web components must exist and register correctly."""
     from custom_components.house_battery_control import FRONTEND_DIR
 
-    panel_js = FRONTEND_DIR / "hbc-panel.js"
-    assert panel_js.exists(), f"{panel_js} not found"
-    content = panel_js.read_text(encoding="utf-8")
-    assert "customElements.define" in content, "JS must register a custom element"
-    assert "hbc-panel" in content, "Custom element must be named hbc-panel"
+    components = [
+        "hbc-panel",
+        "hbc-dashboard",
+        "hbc-sensors",
+        "hbc-plan-table",
+    ]
+
+    for component in components:
+        js_file = FRONTEND_DIR / f"{component}.js"
+        assert js_file.exists(), f"Frontend component {js_file.name} not found"
+        content = js_file.read_text(encoding="utf-8")
+        assert "customElements.define" in content, f"{component} must register a custom element"
+        assert component in content, f"Custom element must be named {component}"
 
 
 def test_static_path_config_importable():

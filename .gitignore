@@ -39,3 +39,5 @@ New folder/
 *.zip
 archive/
 .mypy_cache/
+
+node_modules/

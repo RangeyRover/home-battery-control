@@ -27,7 +27,11 @@ The web interface must be implemented as an HA **custom panel** (`panel_custom`)
 -   **Dashboard Precision**: Instantaneous metric cards strictly display raw float telemetry arrays from the API without arbitrary frontend truncating or rounding, except for mathematically constrained cost displays.
 -   **Cumulatives**: The underlying API's `import_today` and `export_today` statistics must render explicitly along the bottom of the dashboard `status-grid`.
 
-
+#### 2.2.1. Web Components
+The panel is composed of three primary LitElement Web Components:
+1. `<hbc-dashboard>`: Renders the "Power Flow" grid (Solar, Grid, Battery, House, SoC), the "Status Grid" (Pricing, Cumulatives, State badges), and the "24-Hour Forecast Summary" which averages import/export pricing and sums kW to kWh over the active plan. It conditionally renders a constraints bar if `no_import_periods` or `observation_mode` are active.
+2. `<hbc-sensors>`: Displays a collapsible table of diagnostic sensor states. Its expanded/collapsed visibility state is explicitly persisted to `localStorage` under the key `hbc_sensors_hidden`.
+3. `<hbc-plan-table>`: Displays the full 24-hour LP solver plan in a table. It supports toggling between 5-minute and 30-minute chunking resolutions. When chunked, it mathematically averages numerical values and correctly infers boundary states (`CHARGE_GRID`, `DISCHARGE_GRID`) and inverter limits. Hidden columns are persisted to `localStorage` under the key `hbc_hidden_cols`.
 
 #### 2.2.2. Web Extensibility Elements
 - **Table Column Toggling**: Users can dynamically filter or hide irrelevant columns from the 24-hour plan view. This boolean visibility array is implicitly persisted via the browser's `localStorage` to survive refreshes.
@@ -162,5 +166,7 @@ All development must follow the **Spec-Kit TDD process**. No code changes withou
 ## 7. Versioning Strategy
 The project follows a strict branch-based versioning model:
 - **`main` Branch (Stable/Approved)**: Represents production-ready, fully validated code. Releases cut from `main` are formally approved stable versions (e.g., `v1.1.0`).
-- **Feature Branches (Beta/Pre-release)**: Ongoing feature development branches (`0xx-feature-name`) are strictly treated as beta builds. Any releases drafted from these branches MUST be tagged as pre-releases (e.g., `v1.1.0-beta.1`). 
 - **Tag Correlation**: The beta tag versioning must relate directly to the target stable release (i.e. if the branch is implementing features for the next `v1.1.0` release, its pre-releases are `v1.1.0-beta.X`).
+
+## 8. Specification Artifact Governance
+**MANDATORY RULE**: This `system_requirements.md` document serves as the single source of truth for system behavior. Every new feature or bugfix that alters system behavior MUST explicitly update this document as part of its feature lifecycle.
