@@ -264,6 +264,8 @@ class HBCSyntheticOutlookView(HomeAssistantView):
             if coord and coord.data:
                 data["synthetic_analog_days"] = coord.data.get("synthetic_analog_days", [])
                 data["synthetic_pricing_curve"] = coord.data.get("synthetic_pricing_curve", [])
+                data["synthetic_export_curve"] = coord.data.get("synthetic_export_curve", [])
+                data["synthetic_load_curve"] = coord.data.get("synthetic_load_curve", [])
                 break
 
         return self.json(data)

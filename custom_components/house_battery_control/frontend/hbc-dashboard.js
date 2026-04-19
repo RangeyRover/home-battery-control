@@ -37,11 +37,11 @@ export class HBCDashboard extends LitElement {
       const resp = await this.hass.fetchWithAuth("/hbc/api/synthetic_outlook");
       if (resp.ok) {
         const json = await resp.json();
-        // Rename keys to match expected test data format, or keep as is.
-        // API returns { synthetic_analog_days: [], synthetic_pricing_curve: [] }
         this.synthetic_outlook = {
           analog_days: json.synthetic_analog_days || [],
-          pricing_curve: json.synthetic_pricing_curve || []
+          pricing_curve: json.synthetic_pricing_curve || [],
+          export_curve: json.synthetic_export_curve || [],
+          load_curve: json.synthetic_load_curve || []
         };
       }
     } catch (e) {
@@ -219,15 +219,33 @@ export class HBCDashboard extends LitElement {
         <div style="flex: 1;">
           <h3 style="color: #00d4ff; margin-bottom: 8px; font-size: 14px;">Selected Analog Days</h3>
           <ul style="list-style: none; padding: 0; margin: 0; color: #e0e0e0; font-size: 14px;">
-            ${outlook.analog_days.map(day => html`<li style="padding: 4px 0; border-bottom: 1px solid #2a2a5e;">${day}</li>`)}
+            ${outlook.analog_days.map(day => html`<li style="padding: 4px 0; border-bottom: 1px solid #2a2a5e;">${day.date ? new Date(day.date).toLocaleDateString() : day} (Yield: ${day.pv_yield ? day.pv_yield.toFixed(1) : '?'} kWh)</li>`)}
           </ul>
         </div>
-        <div style="flex: 2;">
-          <h3 style="color: #00d4ff; margin-bottom: 8px; font-size: 14px;">Synthesized Price Curve (c/kWh)</h3>
-          <div style="display: flex; gap: 2px; height: 100px; align-items: flex-end; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
-            ${outlook.pricing_curve && outlook.pricing_curve.length > 0 
-              ? this._renderSparkline(outlook.pricing_curve) 
-              : html`<span>No curve data</span>`}
+        <div style="flex: 2; display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <h3 style="color: #00d4ff; margin-bottom: 4px; font-size: 14px;">Import Price Curve (c/kWh)</h3>
+            <div style="display: flex; gap: 2px; height: 50px; align-items: flex-end; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
+              ${outlook.pricing_curve && outlook.pricing_curve.length > 0 
+                ? this._renderSparkline(outlook.pricing_curve) 
+                : html`<span>No data</span>`}
+            </div>
+          </div>
+          <div>
+            <h3 style="color: #00ff88; margin-bottom: 4px; font-size: 14px;">Export Price Curve (c/kWh)</h3>
+            <div style="display: flex; gap: 2px; height: 50px; align-items: flex-end; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
+              ${outlook.export_curve && outlook.export_curve.length > 0 
+                ? this._renderSparkline(outlook.export_curve) 
+                : html`<span>No data</span>`}
+            </div>
+          </div>
+          <div>
+            <h3 style="color: #ffaa00; margin-bottom: 4px; font-size: 14px;">Load Profile (W)</h3>
+            <div style="display: flex; gap: 2px; height: 50px; align-items: flex-end; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
+              ${outlook.load_curve && outlook.load_curve.length > 0 
+                ? this._renderSparkline(outlook.load_curve) 
+                : html`<span>No data</span>`}
+            </div>
           </div>
         </div>
       </div>

@@ -35,11 +35,21 @@ class TestSyntheticRatesPredictor:
         predictor = SyntheticRatesPredictor(mock_hass)
         predictor._last_calculated_solar_kwh = 30.0  # 5 kWh diff from 35.0
 
-        analog_days = [AnalogDay(date=datetime(2025, 1, i), pv_yield=35.0, pricing_curve=[float(i)]*48) for i in range(1, 6)]
+        analog_days = [
+            AnalogDay(
+                date=datetime(2025, 1, i),
+                pv_yield=35.0,
+                pricing_curve=[float(i)]*288,
+                export_curve=[float(i)*2]*288,
+                load_curve=[100.0]*288
+            ) for i in range(1, 6)
+        ]
         mock_hass.async_add_executor_job.return_value = analog_days
 
         await predictor.async_check_and_update()
 
         assert mock_hass.async_add_executor_job.call_count == 1
-        assert predictor.synthesized_pricing_curve == [3.0] * 48
+        assert predictor.synthesized_pricing_curve == [3.0] * 288
+        assert predictor.synthesized_export_curve == [6.0] * 288
+        assert predictor.synthesized_load_curve == [100.0] * 288
 
