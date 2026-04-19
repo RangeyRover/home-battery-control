@@ -62,6 +62,7 @@ from .fsm.lin_fsm import (
 )
 from .load import LoadPredictor
 from .rates import RatesManager
+from .rates_predictor import SyntheticRatesPredictor
 from .solar.solcast import SolcastSolar
 from .telemetry_tracker import TelemetryCostTracker
 from .weather import WeatherManager
@@ -126,6 +127,12 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             forecast_tomorrow_entity=config.get(
                 CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW
             ),
+        )
+
+        self.synthetic_predictor = SyntheticRatesPredictor(
+            hass,
+            self.rates,
+            self.solar,
         )
 
         # FSM + Executor
@@ -549,6 +556,14 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             except Exception as e:
                 _LOGGER.warning("Solcast plugin not ready on boot: %s", e)
 
+            # Fetch synthetic outlook
+            synthetic_analog_days = []
+            synthetic_pricing_curve = []
+            try:
+                synthetic_analog_days, synthetic_pricing_curve = await self.synthetic_predictor.async_get_synthetic_outlook()
+            except Exception as e:
+                _LOGGER.error("Failed to generate synthetic outlook: %s", e)
+
             # Predict Load
             start_time = self.rates.get_rates()[0]["start"] if self.rates.get_rates() else None
             if not start_time:
@@ -772,6 +787,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 # Feature 027: Debug replay
                 "solver_snapshot": self._solver_snapshot,
                 "state_transitions": list(self._state_transitions),
+                # Feature 037: Synthetic Outlook
+                "synthetic_analog_days": synthetic_analog_days,
+                "synthetic_pricing_curve": synthetic_pricing_curve,
             }
         except Exception as err:
             raise UpdateFailed(f"Error in HBC update cycle: {err}")
