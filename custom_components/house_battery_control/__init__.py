@@ -19,6 +19,7 @@ from .web import (
     HBCConfigYamlView,
     HBCDashboardView,
     HBCLoadHistoryView,
+    HBCSyntheticOutlookView,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.http.register_view(HBCApiPingView())
     hass.http.register_view(HBCConfigYamlView())
     hass.http.register_view(HBCLoadHistoryView())
+    hass.http.register_view(HBCSyntheticOutlookView())
 
     # HTML views
     hass.http.register_view(HBCDashboardView())

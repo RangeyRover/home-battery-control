@@ -8,12 +8,43 @@ export class HBCDashboard extends LitElement {
   static get properties() {
     return {
       data: { type: Object },
+      synthetic_outlook: { type: Object },
     };
   }
 
   constructor() {
     super();
     this.data = {};
+    this.synthetic_outlook = null;
+    this._outlookInterval = null;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._fetchOutlook();
+    this._outlookInterval = setInterval(() => this._fetchOutlook(), 60000);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._outlookInterval) clearInterval(this._outlookInterval);
+  }
+
+  async _fetchOutlook() {
+    try {
+      const resp = await fetch("/hbc/api/synthetic_outlook");
+      if (resp.ok) {
+        const json = await resp.json();
+        // Rename keys to match expected test data format, or keep as is.
+        // API returns { synthetic_analog_days: [], synthetic_pricing_curve: [] }
+        this.synthetic_outlook = {
+          analog_days: json.synthetic_analog_days || [],
+          pricing_curve: json.synthetic_pricing_curve || []
+        };
+      }
+    } catch (e) {
+      console.warn("Failed to fetch synthetic outlook", e);
+    }
   }
 
   _calculateSummaryStats() {
@@ -165,7 +196,59 @@ export class HBCDashboard extends LitElement {
       <div class="meta" style="text-align: center; padding: 8px 0; opacity: 0.6; font-size: 0.85em;">
         Plan last ran: ${this._formatLastUpdate()}
       </div>
+
+      <div class="card outlook-tab">
+        <h2>Tomorrow's Outlook (Synthetic)</h2>
+        <div class="outlook-statistics">
+          ${this._renderOutlook()}
+        </div>
+      </div>
     `;
+  }
+
+  _renderOutlook() {
+    const outlook = this.synthetic_outlook || this.data.synthetic_outlook;
+    if (!outlook || !outlook.analog_days || outlook.analog_days.length === 0) {
+      return html`<p style="color: #8888aa; text-align: center;">Awaiting synthetic generation...</p>`;
+    }
+    
+    return html`
+      <div style="display: flex; gap: 20px;">
+        <div style="flex: 1;">
+          <h3 style="color: #00d4ff; margin-bottom: 8px; font-size: 14px;">Selected Analog Days</h3>
+          <ul style="list-style: none; padding: 0; margin: 0; color: #e0e0e0; font-size: 14px;">
+            ${outlook.analog_days.map(day => html`<li style="padding: 4px 0; border-bottom: 1px solid #2a2a5e;">${day}</li>`)}
+          </ul>
+        </div>
+        <div style="flex: 2;">
+          <h3 style="color: #00d4ff; margin-bottom: 8px; font-size: 14px;">Synthesized Price Curve (c/kWh)</h3>
+          <div style="display: flex; gap: 2px; height: 100px; align-items: flex-end; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
+            ${outlook.pricing_curve && outlook.pricing_curve.length > 0 
+              ? this._renderSparkline(outlook.pricing_curve) 
+              : html`<span>No curve data</span>`}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderSparkline(curve) {
+    const max = Math.max(...curve, 1);
+    const min = Math.min(...curve, 0);
+    const range = max - min;
+    
+    return curve.map((val, i) => {
+      // Normalize to 0-100% height
+      const heightPct = range === 0 ? 50 : ((val - min) / range) * 100;
+      const displayHeight = Math.max(heightPct, 5); // min 5% height
+      const isNegative = val < 0;
+      const color = isNegative ? "#00ff88" : "#ff4444";
+      
+      // We sample or downsample if the array is large. If it's 576 items, we just draw them thin.
+      return html`
+        <div style="flex: 1; min-width: 1px; height: ${displayHeight}%; background: ${color}; opacity: 0.8;" title="Index: ${i}, Price: ${val.toFixed(1)}"></div>
+      `;
+    });
   }
 
   static get styles() {
