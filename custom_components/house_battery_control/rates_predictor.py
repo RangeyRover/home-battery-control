@@ -204,6 +204,15 @@ class SyntheticRatesPredictor:
             _LOGGER.warning("No historical Solcast data found for analog search.")
             return []
 
+        # DIAGNOSTIC: Dump the entire dataset to prove what is available
+        import json
+        try:
+            dump_data = {str(k): v for k, v in daily_yields.items()}
+            with open(self._hass.config.path("analog_search_dataset.json"), "w") as f:
+                json.dump(dump_data, f, indent=2)
+        except Exception as e:
+            _LOGGER.error(f"Failed to dump debug dataset: {e}")
+
         # Find 5 most recent days that are within a 15% (or 2kWh) tolerance
         tolerance = max(2.0, target_kwh * 0.15)
         candidate_days = [
