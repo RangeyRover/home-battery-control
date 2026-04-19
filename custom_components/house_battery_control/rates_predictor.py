@@ -126,7 +126,7 @@ class SyntheticRatesPredictor:
             [entity_id],
             "5minute",
             None,
-            {"mean", "state"}
+            None
         )
         rows = stats.get(entity_id, [])
         curve = [0.0] * 288
@@ -167,7 +167,7 @@ class SyntheticRatesPredictor:
             [self._solcast_entity_id],
             "hour",
             None,
-            {"state", "mean", "max"}
+            None
         )
         lts_rows = lts_stats.get(self._solcast_entity_id, [])
         for row in lts_rows:
