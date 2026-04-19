@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.recorder import history
+from homeassistant.components.recorder.statistics import statistics_during_period
 from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,43 +117,108 @@ class SyntheticRatesPredictor:
 
         return curve
 
+    def _get_lts_curve(self, entity_id: str, day_start: datetime, day_end: datetime) -> list[float]:
+        """Retrieve the 5-minute curve from LTS statistics."""
+        stats = statistics_during_period(
+            self._hass,
+            day_start,
+            day_end,
+            [entity_id],
+            "5minute",
+            None,
+            {"mean", "state"}
+        )
+        rows = stats.get(entity_id, [])
+        curve = [0.0] * 288
+
+        # Map the rows to 5-min intervals
+        for row in rows:
+            row_start = dt_util.utc_from_timestamp(row["start"]) if isinstance(row["start"], (int, float)) else row["start"]
+            if row_start >= day_start and row_start < day_end:
+                step = int((row_start - day_start).total_seconds() / 300)
+                if 0 <= step < 288:
+                    val = row.get("mean")
+                    if val is None:
+                        val = row.get("state")
+                    if val is not None:
+                        curve[step] = val
+
+        # Forward-fill any empty gaps in the curve
+        current_val = 0.0
+        for i in range(288):
+            if curve[i] != 0.0:
+                current_val = curve[i]
+            else:
+                curve[i] = current_val
+        return curve
+
     def _run_analog_search(self, target_kwh: float) -> list[AnalogDay]:
         """Perform SQLite queries to find 5 closest historical days. (Blocking)"""
         end_date = dt_util.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        start_date = end_date - timedelta(days=30)
+        start_date = end_date - timedelta(days=365)
 
-        # 1. Query past 30 days of Solcast predictions (or PV yield)
-        solcast_states_dict = history.get_significant_states(
+        daily_yields = {}
+
+        # 1. Query past 365 days of Solcast predictions using Long Term Statistics
+        lts_stats = statistics_during_period(
             self._hass,
             start_date,
             end_date,
-            entity_ids=[self._solcast_entity_id],
+            [self._solcast_entity_id],
+            "hour",
+            None,
+            {"state", "mean", "max"}
         )
-        solcast_states = solcast_states_dict.get(self._solcast_entity_id, [])
+        lts_rows = lts_stats.get(self._solcast_entity_id, [])
+        for row in lts_rows:
+            # For hour statistics, take max forecast for that day
+            row_start = dt_util.utc_from_timestamp(row["start"]) if isinstance(row["start"], (int, float)) else row["start"]
+            forecast_date = (row_start + timedelta(days=1)).date()
+            if forecast_date < end_date.date():
+                val = row.get("max") or row.get("mean") or row.get("state")
+                if val is not None:
+                    daily_yields[forecast_date] = max(val, daily_yields.get(forecast_date, 0))
 
-        # Process to daily yield.
-        # Since Solcast forecast tomorrow updates throughout the day, we take the last known value for each day.
-        daily_yields = {}
-        for state in solcast_states:
-            try:
-                val = float(state.state)
-                # Group by the date it was forecasting for (tomorrow relative to last_changed)
-                forecast_date = (state.last_changed + timedelta(days=1)).date()
-                if forecast_date < end_date.date():
-                    daily_yields[forecast_date] = val
-            except (ValueError, TypeError):
-                continue
+        # Fallback to history if LTS is empty (e.g. no state_class)
+        if not daily_yields:
+            solcast_states_dict = history.get_significant_states(
+                self._hass,
+                start_date,
+                end_date,
+                entity_ids=[self._solcast_entity_id],
+            )
+            solcast_states = solcast_states_dict.get(self._solcast_entity_id, [])
+
+            # Process to daily yield.
+            for state in solcast_states:
+                try:
+                    val = float(state.state)
+                    # Group by the date it was forecasting for (tomorrow relative to last_changed)
+                    forecast_date = (state.last_changed + timedelta(days=1)).date()
+                    if forecast_date < end_date.date():
+                        daily_yields[forecast_date] = val
+                except (ValueError, TypeError):
+                    continue
 
         if not daily_yields:
             _LOGGER.warning("No historical Solcast data found for analog search.")
             return []
 
-        # Find 5 closest days
-        sorted_days = sorted(
-            daily_yields.items(),
-            key=lambda item: abs(item[1] - target_kwh)
-        )
-        top_5_days = sorted_days[:5]
+        # Find 5 most recent days that are within a 15% (or 2kWh) tolerance
+        tolerance = max(2.0, target_kwh * 0.15)
+        candidate_days = [
+            (d_date, d_yield) for d_date, d_yield in daily_yields.items()
+            if abs(d_yield - target_kwh) <= tolerance
+        ]
+
+        if candidate_days:
+            # Sort the candidates by date descending (most recent first)
+            candidate_days.sort(key=lambda x: x[0], reverse=True)
+            top_5_days = candidate_days[:5]
+        else:
+            # Fallback to closest 5 regardless of recency if none within tolerance
+            sorted_by_error = sorted(daily_yields.items(), key=lambda x: abs(x[1] - target_kwh))
+            top_5_days = sorted_by_error[:5]
 
         analog_days = []
         for d_date, d_yield in top_5_days:
@@ -173,29 +239,49 @@ class SyntheticRatesPredictor:
             if not entity_ids:
                 continue
 
-            # Query all 3 entities for that specific 24h period
             day_states_dict = history.get_significant_states(
                 self._hass,
-                day_start - timedelta(hours=1), # buffer for initial state
+                day_start,
                 day_end,
                 entity_ids=entity_ids,
             )
 
-            import_states = day_states_dict.get(self._import_price_entity_id, []) if self._import_price_entity_id else []
-            export_states = day_states_dict.get(self._export_price_entity_id, []) if self._export_price_entity_id else []
-            load_states = day_states_dict.get(self._load_entity_id, []) if self._load_entity_id else []
+            # Process Import Price
+            import_curve = [0.0] * 288
+            if self._import_price_entity_id:
+                states = day_states_dict.get(self._import_price_entity_id, [])
+                if states:
+                    import_curve = self._normalize_to_288(states, day_start)
+                else:
+                    import_curve = self._get_lts_curve(self._import_price_entity_id, day_start, day_end)
 
-            import_curve = self._normalize_to_288(import_states, day_start)
-            export_curve = self._normalize_to_288(export_states, day_start)
-            load_curve = self._normalize_to_288(load_states, day_start)
+            # Process Export Price
+            export_curve = [0.0] * 288
+            if self._export_price_entity_id:
+                states = day_states_dict.get(self._export_price_entity_id, [])
+                if states:
+                    export_curve = self._normalize_to_288(states, day_start)
+                else:
+                    export_curve = self._get_lts_curve(self._export_price_entity_id, day_start, day_end)
 
-            analog_days.append(AnalogDay(
-                date=day_start,
-                pv_yield=d_yield,
-                pricing_curve=import_curve,
-                export_curve=export_curve,
-                load_curve=load_curve
-            ))
+            # Process Load Profile
+            load_curve = [0.0] * 288
+            if self._load_entity_id:
+                states = day_states_dict.get(self._load_entity_id, [])
+                if states:
+                    load_curve = self._normalize_to_288(states, day_start)
+                else:
+                    load_curve = self._get_lts_curve(self._load_entity_id, day_start, day_end)
+
+            analog_days.append(
+                AnalogDay(
+                    date=day_start,
+                    pv_yield=d_yield,
+                    pricing_curve=import_curve,
+                    export_curve=export_curve,
+                    load_curve=load_curve,
+                )
+            )
 
         return analog_days
 
