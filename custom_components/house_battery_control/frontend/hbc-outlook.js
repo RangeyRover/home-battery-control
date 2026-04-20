@@ -94,6 +94,31 @@ class HBCOutlook extends LitElement {
         font-size: 10px;
         color: #555577;
       }
+      .table-wrap {
+        overflow-x: auto;
+        max-height: 400px;
+        margin-top: 15px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th {
+        background: #12122a;
+        color: #00d4ff;
+        padding: 8px;
+        text-align: left;
+        position: sticky;
+        top: 0;
+      }
+      td {
+        padding: 6px 8px;
+        border-bottom: 1px solid #2a2a5e;
+      }
+      tr:nth-child(even) {
+        background: #15153a;
+      }
     `;
   }
 
@@ -130,6 +155,8 @@ class HBCOutlook extends LitElement {
           ${this._renderSingleChart("Load Profile (kW)", loadCurve, "#ffaa00")}
         </div>
       </details>
+      
+      ${this._renderRawDataTable(importCurve, exportCurve, loadCurve)}
     `;
   }
 
@@ -185,6 +212,52 @@ class HBCOutlook extends LitElement {
           <span>24:00</span>
         </div>
       </div>
+    `;
+  }
+
+  _renderRawDataTable(importCurve, exportCurve, loadCurve) {
+    if (!importCurve || importCurve.length === 0) return html``;
+    
+    const rows = [];
+    const len = Math.max(importCurve.length, exportCurve.length, loadCurve.length);
+    for (let i = 0; i < len; i++) {
+      const hour = Math.floor((i * 5) / 60).toString().padStart(2, '0');
+      const min = ((i * 5) % 60).toString().padStart(2, '0');
+      const timeStr = `${hour}:${min}`;
+      rows.push({
+        time: timeStr,
+        imp: importCurve[i] !== undefined ? importCurve[i].toFixed(4) : "—",
+        exp: exportCurve[i] !== undefined ? exportCurve[i].toFixed(4) : "—",
+        ld: loadCurve[i] !== undefined ? loadCurve[i].toFixed(4) : "—",
+      });
+    }
+
+    return html`
+      <details class="raw-data-table">
+        <summary>Raw Synthesized Data (Debug)</summary>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Import (c/kWh)</th>
+                <th>Export (c/kWh)</th>
+                <th>Load (kW)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => html`
+                <tr>
+                  <td>${r.time}</td>
+                  <td>${r.imp}</td>
+                  <td>${r.exp}</td>
+                  <td>${r.ld}</td>
+                </tr>
+              `)}
+            </tbody>
+          </table>
+        </div>
+      </details>
     `;
   }
 }
