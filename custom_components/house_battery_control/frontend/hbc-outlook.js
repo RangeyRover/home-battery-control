@@ -86,6 +86,14 @@ class HBCOutlook extends LitElement {
       }
       .axis-label.max { top: 25px; }
       .axis-label.min { bottom: 5px; }
+      .x-axis-labels {
+        display: flex;
+        justify-content: space-between;
+        width: calc(100% - 30px);
+        margin-top: 4px;
+        font-size: 10px;
+        color: #555577;
+      }
     `;
   }
 
@@ -168,6 +176,13 @@ class HBCOutlook extends LitElement {
           <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width: calc(100% - 30px); height: 100%;">
             <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/>
           </svg>
+        </div>
+        <div class="x-axis-labels">
+          <span>00:00</span>
+          <span>06:00</span>
+          <span>12:00</span>
+          <span>18:00</span>
+          <span>24:00</span>
         </div>
       </div>
     `;
