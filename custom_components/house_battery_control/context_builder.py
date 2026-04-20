@@ -31,13 +31,7 @@ def align_forecasts(rates_timeline: list[Any], solar_forecast: list[Any], load_f
         # Provide a zeroed array of exact length to prevent FSM aborting via min(lengths)
         aligned_solar = [{"kw": 0.0} for _ in range(fallback_len)]
 
-    # Ensure load_forecast is populated to identical precision length
-    if not load_forecast:
-        load_forecast = [{"kw": 0.0} for _ in range(fallback_len)]
-    elif len(load_forecast) < fallback_len:
-        # Pad out truncated endpoints to prevent sequence breaks
-        for _ in range(fallback_len - len(load_forecast)):
-            load_forecast.append({"kw": 0.0})
+    # Let _build_solver_inputs handle any length discrepancies or synthetic fallbacks.
 
     return aligned_solar, load_forecast
 
