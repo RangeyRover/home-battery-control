@@ -203,13 +203,13 @@ class TestBuildLoadPvArrays:
 
 
 # ---------------------------------------------------------------------------
-#  T010: Padding short arrays
+#  T010: Dynamic short arrays
 # ---------------------------------------------------------------------------
 
-class TestBuildPadsShortArrays:
-    """T010: Edge case — short forecast padded to 288 by repeating last."""
+class TestBuildDynamicShortArrays:
+    """T010: Edge case — short forecast keeps short length dynamically."""
 
-    def test_build_pads_short_arrays(self):
+    def test_build_dynamic_short_arrays(self):
         builder = _get_builder()
         coordinator = MagicMock()
         coordinator.config = {}
@@ -224,11 +224,9 @@ class TestBuildPadsShortArrays:
             current_export_price=5.0,
         )
 
-        assert len(result.price_buy) == 288
-        assert len(result.load_kwh) == 288
-        assert len(result.pv_kwh) == 288
-        # Padded elements should repeat last value
-        assert result.load_kwh[287] == result.load_kwh[99]
+        assert len(result.price_buy) == 100
+        assert len(result.load_kwh) == 100
+        assert len(result.pv_kwh) == 100
 
 
 # ---------------------------------------------------------------------------

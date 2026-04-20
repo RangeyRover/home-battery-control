@@ -244,7 +244,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         current_price: float,
         current_export_price: float,
     ) -> SolverInputs:
-        n = 288
+        n = len(rates_list) if rates_list else 288
 
         # --- Price arrays ---
         price_buy: list[float] = []
@@ -282,7 +282,10 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 kw = float(entry.get("kw", 0.0)) if isinstance(entry, dict) else 0.0
                 load_kwh.append(kw * step_hours)
             elif load_kwh:
-                load_kwh.append(load_kwh[-1])
+                if i < len(rates_list) and "synthetic_load_kw" in rates_list[i]:
+                    load_kwh.append(float(rates_list[i]["synthetic_load_kw"]) * step_hours)
+                else:
+                    load_kwh.append(load_kwh[-1])
             else:
                 load_kwh.append(0.0)
 
@@ -421,7 +424,27 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             # Align Solar Forecast to Rates Timeline
             from .context_builder import align_forecasts
             rates_timeline = self.rates.get_rates()
-            aligned_solar, load_forecast = align_forecasts(rates_timeline, solar_forecast, load_forecast)
+            extended_rates_timeline = list(rates_timeline)
+
+            if synthetic_pricing_curve and extended_rates_timeline:
+                from datetime import timedelta
+                last_rate = extended_rates_timeline[-1]["start"]
+                target_end = (dt_util.now() + timedelta(days=1)).replace(hour=23, minute=55, second=0, microsecond=0)
+
+                current = last_rate + timedelta(minutes=5)
+                while current <= target_end:
+                    tod_idx = (current.hour * 60 + current.minute) // 5
+                    extended_rates_timeline.append({
+                        "start": current,
+                        "end": current + timedelta(minutes=5),
+                        "import_price": synthetic_pricing_curve[tod_idx],
+                        "export_price": synthetic_export_curve[tod_idx],
+                        "synthetic": True,
+                        "synthetic_load_kw": synthetic_load_curve[tod_idx] if synthetic_load_curve else 0.0
+                    })
+                    current += timedelta(minutes=5)
+
+            aligned_solar, load_forecast = align_forecasts(extended_rates_timeline, solar_forecast, load_forecast)
 
                 # Build FSM context and run decision logic
             current_import_entity = self.config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY)
@@ -444,7 +467,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 current_price=current_price,
                 forecast_solar=aligned_solar,
                 forecast_load=load_forecast,
-                forecast_price=self.rates.get_rates(),
+                forecast_price=extended_rates_timeline,
                 config={
                     "capacity_kwh": self.config.get(CONF_BATTERY_CAPACITY, 27.0),
                     "battery_rate_max": self.config.get(CONF_BATTERY_CHARGE_RATE_MAX, 6.3),
@@ -456,7 +479,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 cumulative_cost=self.cumulative_cost,
                 current_export_price=current_export_price,
                 solver_inputs=self._build_solver_inputs(
-                    rates_list=self.rates.get_rates(),
+                    rates_list=extended_rates_timeline,
                     forecast_load=load_forecast,
                     forecast_solar=aligned_solar,
                     current_price=current_price,
