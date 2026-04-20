@@ -598,7 +598,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "plan_html": self.executor.get_command_summary(),
                 "plan": await self.hass.async_add_executor_job(
                     self._build_diagnostic_plan_table,
-                    self.rates.get_rates(),
+                    extended_rates_timeline,
                     solar_forecast,
                     load_forecast,
                     self.weather.get_forecast(),
