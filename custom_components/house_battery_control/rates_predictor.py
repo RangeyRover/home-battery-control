@@ -272,9 +272,19 @@ class SyntheticRatesPredictor:
                     if self._load_entity_id:
                         states = day_states_dict.get(self._load_entity_id, [])
                         if states:
-                            load_curve = self._normalize_to_288(states, day_start)
+                            raw_cumulative = self._normalize_to_288(states, day_start)
                         else:
-                            load_curve = self._get_lts_curve(conn, self._load_entity_id, day_start, day_end)
+                            raw_cumulative = self._get_lts_curve(conn, self._load_entity_id, day_start, day_end)
+                            
+                        # Convert cumulative kWh to average kW per 5-min step
+                        for i in range(287):
+                            delta = raw_cumulative[i+1] - raw_cumulative[i]
+                            if delta < 0:
+                                delta = raw_cumulative[i+1]
+                            load_curve[i] = delta * 12.0
+                        
+                        # Pad the last step by duplicating the previous
+                        load_curve[287] = load_curve[286]
 
                     analog_days.append(
                         AnalogDay(
