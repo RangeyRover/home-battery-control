@@ -238,6 +238,13 @@ export class HBCDashboard extends LitElement {
               ${this._renderSparkline(curve, colorBarDefault)}
             </div>
           </div>
+          <div style="display: flex; justify-content: space-between; margin-right: 30px; margin-top: 4px; font-size: 10px; color: #555577;">
+            <span>00:00</span>
+            <span>06:00</span>
+            <span>12:00</span>
+            <span>18:00</span>
+            <span>24:00</span>
+          </div>
         </div>
       `;
     };
