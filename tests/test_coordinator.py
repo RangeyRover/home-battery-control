@@ -862,3 +862,85 @@ def test_coordinator_synthetic_outlook_iso_dates():
     assert result["synthetic_analog_days"] == ["2026-04-01", "2026-04-02"]
 
     pass  # We'll assert this indirectly via the other T005 tests, or just prove it exists here.
+
+def test_coordinator_synthetic_outlook_timezone_offset():
+    """T002: Ensure synthetic array lookup index correctly converts UTC start times into local time."""
+    import asyncio
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    from homeassistant.util import dt as dt_util
+
+    old_tz = dt_util.DEFAULT_TIME_ZONE
+    dt_util.set_default_time_zone(timezone(timedelta(hours=10)))
+
+    try:
+        mock_hass = MagicMock()
+        async def mock_async_add_executor_job(func, *args, **kwargs):
+            return func(*args, **kwargs)
+        mock_hass.async_add_executor_job = mock_async_add_executor_job
+
+        coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+        coordinator.hass = mock_hass
+        coordinator.config = {}
+        coordinator.telemetry_tracker = MagicMock()
+        coordinator.acquisition_cost = 0.10
+        coordinator.store = MagicMock()
+        coordinator._costs_loaded = True
+        coordinator._previous_state = None
+        coordinator._solver_snapshot = None
+        coordinator._state_transitions = []
+        coordinator._update_count = 0
+        coordinator._last_saved_acquisition = 0.10
+
+        # Let the rates timeline end at 02:00 UTC (which is 12:00 Local)
+        last_rate_time = datetime(2026, 4, 20, 2, 0, 0, tzinfo=timezone.utc)
+        coordinator.rates = MagicMock()
+        coordinator.rates.get_rates.return_value = [{"start": last_rate_time, "import_price": 0.0}]
+        coordinator.rates.get_import_price_at.return_value = 0.0
+        coordinator.weather = MagicMock()
+        coordinator.weather.async_update = AsyncMock()
+        coordinator.solar = MagicMock()
+        coordinator.solar.async_get_forecast = AsyncMock(return_value=[])
+        coordinator.load_predictor = MagicMock()
+        coordinator.load_predictor.async_predict = AsyncMock(return_value=[])
+        coordinator.fsm = MagicMock()
+        coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(
+            state="standby", reason="test", limit_kw=0.0, future_plan=[]
+        )
+        coordinator.executor = MagicMock()
+        coordinator.executor.apply_state = AsyncMock()
+
+        # Create synthetic arrays where the value equals the index
+        coordinator.synthetic_predictor = MagicMock()
+        synthetic_pricing_curve = [i for i in range(288)]
+        synthetic_export_curve = [i * 2 for i in range(288)]
+        synthetic_load_curve = [i * 3 for i in range(288)]
+
+        coordinator.synthetic_predictor.async_get_synthetic_outlook = AsyncMock(
+            return_value=([], synthetic_pricing_curve, synthetic_export_curve, synthetic_load_curve)
+        )
+
+        coordinator._get_sensor_value = MagicMock(return_value=0.0)
+        coordinator._build_solver_inputs = MagicMock()
+
+        # Run the coordinator update
+        with patch("custom_components.house_battery_control.coordinator.dt_util.utcnow") as mock_now:
+            mock_now.return_value = datetime(2026, 4, 20, 1, 0, 0, tzinfo=timezone.utc)
+            asyncio.run(coordinator._async_update_data())
+
+        # We can capture the `extended_rates_timeline` that was passed to `_build_solver_inputs`.
+        extended_rates_timeline = coordinator._build_solver_inputs.call_args[1]["rates_list"]
+
+        # The first item is the original rate (02:00 UTC).
+        # The second item is the first appended synthetic rate (02:05 UTC).
+        first_appended = extended_rates_timeline[1]
+
+        assert first_appended["start"] == datetime(2026, 4, 20, 2, 5, 0, tzinfo=timezone.utc)
+        # The timezone bug would mean import_price == 25 (02:05).
+        # With the fix, it should be 145 (12:05 local).
+        assert first_appended["import_price"] == 145
+    finally:
+        dt_util.set_default_time_zone(old_tz)

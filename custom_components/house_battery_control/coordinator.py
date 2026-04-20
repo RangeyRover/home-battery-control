@@ -433,7 +433,8 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
 
                 current = last_rate + timedelta(minutes=5)
                 while current <= target_end:
-                    tod_idx = (current.hour * 60 + current.minute) // 5
+                    local_current = dt_util.as_local(current)
+                    tod_idx = (local_current.hour * 60 + local_current.minute) // 5
                     extended_rates_timeline.append({
                         "start": current,
                         "end": current + timedelta(minutes=5),
