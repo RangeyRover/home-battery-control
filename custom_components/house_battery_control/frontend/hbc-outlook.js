@@ -13,60 +13,79 @@ class HBCOutlook extends LitElement {
       :host {
         display: block;
         padding: 16px;
-        color: var(--primary-text-color, #e0e0e0);
-        font-family: var(--paper-font-body1_-_font-family, -apple-system, BlinkMacSystemFont, Roboto, sans-serif);
+        color: #e0e0e0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
       details {
-        background: var(--card-background-color, #16213e);
-        padding: 15px;
-        margin-bottom: 15px;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        background: #1a1a3e;
+        padding: 20px;
+        margin-bottom: 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
       }
       summary {
-        font-weight: bold;
+        font-weight: 500;
         cursor: pointer;
-        padding: 5px;
-        font-size: 1.1em;
-        color: #e94560;
+        font-size: 18px;
+        color: #00d4ff;
         outline: none;
+        user-select: none;
+        margin-bottom: 10px;
       }
       .empty-state {
         padding: 20px;
         text-align: center;
-        color: #a0a0a0;
+        color: #8888aa;
         font-style: italic;
       }
       ul.dates-list {
         list-style-type: none;
-        padding-left: 10px;
+        padding: 0;
+        margin: 0;
       }
       ul.dates-list li {
-        padding: 4px 0;
-        color: #a0a0a0;
+        padding: 6px 0;
+        color: #e0e0e0;
+        border-bottom: 1px solid #2a2a5e;
+      }
+      ul.dates-list li:last-child {
+        border-bottom: none;
       }
       .graph-container {
         width: 100%;
-        height: 300px;
         margin-top: 15px;
-      }
-      .legend {
         display: flex;
-        justify-content: center;
+        flex-direction: column;
         gap: 20px;
-        margin-top: 10px;
-        font-size: 0.9em;
       }
-      .legend-item {
+      .chart-wrapper {
+        position: relative;
+        width: 100%;
+        height: 120px;
+        border-bottom: 1px solid #2a2a5e;
+      }
+      .chart-header {
         display: flex;
-        align-items: center;
-        gap: 5px;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 5px;
       }
-      .color-box {
-        width: 12px;
-        height: 12px;
-        border-radius: 2px;
+      .chart-title {
+        font-size: 14px;
+        margin: 0;
       }
+      .chart-minmax {
+        font-size: 11px;
+        color: #8888aa;
+      }
+      .axis-label {
+        position: absolute;
+        right: 0;
+        font-size: 10px;
+        color: #555577;
+      }
+      .axis-label.max { top: 25px; }
+      .axis-label.min { bottom: 5px; }
     `;
   }
 
@@ -85,73 +104,72 @@ class HBCOutlook extends LitElement {
     return html`
       <details class="analog-days" open>
         <summary>Analog Days Used</summary>
-        <p style="color: #a0a0a0; font-size: 0.9em; margin-top: 5px;">These 5 historical days closely matched tomorrow's predicted solar yield.</p>
+        <p style="color: #8888aa; font-size: 0.9em; margin-top: 0; margin-bottom: 10px;">These 5 historical days closely matched tomorrow's predicted solar yield.</p>
         <ul class="dates-list">
-          ${analogDays.map(date => html`<li>${date}</li>`)}
+          ${analogDays.map(day => {
+            const dateStr = day.date ? new Date(day.date).toLocaleDateString() : day;
+            const yieldStr = day.pv_yield !== undefined ? day.pv_yield.toFixed(1) : '?';
+            return html`<li>${dateStr} (Yield: ${yieldStr} kWh)</li>`;
+          })}
         </ul>
       </details>
 
       <details class="outlook-graphs" open>
         <summary>Synthesized 24-Hour Trends</summary>
         <div class="graph-container">
-          ${this._renderGraph(importCurve, exportCurve, loadCurve)}
-        </div>
-        <div class="legend">
-          <div class="legend-item">
-            <div class="color-box" style="background: #ef4444;"></div>
-            <span>Import Price</span>
-          </div>
-          <div class="legend-item">
-            <div class="color-box" style="background: #10b981;"></div>
-            <span>Export Price</span>
-          </div>
-          <div class="legend-item">
-            <div class="color-box" style="background: #3b82f6;"></div>
-            <span>Load (kW)</span>
-          </div>
+          ${this._renderSingleChart("Import Price Curve (c/kWh)", importCurve, "#00d4ff")}
+          ${this._renderSingleChart("Export Price Curve (c/kWh)", exportCurve, "#00ff88")}
+          ${this._renderSingleChart("Load Profile (kW)", loadCurve, "#ffaa00")}
         </div>
       </details>
     `;
   }
 
-  _renderGraph(importCurve, exportCurve, loadCurve) {
+  _renderSingleChart(title, curve, color) {
+    if (!curve || curve.length === 0) {
+      return html`
+        <div>
+          <div class="chart-header">
+            <h3 class="chart-title" style="color: ${color};">${title}</h3>
+          </div>
+          <div class="chart-wrapper" style="height: 50px;">
+            <div style="color: #888;">No data</div>
+          </div>
+        </div>
+      `;
+    }
+
+    const maxVal = Math.max(...curve);
+    const minVal = Math.min(...curve);
     const width = 800;
-    const height = 250;
-    const padding = 20;
-    
-    // Calculate max values for scaling
-    // We scale price and load independently to fit the same height
-    const maxPrice = Math.max(0.1, ...importCurve, ...exportCurve);
-    const maxLoad = Math.max(0.1, ...loadCurve);
-    
-    const scaleX = (width - 2 * padding) / 287; // 288 points = 287 intervals
+    const height = 90;
+    const padding = 5;
 
-    // Function to generate SVG points from an array
-    const getPoints = (array, maxY) => {
-      if (!array || array.length === 0) return "";
-      const scaleY = (height - 2 * padding) / maxY;
-      return array.map((val, idx) => {
-        const x = padding + idx * scaleX;
-        const y = height - padding - (val * scaleY);
-        return `${x},${y}`;
-      }).join(' ');
-    };
+    // Scale logic
+    const scaleX = width / Math.max(1, curve.length - 1);
+    const rangeY = maxVal - minVal || 1; // avoid div by 0
+    const scaleY = (height - 2 * padding) / rangeY;
 
-    const importPoints = getPoints(importCurve, maxPrice);
-    const exportPoints = getPoints(exportCurve, maxPrice);
-    const loadPoints = getPoints(loadCurve, maxLoad);
+    const points = curve.map((val, idx) => {
+      const x = idx * scaleX;
+      const y = height - padding - ((val - minVal) * scaleY);
+      return `${x},${y}`;
+    }).join(' ');
 
-    return svg`
-      <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width: 100%; height: 100%;">
-        <!-- Grid lines -->
-        <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="#333" stroke-width="1"/>
-        <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="#333" stroke-width="1"/>
-        
-        <!-- Curves -->
-        <polyline points="${exportPoints}" fill="none" stroke="#10b981" stroke-width="2" vector-effect="non-scaling-stroke"/>
-        <polyline points="${importPoints}" fill="none" stroke="#ef4444" stroke-width="2" vector-effect="non-scaling-stroke"/>
-        <polyline points="${loadPoints}" fill="none" stroke="#3b82f6" stroke-width="2" vector-effect="non-scaling-stroke"/>
-      </svg>
+    return html`
+      <div>
+        <div class="chart-header">
+          <h3 class="chart-title" style="color: ${color};">${title}</h3>
+          <span class="chart-minmax">Min: ${minVal.toFixed(1)} | Max: ${maxVal.toFixed(1)}</span>
+        </div>
+        <div class="chart-wrapper">
+          <div class="axis-label max">${maxVal.toFixed(1)}</div>
+          <div class="axis-label min">${minVal.toFixed(1)}</div>
+          <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width: calc(100% - 30px); height: 100%;">
+            <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/>
+          </svg>
+        </div>
+      </div>
     `;
   }
 }

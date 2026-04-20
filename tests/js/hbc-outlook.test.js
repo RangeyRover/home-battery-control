@@ -42,11 +42,12 @@ describe('HBCOutlook', () => {
     const details = el.shadowRoot.querySelector('details.outlook-graphs');
     expect(details).to.exist;
     
-    const svg = details.querySelector('svg');
-    expect(svg).to.exist;
+    const svgs = details.querySelectorAll('svg');
+    expect(svgs.length).to.equal(3);
     
-    // Expect polyline elements for the 3 curves
-    const polylines = svg.querySelectorAll('polyline');
-    expect(polylines.length).to.equal(3);
+    // Expect 1 polyline element per SVG
+    svgs.forEach(svg => {
+      expect(svg.querySelectorAll('polyline').length).to.equal(1);
+    });
   });
 });
