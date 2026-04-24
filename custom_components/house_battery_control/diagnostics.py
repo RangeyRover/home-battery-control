@@ -203,6 +203,7 @@ def build_diagnostic_plan_table(
                 "Cumul. Cost": f"${cumulative:.4f}",
                 "cumulative_cost": cumulative,
                 "Acq. Cost": f"{acq_cost:.4f}",
+                "Synthetic": rate.get("synthetic", False),
             }
         )
 
