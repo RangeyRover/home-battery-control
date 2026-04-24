@@ -103,7 +103,7 @@ class LinearBatteryController:
     """
 
     def __init__(self):
-        self.step = 288
+        self.step = 288  # Default, overridden dynamically by calculate_next_state
 
     def propose_state_of_charge(
         self,
@@ -117,7 +117,8 @@ class LinearBatteryController:
         reserve_soc: float = 0.0,
         no_import_steps: set[int] | None = None,
     ):
-        number_step = min(288, self.step)
+        number_step = len(price_buy)
+        self.step = number_step
 
         # --- Physical parameters ---
         capacity = battery.capacity
@@ -346,10 +347,6 @@ class LinearBatteryStateMachine(BatteryStateMachine):
         self.controller = LinearBatteryController()
 
     def calculate_next_state(self, context: FSMContext) -> FSMResult:
-        # Force 288-step horizon — §4
-        number_step = 288
-        self.controller.step = number_step
-
         # --- Fail-fast if solver_inputs not populated (FR-008) ---
         if context.solver_inputs is None:
             return FSMResult(
@@ -357,6 +354,10 @@ class LinearBatteryStateMachine(BatteryStateMachine):
                 limit_kw=0.0,
                 reason="solver_inputs not populated by coordinator",
             )
+
+        # Force dynamic step horizon based on populated inputs
+        number_step = len(context.solver_inputs.price_buy)
+        self.controller.step = number_step
 
         # --- Read pre-built arrays from solver_inputs (Feature 024) ---
         si = context.solver_inputs

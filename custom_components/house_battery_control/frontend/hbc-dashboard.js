@@ -8,12 +8,45 @@ export class HBCDashboard extends LitElement {
   static get properties() {
     return {
       data: { type: Object },
+      synthetic_outlook: { type: Object },
+      hass: { type: Object },
     };
   }
 
   constructor() {
     super();
     this.data = {};
+    this.synthetic_outlook = null;
+    this._outlookInterval = null;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._fetchOutlook();
+    this._outlookInterval = setInterval(() => this._fetchOutlook(), 60000);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._outlookInterval) clearInterval(this._outlookInterval);
+  }
+
+  async _fetchOutlook() {
+    try {
+      if (!this.hass) return;
+      const resp = await this.hass.fetchWithAuth("/hbc/api/synthetic_outlook");
+      if (resp.ok) {
+        const json = await resp.json();
+        this.synthetic_outlook = {
+          analog_days: json.synthetic_analog_days || [],
+          pricing_curve: json.synthetic_pricing_curve || [],
+          export_curve: json.synthetic_export_curve || [],
+          load_curve: json.synthetic_load_curve || []
+        };
+      }
+    } catch (e) {
+      console.warn("Failed to fetch synthetic outlook", e);
+    }
   }
 
   _calculateSummaryStats() {
@@ -165,7 +198,94 @@ export class HBCDashboard extends LitElement {
       <div class="meta" style="text-align: center; padding: 8px 0; opacity: 0.6; font-size: 0.85em;">
         Plan last ran: ${this._formatLastUpdate()}
       </div>
+
+      <div class="card outlook-tab">
+        <h2>Tomorrow's Outlook (Synthetic)</h2>
+        <div class="outlook-statistics">
+          ${this._renderOutlook()}
+        </div>
+      </div>
     `;
+  }
+
+  _renderOutlook() {
+    const outlook = this.synthetic_outlook || this.data.synthetic_outlook;
+    if (!outlook || !outlook.analog_days || outlook.analog_days.length === 0) {
+      return html`<p style="color: #8888aa; text-align: center;">Awaiting synthetic generation...</p>`;
+    }
+    
+    const renderChartWithScale = (title, curve, colorTitle, colorBarDefault) => {
+      if (!curve || curve.length === 0) {
+        return html`
+          <div>
+            <h3 style="color: ${colorTitle}; margin-bottom: 4px; font-size: 14px;">${title}</h3>
+            <div style="height: 50px; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px; color: #888;">No data</div>
+          </div>
+        `;
+      }
+      const max = Math.max(...curve);
+      const min = Math.min(...curve);
+      return html`
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <h3 style="color: ${colorTitle}; margin-bottom: 4px; font-size: 14px;">${title}</h3>
+            <span style="font-size: 11px; color: #8888aa;">Min: ${min.toFixed(1)} | Max: ${max.toFixed(1)}</span>
+          </div>
+          <div style="position: relative; height: 50px; border-bottom: 1px solid #2a2a5e; padding-bottom: 4px;">
+            <div style="position: absolute; top: 0; right: 0; font-size: 10px; color: #555577;">${max.toFixed(1)}</div>
+            <div style="position: absolute; bottom: 4px; right: 0; font-size: 10px; color: #555577;">${min.toFixed(1)}</div>
+            <div style="display: flex; gap: 2px; height: 100%; align-items: flex-end; margin-right: 30px;">
+              ${this._renderSparkline(curve, colorBarDefault)}
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-right: 30px; margin-top: 4px; font-size: 10px; color: #555577;">
+            <span>00:00</span>
+            <span>06:00</span>
+            <span>12:00</span>
+            <span>18:00</span>
+            <span>24:00</span>
+          </div>
+        </div>
+      `;
+    };
+
+    return html`
+      <div style="display: flex; gap: 20px;">
+        <div style="flex: 1;">
+          <h3 style="color: #00d4ff; margin-bottom: 8px; font-size: 14px;">Selected Analog Days</h3>
+          <ul style="list-style: none; padding: 0; margin: 0; color: #e0e0e0; font-size: 14px;">
+            ${outlook.analog_days.map(day => html`<li style="padding: 4px 0; border-bottom: 1px solid #2a2a5e;">${day.date ? new Date(day.date).toLocaleDateString() : day} (Yield: ${day.pv_yield ? day.pv_yield.toFixed(1) : '?'} kWh)</li>`)}
+          </ul>
+        </div>
+        <div style="flex: 2; display: flex; flex-direction: column; gap: 10px;">
+          ${renderChartWithScale("Import Price Curve (c/kWh)", outlook.pricing_curve, "#00d4ff", "#ff4444")}
+          ${renderChartWithScale("Export Price Curve (c/kWh)", outlook.export_curve, "#00ff88", "#00ff88")}
+          ${renderChartWithScale("Load Profile (W)", outlook.load_curve, "#ffaa00", "#ffaa00")}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderSparkline(curve, defaultColor = null) {
+    const max = Math.max(...curve, 1);
+    const min = Math.min(...curve, 0);
+    const range = max - min;
+    
+    return curve.map((val, i) => {
+      // Normalize to 0-100% height
+      const heightPct = range === 0 ? 50 : ((val - min) / range) * 100;
+      const displayHeight = Math.max(heightPct, 5); // min 5% height
+      const isNegative = val < 0;
+      let color = isNegative ? "#00ff88" : "#ff4444";
+      if (defaultColor && !isNegative) {
+          color = defaultColor;
+      }
+      
+      // We sample or downsample if the array is large. If it's 576 items, we just draw them thin.
+      return html`
+        <div style="flex: 1; min-width: 1px; height: ${displayHeight}%; background: ${color}; opacity: 0.8;" title="Index: ${i}, Price: ${val.toFixed(1)}"></div>
+      `;
+    });
   }
 
   static get styles() {

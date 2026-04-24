@@ -244,3 +244,28 @@ class HBCLoadHistoryView(HomeAssistantView):
                 break
 
         return self.json(history_data)
+
+
+class HBCSyntheticOutlookView(HomeAssistantView):
+    """JSON API: synthetic rates outlook."""
+
+    url = "/hbc/api/synthetic_outlook"
+    name = "hbc:api:synthetic_outlook"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        hass = request.app["hass"]
+        domain_data = hass.data.get(DOMAIN, {})
+
+        data = {"synthetic_analog_days": [], "synthetic_pricing_curve": []}
+
+        for entry_data in domain_data.values():
+            coord = entry_data.get("coordinator")
+            if coord and coord.data:
+                data["synthetic_analog_days"] = coord.data.get("synthetic_analog_days", [])
+                data["synthetic_pricing_curve"] = coord.data.get("synthetic_pricing_curve", [])
+                data["synthetic_export_curve"] = coord.data.get("synthetic_export_curve", [])
+                data["synthetic_load_curve"] = coord.data.get("synthetic_load_curve", [])
+                break
+
+        return self.json(data)

@@ -202,3 +202,36 @@ def test_rates_splits_into_5_min_intervals(mock_hass):
     assert rates[-1]["start"] == datetime(2025, 2, 20, 12, 25, tzinfo=timezone.utc)
     assert rates[-1]["end"] == datetime(2025, 2, 20, 12, 30, tzinfo=timezone.utc)
     assert rates[-1]["import_price"] == 25.5
+
+
+def test_rates_manager_handles_576_steps(mock_hass):
+    """Spec 037 TDD: RatesManager MUST support extending to 576 steps (48h)."""
+    from custom_components.house_battery_control.rates import RatesManager
+
+    # Simulate a full 48 hours of 30-minute Amber blocks (96 blocks total)
+    # This should split into 96 * 6 = 576 5-minute ticks.
+    import_prices = []
+    base_time = datetime(2025, 2, 20, 0, 0, tzinfo=timezone.utc)
+    for i in range(96):
+        import_prices.append({
+            "periodType": "FORECAST",
+            "periodStart": (base_time + timedelta(minutes=30*i)).isoformat(),
+            "periodEnd": (base_time + timedelta(minutes=30*(i+1))).isoformat(),
+            "perKwh": 10.0,
+        })
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(import_prices, key="forecast"),
+        "sensor.amber_export": _make_amber_state([], key="forecast"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export")
+
+    # We want to ensure it doesn't hard-cap at 288 internally or crash
+    manager.update()
+    rates = manager.get_rates()
+
+    # TDD Protocol: if the current implementation hardcaps at 288, this will fail.
+    # Otherwise it succeeds and proves no hardcap exists.
+    assert len(rates) == 576, f"Expected exactly 576 5-minute ticks for 48h horizon, got {len(rates)}."
+

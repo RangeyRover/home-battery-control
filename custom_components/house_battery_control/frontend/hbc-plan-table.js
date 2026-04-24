@@ -133,6 +133,7 @@ export class HBCPlanTable extends LitElement {
         return {
           time: r["Time"] || "—",
           localTime: r["Local Time"] || "—",
+          synthetic: r["Synthetic"] || false,
           imp: r["Import Rate"] || "0.0",
           exp: r["Export Rate"] || "0.0",
           state: r["FSM State"] || "—",
@@ -198,8 +199,9 @@ export class HBCPlanTable extends LitElement {
           const tempDeltaNum = (chunk.reduce((s, row) => s + parseNum(row["Temp Delta"]), 0) / chunk.length).toFixed(1);
           const tempDelta = chunk[0]["Temp Delta"] === "—" ? "—" : `${tempDeltaNum}°C`;
           const loadAdj = (chunk.reduce((s, row) => s + parseNum(row["Load Adj."]), 0) / chunk.length).toFixed(2);
+          const synthetic = chunk[0]["Synthetic"] || false;
 
-           rows.push({ time, localTime, imp, exp, state, limit, grid, pv, ld, temp, tempDelta, loadAdj, soc, cost, cumul, acq });
+           rows.push({ time, localTime, synthetic, imp, exp, state, limit, grid, pv, ld, temp, tempDelta, loadAdj, soc, cost, cumul, acq });
         }
       }
     }
@@ -240,13 +242,13 @@ export class HBCPlanTable extends LitElement {
             <tbody>
               ${rows.map((r) => {
                 const colKeys = {
-                  "Time": r.time, "Local Time": r.localTime, "Import": r.imp, "Export": r.exp,
+                  "Time": r.time, "Local Time": r.synthetic && r.localTime !== "—" ? `${r.localTime}*` : r.localTime, "Import": r.imp, "Export": r.exp,
                   "State": r.state, "Limit": r.limit, "Net Grid": r.grid, "PV": r.pv, "Load": r.ld,
                   "Temp": r.temp, "Temp Δ": r.tempDelta, "Load Adj.": r.loadAdj, "SoC": r.soc,
                   "Cost": r.cost, "Cumul. Cost": r.cumul, "Acq. Cost": r.acq,
                 };
                 return html`
-                  <tr class="${r.state === 'SELF_CONSUMPTION' ? 'state-self' : r.state === 'CHARGE_GRID' ? 'state-charge' : r.state === 'DISCHARGE_GRID' ? 'state-discharge' : ''}">
+                  <tr class="${r.state === 'SELF_CONSUMPTION' ? 'state-self' : r.state === 'CHARGE_GRID' ? 'state-charge' : r.state === 'DISCHARGE_GRID' ? 'state-discharge' : ''} ${r.synthetic ? 'state-synthetic' : ''}">
                     ${cols.filter(c => !this._hiddenCols.includes(c)).map(c => html`<td>${colKeys[c]}</td>`)}
                   </tr>
                 `;
@@ -258,6 +260,9 @@ export class HBCPlanTable extends LitElement {
               </tr>
             </tfoot>
           </table>
+        </div>
+        <div style="font-size: 0.8em; opacity: 0.7; margin-top: 12px; font-style: italic;">
+          * Synthetic Forecast Period (Historical Analog Fallback)
         </div>
       </div>
     `;

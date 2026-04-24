@@ -7,6 +7,7 @@ from custom_components.house_battery_control.const import ATTR_PLAN_HTML
 from custom_components.house_battery_control.sensor import (
     HBCReasonSensor,
     HBCStateSensor,
+    HBCSyntheticRatesDiagnosticSensor,
 )
 
 
@@ -62,3 +63,22 @@ def test_reason_sensor_empty_plan_html(mock_coordinator):
     mock_coordinator.data = {"reason": "test", "plan_html": ""}
     sensor = HBCReasonSensor(mock_coordinator)
     assert sensor.extra_state_attributes[ATTR_PLAN_HTML] == ""
+
+
+
+
+class TestHBCSyntheticRatesDiagnosticSensor:
+    def test_sensor_returns_data(self, mock_coordinator):
+        mock_coordinator.data = {"synthetic_analog_days": ["2025-01-01"], "synthetic_pricing_curve": [3.0]}
+        sensor = HBCSyntheticRatesDiagnosticSensor(mock_coordinator)
+        assert sensor.native_value == "Active"
+        assert sensor.extra_state_attributes["analog_days"] == ["2025-01-01"]
+        assert sensor.extra_state_attributes["pricing_curve"] == [3.0]
+
+    def test_sensor_inactive_when_no_data(self, mock_coordinator):
+        mock_coordinator.data = {}
+        sensor = HBCSyntheticRatesDiagnosticSensor(mock_coordinator)
+        assert sensor.native_value == "Inactive"
+        assert sensor.extra_state_attributes.get("analog_days") is None
+
+

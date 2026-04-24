@@ -38,10 +38,6 @@ from .const import (
     CONF_NO_IMPORT_PERIODS,
     CONF_OBSERVATION_MODE,
     CONF_RESERVE_SOC,
-    CONF_SCRIPT_CHARGE,
-    CONF_SCRIPT_CHARGE_STOP,
-    CONF_SCRIPT_DISCHARGE,
-    CONF_SCRIPT_DISCHARGE_STOP,
     CONF_SOLAR_ENTITY,
     CONF_SOLCAST_TODAY_ENTITY,
     CONF_SOLCAST_TOMORROW_ENTITY,
@@ -62,6 +58,7 @@ from .fsm.lin_fsm import (
 )
 from .load import LoadPredictor
 from .rates import RatesManager
+from .rates_predictor import SyntheticRatesPredictor
 from .solar.solcast import SolcastSolar
 from .telemetry_tracker import TelemetryCostTracker
 from .weather import WeatherManager
@@ -126,6 +123,14 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             forecast_tomorrow_entity=config.get(
                 CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW
             ),
+        )
+
+        self.synthetic_predictor = SyntheticRatesPredictor(
+            hass,
+            config.get(CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW),
+            config.get(CONF_IMPORT_PRICE_ENTITY, ""),
+            config.get(CONF_EXPORT_PRICE_ENTITY, ""),
+            config.get(CONF_LOAD_POWER_ENTITY, "")
         )
 
         # FSM + Executor
@@ -209,41 +214,8 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _build_sensor_diagnostics(self) -> list[dict[str, Any]]:
         """Build sensor availability report for API diagnostics (spec 2.4)."""
-        sensor_keys = [
-            CONF_BATTERY_SOC_ENTITY,
-            CONF_BATTERY_POWER_ENTITY,
-            CONF_SOLAR_ENTITY,
-            CONF_GRID_ENTITY,
-            CONF_CURRENT_IMPORT_PRICE_ENTITY,
-            CONF_CURRENT_EXPORT_PRICE_ENTITY,
-            CONF_IMPORT_PRICE_ENTITY,
-            CONF_EXPORT_PRICE_ENTITY,
-            CONF_WEATHER_ENTITY,
-            CONF_LOAD_TODAY_ENTITY,
-            CONF_IMPORT_TODAY_ENTITY,
-            CONF_EXPORT_TODAY_ENTITY,
-            CONF_SOLCAST_TODAY_ENTITY,
-            CONF_SOLCAST_TOMORROW_ENTITY,
-            CONF_SCRIPT_CHARGE,
-            CONF_SCRIPT_CHARGE_STOP,
-            CONF_SCRIPT_DISCHARGE,
-            CONF_SCRIPT_DISCHARGE_STOP,
-        ]
-        diagnostics = []
-        for key in sensor_keys:
-            entity_id = self.config.get(key, "")
-            if not entity_id:
-                continue
-            state = self.hass.states.get(entity_id)
-            diagnostics.append(
-                {
-                    "entity_id": entity_id,
-                    "state": state.state if state else "not_found",
-                    "available": (state is not None and state.state != "unavailable"),
-                    "attributes": dict(state.attributes) if state else {},
-                }
-            )
-        return diagnostics
+        from .diagnostics import build_sensor_diagnostics
+        return build_sensor_diagnostics(self)
 
     def _build_diagnostic_plan_table(
         self,
@@ -259,156 +231,20 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         Outputs an interpolation table with explicitly rounded strings that matches the precise
         state logic Home Assistant will execute, mapped by UTC timestamp rather than array index.
         """
-        from homeassistant.util import dt as dt_util
-
-        # Pre-parse Load
-        parsed_loads = []
-        for lf in load_forecast:
-            if not isinstance(lf, dict):
-                continue
-            start_str = lf.get("start", "")
-            if not start_str:
-                continue
-            st = dt_util.parse_datetime(start_str) if isinstance(start_str, str) else start_str
-            if st:
-                parsed_loads.append({"start": st, "kw": float(lf.get("kw", 0.0))})
-
-        # Pre-parse Weather
-        parsed_weather = []
-        for w in weather:
-            if not isinstance(w, dict):
-                continue
-            w_time = w.get("datetime")
-            w_time = dt_util.parse_datetime(w_time) if isinstance(w_time, str) else w_time
-            if w_time:
-                parsed_weather.append({"datetime": w_time, "temperature": w.get("temperature")})
-
-        table = []
-        cumulative = 0.0
-        simulated_soc = current_soc
-
-        for idx, rate in enumerate(rates):
-            start = rate["start"]
-            end = rate.get("end", start)
-
-            duration_mins = max(1, int((end - start).total_seconds() / 60.0))
-            duration_hours = duration_mins / 60.0
-
-            # --- 3. Weather Interpolation (Nearest Neighbor) ---
-            temp_c = None
-            if parsed_weather:
-                closest = min(
-                    parsed_weather, key=lambda w: abs((start - w["datetime"]).total_seconds())
-                )
-                temp_c = closest.get("temperature")
-
-            # FSM Constants
-            capacity = self.config.get(CONF_BATTERY_CAPACITY, 27.0)
-
-            # --- 4. Default Interval Prices (fallback) ---
-            price = rate.get("import_price", rate.get("price", 0.0))
-            export_price = rate.get("export_price", price * 0.8)
-
-            # --- 5. Map LP Solver Plan via Array Index ---
-            if future_plan and 0 <= idx < len(future_plan):
-                state = future_plan[idx].get("state", "UNKNOWN")
-                target_soc = future_plan[idx].get("target_soc", simulated_soc)
-                net_grid_kw = future_plan[idx].get("net_grid", 0.0)
-                pv_kw_avg = future_plan[idx].get("pv", 0.0)
-                load_kw_avg = future_plan[idx].get("load", 0.0)
-                acq_cost = future_plan[idx].get("acquisition_cost", 0.0)
-                cum_cost = future_plan[idx].get("cumulative_cost", 0.0)
-
-                # Feature 028: Use exact prices from the solver, ignoring independent lookups
-                price = future_plan[idx].get("import_price", price)
-                export_price = future_plan[idx].get("export_price", export_price)
-
-                # Use the FSM's computationally precise Net Grid value natively without overriding it.
-                if net_grid_kw > 0:
-                    interval_cost = net_grid_kw * duration_hours * price
-                else:
-                    interval_cost = net_grid_kw * duration_hours * export_price
-
-            else:
-                state = "SELF_CONSUMPTION"
-                target_soc = simulated_soc
-                net_grid_kw = 0.0
-                pv_kw_avg = 0.0
-                load_kw_avg = 0.0
-                acq_cost = 0.0
-                cum_cost = cumulative
-
-                # --- 6. Fallback Battery Physics ---
-                soc_delta = target_soc - simulated_soc
-                pv_kwh = pv_kw_avg * duration_hours
-                load_kwh = load_kw_avg * duration_hours
-
-                # Implement standard 95% efficiency buffer to physics math proxy
-                if soc_delta > 0:
-                    battery_kwh = ((soc_delta / 100.0) * capacity) / 0.95
-                else:
-                    battery_kwh = ((soc_delta / 100.0) * capacity) * 0.95
-
-                # Grid Impact = Load - PV + Battery Charge
-                interval_kwh = load_kwh - pv_kwh + battery_kwh
-                net_grid_kw = interval_kwh / duration_hours if duration_hours > 0 else 0.0
-                if interval_kwh < 0:
-                    interval_cost = interval_kwh * export_price
-                else:
-                    interval_cost = interval_kwh * price
-
-            limit_pct = 100.0 if state != "SELF_CONSUMPTION" else 0.0
-
-            cumulative = cum_cost if 'cum_cost' in locals() else cumulative + interval_cost
-
-            table.append(
-                {
-                    "Time": start.strftime("%H:%M") if hasattr(start, "strftime") else str(start),
-                    "Local Time": dt_util.as_local(start).strftime("%H:%M")
-                    if hasattr(start, "strftime")
-                    else str(start),
-                    "Import Rate": f"{price:.2f}",
-                    "Export Rate": f"{export_price:.2f}",
-                    "FSM State": state,
-                    "Inverter Limit": f"{limit_pct:.0f}%",
-                    "Net Grid": f"{net_grid_kw:.2f}",
-                    "PV Forecast": f"{pv_kw_avg:.2f}",
-                    "Load Forecast": f"{load_kw_avg:.2f}",
-                    "Air Temp Forecast": f"{temp_c:.1f}°C" if temp_c is not None else "—",
-                    "Temp Delta": f"{load_forecast[idx].get('temp_delta', 0):.1f}°C"
-                    if idx < len(load_forecast) and isinstance(load_forecast[idx], dict) and load_forecast[idx].get("temp_delta") is not None
-                    else "—",
-                    "Load Adj.": f"{load_forecast[idx].get('load_adjustment_kw', 0):.2f}"
-                    if idx < len(load_forecast) and isinstance(load_forecast[idx], dict)
-                    else "0.00",
-                    "SoC Forecast": f"{target_soc:.1f}%",
-                    "Interval Cost": f"${interval_cost:.4f}",
-                    "Cumul. Cost": f"${cumulative:.4f}",
-                    "cumulative_cost": cumulative,
-                    "Acq. Cost": f"{acq_cost:.4f}",
-                }
-            )
-
-            # Carry over SoC
-            simulated_soc = target_soc
-
-        return table
+        from .diagnostics import build_diagnostic_plan_table
+        return build_diagnostic_plan_table(
+            self, rates, solar_forecast, load_forecast, weather, current_soc, future_plan
+        )
 
     def _build_solver_inputs(
         self,
-        rates_list: list[dict],
-        forecast_load: list[dict],
-        forecast_solar: list[dict],
-        current_price: float | None,
-        current_export_price: float | None,
+        rates_list: list[Any],
+        forecast_load: list[Any],
+        forecast_solar: list[Any],
+        current_price: float,
+        current_export_price: float,
     ) -> SolverInputs:
-        """Build clean float arrays for the LP solver (Feature 024).
-
-        Converts raw forecast dicts into typed float arrays of exactly 288
-        elements, overrides row-0 with live prices, converts kW to kWh,
-        and resolves no-import periods into step indices.
-        """
-        n = 288
+        n = len(rates_list) if rates_list else 288
 
         # --- Price arrays ---
         price_buy: list[float] = []
@@ -446,7 +282,10 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 kw = float(entry.get("kw", 0.0)) if isinstance(entry, dict) else 0.0
                 load_kwh.append(kw * step_hours)
             elif load_kwh:
-                load_kwh.append(load_kwh[-1])
+                if i < len(rates_list) and "synthetic_load_kw" in rates_list[i]:
+                    load_kwh.append(float(rates_list[i]["synthetic_load_kw"]) * step_hours)
+                else:
+                    load_kwh.append(load_kwh[-1])
             else:
                 load_kwh.append(0.0)
 
@@ -549,6 +388,21 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             except Exception as e:
                 _LOGGER.warning("Solcast plugin not ready on boot: %s", e)
 
+            # Fetch synthetic outlook
+            synthetic_analog_days = []
+            synthetic_pricing_curve = []
+            synthetic_export_curve = []
+            synthetic_load_curve = []
+            try:
+                (
+                    synthetic_analog_days,
+                    synthetic_pricing_curve,
+                    synthetic_export_curve,
+                    synthetic_load_curve
+                ) = await self.synthetic_predictor.async_get_synthetic_outlook()
+            except Exception as e:
+                _LOGGER.error("Failed to generate synthetic outlook: %s", e)
+
             # Predict Load
             start_time = self.rates.get_rates()[0]["start"] if self.rates.get_rates() else None
             if not start_time:
@@ -568,35 +422,30 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
             # Align Solar Forecast to Rates Timeline
-            # Solcast returns data from midnight, but Rates start from now().
-            # We must use nearest-neighbor O(N) alignment so the FSM solver doesn't shift the daylight hours.
-            aligned_solar = []
+            from .context_builder import align_forecasts
             rates_timeline = self.rates.get_rates()
-            fallback_len = len(rates_timeline) if rates_timeline else 288
+            extended_rates_timeline = list(rates_timeline)
 
-            if rates_timeline and solar_forecast:
-                for rate in rates_timeline:
-                    rate_start = rate["start"]
-                    # Nearest neighbor O(N) alignment
-                    closest = min(
-                        solar_forecast, key=lambda x: abs((x["start"] - rate_start).total_seconds())
-                    )
-                    # If within 30 minutes, assume valid, otherwise 0
-                    if abs((closest["start"] - rate_start).total_seconds()) <= 1800:
-                        aligned_solar.append({"kw": closest["kw"]})
-                    else:
-                        aligned_solar.append({"kw": 0.0})
-            else:
-                # Provide a zeroed array of exact length to prevent FSM aborting via min(lengths)
-                aligned_solar = [{"kw": 0.0} for _ in range(fallback_len)]
+            if synthetic_pricing_curve and extended_rates_timeline:
+                from datetime import timedelta
+                last_rate = extended_rates_timeline[-1]["start"]
+                target_end = (dt_util.now() + timedelta(days=1)).replace(hour=23, minute=55, second=0, microsecond=0)
 
-            # Ensure load_forecast is populated to identical precision length
-            if not load_forecast:
-                load_forecast = [{"kw": 0.0} for _ in range(fallback_len)]
-            elif len(load_forecast) < fallback_len:
-                # Pad out truncated endpoints to prevent sequence breaks
-                for _ in range(fallback_len - len(load_forecast)):
-                    load_forecast.append({"kw": 0.0})
+                current = last_rate + timedelta(minutes=5)
+                while current <= target_end:
+                    local_current = dt_util.as_local(current)
+                    tod_idx = (local_current.hour * 60 + local_current.minute) // 5
+                    extended_rates_timeline.append({
+                        "start": current,
+                        "end": current + timedelta(minutes=5),
+                        "import_price": synthetic_pricing_curve[tod_idx],
+                        "export_price": synthetic_export_curve[tod_idx],
+                        "synthetic": True,
+                        "synthetic_load_kw": synthetic_load_curve[tod_idx] if synthetic_load_curve else 0.0
+                    })
+                    current += timedelta(minutes=5)
+
+            aligned_solar, load_forecast = align_forecasts(extended_rates_timeline, solar_forecast, load_forecast)
 
                 # Build FSM context and run decision logic
             current_import_entity = self.config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY)
@@ -619,7 +468,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 current_price=current_price,
                 forecast_solar=aligned_solar,
                 forecast_load=load_forecast,
-                forecast_price=self.rates.get_rates(),
+                forecast_price=extended_rates_timeline,
                 config={
                     "capacity_kwh": self.config.get(CONF_BATTERY_CAPACITY, 27.0),
                     "battery_rate_max": self.config.get(CONF_BATTERY_CHARGE_RATE_MAX, 6.3),
@@ -631,7 +480,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 cumulative_cost=self.cumulative_cost,
                 current_export_price=current_export_price,
                 solver_inputs=self._build_solver_inputs(
-                    rates_list=self.rates.get_rates(),
+                    rates_list=extended_rates_timeline,
                     forecast_load=load_forecast,
                     forecast_solar=aligned_solar,
                     current_price=current_price,
@@ -750,7 +599,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "plan_html": self.executor.get_command_summary(),
                 "plan": await self.hass.async_add_executor_job(
                     self._build_diagnostic_plan_table,
-                    self.rates.get_rates(),
+                    extended_rates_timeline,
                     solar_forecast,
                     load_forecast,
                     self.weather.get_forecast(),
@@ -772,6 +621,11 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 # Feature 027: Debug replay
                 "solver_snapshot": self._solver_snapshot,
                 "state_transitions": list(self._state_transitions),
+                # Feature 037: Synthetic Outlook
+                "synthetic_analog_days": [{"date": d.date.isoformat(), "pv_yield": round(d.pv_yield, 2)} if hasattr(d, 'date') else str(d) for d in synthetic_analog_days],
+                "synthetic_pricing_curve": synthetic_pricing_curve,
+                "synthetic_export_curve": synthetic_export_curve,
+                "synthetic_load_curve": synthetic_load_curve,
             }
         except Exception as err:
             raise UpdateFailed(f"Error in HBC update cycle: {err}")

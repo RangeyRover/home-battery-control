@@ -1269,3 +1269,35 @@ async def test_cache_metadata_includes_history_range(mock_hass):
         f"history_end should be start_time, got {predictor.history_end}"
     )
 
+
+@pytest.mark.asyncio
+async def test_load_predictor_handles_576_steps(mock_hass):
+    """Spec 037 TDD: LoadPredictor MUST support extending to 576 steps (48h)."""
+    from datetime import datetime, timezone
+
+    from custom_components.house_battery_control.load import LoadPredictor
+
+    predictor = LoadPredictor(mock_hass)
+
+    # In Phase 1 TDD, we verify it doesn't crash when requested to fetch or store large arrays.
+    predictor._daily_base_profile = {
+        f"{h:02d}:{m:02d}": {"load_kw": 1.0, "avg_temp": None}
+        for h in range(24) for m in range(0, 60, 5)
+    }
+
+    start_time = datetime(2025, 1, 1, tzinfo=timezone.utc)
+
+    predictor.testing_bypass_history = True
+    mock_hass.states.get.return_value = MagicMock(attributes={"unit_of_measurement": "kW"})
+
+    # This will fail in TDD if it's hardcapped at 288
+    forecast = await predictor.async_predict(
+        start_time=start_time,
+        temp_forecast=None,
+        high_sensitivity=0.0,
+        low_sensitivity=0.0,
+        duration_hours=48,
+        load_entity_id="sensor.load"
+    )
+    assert len(forecast) == 576, f"Expected 576 steps, got {len(forecast)}"
+

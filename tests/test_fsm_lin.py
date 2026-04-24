@@ -732,3 +732,32 @@ class TestSpillVariablePenalty:
         # P0 net_grid should be <= 0 (no grid import)
         assert sequence[0]["net_grid"] <= 0.0, "LP charged from grid early despite upcoming heavy solar spill penalty"
 
+
+class TestDynamicLengths:
+    """Verify solver output length dynamically scales with input arrays."""
+
+    def test_solver_dynamic_length(self, base_context):
+        """Ensure solver output sequence length matches input price_buy length."""
+        from custom_components.house_battery_control.fsm.base import SolverInputs
+        from custom_components.house_battery_control.fsm.lin_fsm import LinearBatteryStateMachine
+
+        # Test with an abnormally long sequence (e.g., 576 for 48 hours)
+        long_n = 576
+        step_hours = 5.0 / 60.0
+
+        base_context.solver_inputs = SolverInputs(
+            price_buy=[10.0] * long_n,
+            price_sell=[5.0] * long_n,
+            load_kwh=[1.5 * step_hours] * long_n,
+            pv_kwh=[2.0 * step_hours] * long_n,
+        )
+
+        fsm = LinearBatteryStateMachine()
+        result = fsm.calculate_next_state(base_context)
+
+        assert result.state != "ERROR"
+        assert result.future_plan is not None
+        assert len(result.future_plan) == long_n, (
+            f"Expected {long_n} steps, but got {len(result.future_plan)}"
+        )
+

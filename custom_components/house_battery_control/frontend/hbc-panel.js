@@ -7,6 +7,7 @@ import {
 import "./hbc-dashboard.js";
 import "./hbc-sensors.js";
 import "./hbc-plan-table.js";
+import "./hbc-outlook.js";
 
 // Module-level recovery: after extended idle, HA may destroy the panel element
 // without recreating it. Detect tab focus and reload if panel is missing.
@@ -155,16 +156,26 @@ class HBCPanel extends LitElement {
           >
             Plan
           </button>
+          <button
+            class="${this._activeTab === "outlook" ? "active" : ""}"
+            @click=${() => this._switchTab("outlook")}
+          >
+            Tomorrow's Outlook
+          </button>
         </div>
       </div>
       <div class="root">
         ${this._activeTab === "dashboard"
           ? html`
-              <hbc-dashboard .data=${this._data}></hbc-dashboard>
+              <hbc-dashboard .data=${this._data} .hass=${this.hass}></hbc-dashboard>
               <hbc-sensors .data=${this._data}></hbc-sensors>
             `
-          : html`
+          : this._activeTab === "plan"
+          ? html`
               <hbc-plan-table .data=${this._data}></hbc-plan-table>
+            `
+          : html`
+              <hbc-outlook .state=${this._data} .hass=${this.hass}></hbc-outlook>
             `}
       </div>
     `;

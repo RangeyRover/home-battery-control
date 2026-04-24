@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
+from custom_components.house_battery_control.web import HBCSyntheticOutlookView
 from homeassistant.core import HomeAssistant
 
 
@@ -552,3 +553,36 @@ async def test_load_history_api_returns_data(mock_hass):
     assert isinstance(data, list)
     assert isinstance(data[0], list)
     assert data[0][0]["state"] == "10.0"
+
+
+# --- Synthetic Outlook API (Spec 037) ---
+
+
+
+@pytest.mark.asyncio
+async def test_synthetic_outlook_api_returns_data(mock_hass):
+    """Verify HBCSyntheticOutlookView returns analog days and curve."""
+    view = HBCSyntheticOutlookView()
+    mock_request = MagicMock()
+    mock_request.app = {"hass": mock_hass}
+
+    # Mock coordinator with rates predictor
+    mock_coord = MagicMock()
+    mock_coord.data = {
+        "synthetic_analog_days": ["2025-01-01", "2025-01-02"],
+        "synthetic_pricing_curve": [3.0, 4.0]
+    }
+
+    from custom_components.house_battery_control.const import DOMAIN
+    mock_hass.data = {
+        DOMAIN: {"entry_1": {"coordinator": mock_coord}}
+    }
+
+    response = await view.get(mock_request)
+    import json
+    data = json.loads(response.text)
+
+    assert "synthetic_analog_days" in data
+    assert "synthetic_pricing_curve" in data
+    assert data["synthetic_analog_days"] == ["2025-01-01", "2025-01-02"]
+    assert data["synthetic_pricing_curve"] == [3.0, 4.0]

@@ -46,4 +46,6 @@ describe('HBCDashboard', () => {
     expect(bar.querySelector('.no-import').textContent).to.include('10:00-11:00');
     expect(bar.querySelector('.observation')).to.exist;
   });
+
+
 });

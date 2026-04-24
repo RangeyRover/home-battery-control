@@ -41,3 +41,4 @@ archive/
 .mypy_cache/
 
 node_modules/
+*.db 
