@@ -61,10 +61,10 @@ As a developer or power user troubleshooting the solver logic, I want to maintai
 - **FR-001**: The system MUST expose a new lightweight `telemetry` API endpoint that returns only core operating variables (SoC, current power flows, FSM state, acquisition cost) and excludes any plan matrices or forecast arrays.
 - **FR-002**: The system MUST expose a new `plan` API endpoint that returns forecast data strictly in a columnar array format (e.g., `{"columns": [...], "rows": [[...], ...]}`) rather than a list of repetitive dictionaries.
 - **FR-003**: The `plan` endpoint MUST default to providing 30-minute aggregated intervals unless 5-minute intervals are explicitly requested by the client.
-- **FR-004**: The system MUST retain the existing legacy `/hbc/api/status` endpoint untouched for debug purposes, serving the full verbose dictionary format.
-- **FR-005**: The frontend UI MUST be refactored (or a new frontend component created) to poll the lightweight `telemetry` endpoint for continuous state updates.
-- **FR-006**: The frontend UI MUST ONLY fetch the heavy `plan` API endpoint when the user actively switches to a tab that requires plan visualization (e.g., Plan Table, Outlook Graph).
-- **FR-007**: The system MUST strip all hidden `attributes` (such as 14-day weather forecasts) from any sensor diagnostic data exposed in the new compressed endpoints.
+- **FR-004**: The system MUST retain the existing legacy `/hbc/api/status` endpoint completely untouched (with full labels, sensor attributes, and massive payload) for pure 1:1 legacy debugging.
+- **FR-005**: The system MUST implement a completely new, lightweight production frontend panel (e.g. `hbc-panel-lite.js`) exposed at the default `/hbc-panel` URL, which uses the new `/hbc/api/telemetry` and `/hbc/api/plan` endpoints.
+- **FR-006**: The system MUST retain the existing heavy frontend dashboard and expose it at a separate URL (e.g. `/hbc-debug`) for advanced troubleshooting, ensuring production users do not unintentionally trigger heavy legacy data collection.
+- **FR-007**: The new production frontend MUST only fetch the `plan` payload when needed. It MUST strictly request the 30-minute interval data by default, and ONLY request the 5-minute interval data (`?resolution=5min`) if the user explicitly clicks the "5 Min" toggle.
 
 ### Key Entities
 

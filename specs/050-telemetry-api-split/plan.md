@@ -12,11 +12,11 @@ This feature resolves the 1MB data payload bloat caused by the legacy `/hbc/api/
 > [!WARNING]
 > **API Contracts & Breaking Changes**: We will introduce two new endpoints (`/hbc/api/telemetry` and `/hbc/api/plan`). The existing `/hbc/api/status` endpoint will be preserved for debugging, but the JS frontend will migrate entirely to the new endpoints. Please review the Proposed Changes to ensure the new payloads provide everything you need.
 
-## Open Questions
+## Resolved Decisions
 
-> [!IMPORTANT]
-> 1. Should we strip out the `attributes` dictionary from sensors exposed on the debug endpoint (`/hbc/api/status`) as well, or leave that 1MB payload entirely untouched for pure 1:1 legacy debugging?
-> 2. The 30-minute default for the `plan` payload is great, but do we need the frontend `hbc-plan-table.js` to lazy-load the 5-minute payload via a query parameter `?resolution=5min` when the user clicks the "5 Min" toggle? Or should we just push the 5-min array anyway (which in columnar form is ~15-20KB) and let the JS filter it locally?
+1. **Debug Payload**: The `/hbc/api/status` endpoint will remain **100% untouched** and continue to serve the 1MB payload with all sensor attributes and labels.
+2. **5-Min Payload**: The new frontend will strictly lazy-load the 5-min array only when the user explicitly clicks the "5 Min" toggle. The primary goal is minimizing total KB moved.
+3. **Frontend Split**: We will create a new, lightweight `hbc-panel-lite.js` for production at `/hbc-panel`. The existing heavy `hbc-panel.js` will be preserved and exposed at a new `/hbc-debug` URL in Home Assistant's sidebar.
 
 ## Proposed Changes
 
@@ -30,10 +30,11 @@ This feature resolves the 1MB data payload bloat caused by the legacy `/hbc/api/
   - `state`, `reason`, `limit_kw`, `target_soc`
   - `acquisition_cost`, `cumulative_cost`, `current_price`
 - Create `HBCApiPlanView(HomeAssistantView)` returning the plan arrays. Will accept `?resolution=30min` (default) or `?resolution=5min`.
-- Modify `HBCApiStatusView` to strip `attributes` from the `sensors` payload to prevent massive HA weather object duplication.
 
-#### [MODIFY] [\_\_init\_\_.py](file:///c:/Users/markn/OneDrive%20-%20IXL%20Signalling/0-01%20AI%20Programming/AI%20Coding/House%20Battery%20Control/custom_components/house_battery_control/__init__.py)
+#### [MODIFY] [\_\_init\_\_.py](file:///C:/Users/markn/OneDrive%20-%20IXL%20Signalling/0-01%20AI%20Programming/AI%20Coding/House%20Battery%20Control/custom_components/house_battery_control/__init__.py)
 - Register `HBCApiTelemetryView` and `HBCApiPlanView` in HA.
+- Register a second sidebar panel `hbc-debug` pointing to the legacy frontend.
+- Update the default `hbc-panel` to point to the new lightweight frontend.
 
 ---
 
@@ -59,14 +60,18 @@ This feature resolves the 1MB data payload bloat caused by the legacy `/hbc/api/
 
 ### Frontend UI (`frontend/`)
 
-#### [MODIFY] [hbc-panel.js](file:///c:/Users/markn/OneDrive%20-%20IXL%20Signalling/0-01%20AI%20Programming/AI%20Coding/House%20Battery%20Control/custom_components/house_battery_control/frontend/hbc-panel.js)
-- Change `_fetchData()` to fetch `/hbc/api/telemetry` instead of `/hbc/api/status`.
-- Pass `telemetry` down to the child components (`hbc-dashboard`).
-- When the active tab changes to `plan` or `outlook`, trigger a one-off fetch to `/hbc/api/plan` and cache it.
+#### [NEW] [hbc-panel-lite.js](file:///C:/Users/markn/OneDrive%20-%20IXL%20Signalling/0-01%20AI%20Programming/AI%20Coding/House%20Battery%20Control/custom_components/house_battery_control/frontend/hbc-panel-lite.js)
+- Create a new root component for the lightweight production dashboard.
+- Fetches `/hbc/api/telemetry` instead of `/hbc/api/status`.
+- Passes `telemetry` down to the child components.
+- When the active tab changes to `plan` or `outlook`, triggers a one-off fetch to `/hbc/api/plan` and caches it.
 
-#### [MODIFY] [hbc-plan-table.js](file:///c:/Users/markn/OneDrive%20-%20IXL%20Signalling/0-01%20AI%20Programming/AI%20Coding/House%20Battery%20Control/custom_components/house_battery_control/frontend/hbc-plan-table.js)
-- Update data parsing logic to map the new columnar `columns` and `rows` arrays into the UI rendering logic.
-- If the 5-min toggle is clicked, fetch the `/hbc/api/plan?resolution=5min` endpoint dynamically.
+#### [NEW] [hbc-plan-table-lite.js](file:///C:/Users/markn/OneDrive%20-%20IXL%20Signalling/0-01%20AI%20Programming/AI%20Coding/House%20Battery%20Control/custom_components/house_battery_control/frontend/hbc-plan-table-lite.js)
+- Create a lightweight table component that parses the new columnar `columns` and `rows` arrays.
+- If the 5-min toggle is clicked, strictly lazy-loads the `/hbc/api/plan?resolution=5min` endpoint dynamically.
+
+#### [MODIFY] [hbc-panel.js](file:///C:/Users/markn/OneDrive%20-%20IXL%20Signalling/0-01%20AI%20Programming/AI%20Coding/House%20Battery%20Control/custom_components/house_battery_control/frontend/hbc-panel.js)
+- No functional changes. This remains untouched to serve the `/hbc-debug` panel.
 
 ## Verification Plan
 
