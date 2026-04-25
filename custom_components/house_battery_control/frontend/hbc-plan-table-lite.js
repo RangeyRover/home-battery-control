@@ -153,9 +153,7 @@ export class HBCPlanTableLite extends LitElement {
       return sign + str;
     };
 
-    let rows = [];
-
-    let rows = plan.map((r) => {
+    const rows = plan.map((r) => {
       return {
         time: r["Time"] || "—",
         localTime: r["Local Time"] || "—",
