@@ -240,7 +240,7 @@ export class HBCOutlookLite extends LitElement {
     const points = curve.map((val, idx) => {
       const x = idx * scaleX;
       const y = height - padding - ((val - minVal) * scaleY);
-      return \`\${x},\${y}\`;
+      return `${x},${y}`;
     }).join(' ');
 
     return html`
@@ -275,7 +275,7 @@ export class HBCOutlookLite extends LitElement {
     for (let i = 0; i < len; i++) {
       const hour = Math.floor((i * 5) / 60).toString().padStart(2, '0');
       const min = ((i * 5) % 60).toString().padStart(2, '0');
-      const timeStr = \`\${hour}:\${min}\`;
+      const timeStr = `${hour}:${min}`;
       rows.push({
         time: timeStr,
         imp: importCurve[i] !== undefined ? importCurve[i].toFixed(4) : "—",
