@@ -211,3 +211,27 @@ def build_diagnostic_plan_table(
         simulated_soc = target_soc
 
     return table
+
+def build_plan_matrix(
+    coordinator,
+    rates: list[Any],
+    solar_forecast: list[Any],
+    load_forecast: list[Any],
+    weather: list[Any],
+    current_soc: float,
+    future_plan: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Convert the diagnostic plan table into a columnar matrix for efficiency."""
+    table = build_diagnostic_plan_table(
+        coordinator, rates, solar_forecast, load_forecast, weather, current_soc, future_plan
+    )
+
+    if not table:
+        return {"columns": [], "rows": []}
+
+    columns = list(table[0].keys())
+    rows = []
+    for row in table:
+        rows.append([row[col] for col in columns])
+
+    return {"columns": columns, "rows": rows}

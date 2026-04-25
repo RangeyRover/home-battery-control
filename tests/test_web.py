@@ -586,3 +586,111 @@ async def test_synthetic_outlook_api_returns_data(mock_hass):
     assert "synthetic_pricing_curve" in data
     assert data["synthetic_analog_days"] == ["2025-01-01", "2025-01-02"]
     assert data["synthetic_pricing_curve"] == [3.0, 4.0]
+
+# --- Telemetry API Split (Spec 050) ---
+
+def test_web_has_api_telemetry():
+    """web.py should have a telemetry JSON API view."""
+    import custom_components.house_battery_control.web as web
+    assert hasattr(web, "HBCApiTelemetryView"), "Missing HBCApiTelemetryView"
+
+def test_web_has_api_plan():
+    """web.py should have a plan JSON API view."""
+    import custom_components.house_battery_control.web as web
+    assert hasattr(web, "HBCApiPlanView"), "Missing HBCApiPlanView"
+
+def test_web_has_api_outlook():
+    """web.py should have an outlook JSON API view."""
+    import custom_components.house_battery_control.web as web
+    assert hasattr(web, "HBCApiOutlookView"), "Missing HBCApiOutlookView"
+
+@pytest.mark.asyncio
+async def test_api_telemetry_returns_core_data(mock_hass):
+    """Verify HBCApiTelemetryView returns only core variables and excludes heavy arrays."""
+    from unittest.mock import MagicMock
+
+    from custom_components.house_battery_control.const import DOMAIN
+    from custom_components.house_battery_control.web import HBCApiTelemetryView
+
+    view = HBCApiTelemetryView()
+    mock_request = MagicMock()
+    mock_request.app = {"hass": mock_hass}
+
+    mock_coord = MagicMock()
+    mock_coord.data = {
+        "soc": 65.5,
+        "state": "IDLE",
+        "reason": "Stable",
+        "sensors": [{"heavy": "payload"}],  # Should be excluded
+        "rates": [{"heavy": "payload"}],    # Should be excluded
+    }
+
+    # Needs a build_telemetry_payload method on the coordinator
+    mock_coord._build_telemetry_payload = MagicMock(return_value={"soc": 65.5, "state": "IDLE", "reason": "Stable"})
+    mock_hass.data = {DOMAIN: {"entry_1": {"coordinator": mock_coord}}}
+
+    response = await view.get(mock_request)
+    import json
+    data = json.loads(response.text)
+
+    assert "soc" in data
+    assert "state" in data
+    assert "sensors" not in data
+    assert "rates" not in data
+
+@pytest.mark.asyncio
+async def test_api_plan_returns_columnar_matrix(mock_hass):
+    """Verify HBCApiPlanView returns a columnar matrix (columns, rows)."""
+    from unittest.mock import MagicMock
+
+    from custom_components.house_battery_control.const import DOMAIN
+    from custom_components.house_battery_control.web import HBCApiPlanView
+
+    view = HBCApiPlanView()
+    mock_request = MagicMock()
+    mock_request.app = {"hass": mock_hass}
+    # Mock default query params
+    mock_request.query = {}
+
+    mock_coord = MagicMock()
+    # Mock the method that will build the matrix
+    mock_coord._build_plan_matrix = MagicMock(return_value={
+        "columns": ["Time", "FSM State"],
+        "rows": [["12:00", "IDLE"]]
+    })
+    mock_hass.data = {DOMAIN: {"entry_1": {"coordinator": mock_coord}}}
+
+    response = await view.get(mock_request)
+    import json
+    data = json.loads(response.text)
+
+    assert "columns" in data
+    assert "rows" in data
+    assert "Time" in data["columns"]
+    assert data["rows"][0][0] == "12:00"
+
+@pytest.mark.asyncio
+async def test_api_outlook_returns_transitions(mock_hass):
+    """Verify HBCApiOutlookView returns only state_transitions."""
+    from unittest.mock import MagicMock
+
+    from custom_components.house_battery_control.const import DOMAIN
+    from custom_components.house_battery_control.web import HBCApiOutlookView
+
+    view = HBCApiOutlookView()
+    mock_request = MagicMock()
+    mock_request.app = {"hass": mock_hass}
+
+    mock_coord = MagicMock()
+    mock_coord.data = {
+        "state_transitions": [{"heavy": "payload"}],
+        "sensors": [{"heavy": "payload"}],  # Should be excluded
+    }
+    mock_hass.data = {DOMAIN: {"entry_1": {"coordinator": mock_coord}}}
+
+    response = await view.get(mock_request)
+    import json
+    data = json.loads(response.text)
+
+    assert "state_transitions" in data
+    assert "sensors" not in data

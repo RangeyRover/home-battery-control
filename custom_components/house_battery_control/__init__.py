@@ -14,8 +14,11 @@ from .const import CONF_PANEL_ADMIN_ONLY, DEFAULT_PANEL_ADMIN_ONLY, DOMAIN
 from .coordinator import HBCDataUpdateCoordinator
 from .telemetry_tracker import TelemetryCostTracker
 from .web import (
+    HBCApiOutlookView,
     HBCApiPingView,
+    HBCApiPlanView,
     HBCApiStatusView,
+    HBCApiTelemetryView,
     HBCConfigYamlView,
     HBCDashboardView,
     HBCLoadHistoryView,
@@ -67,6 +70,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register API views (consumed by panel JS)
     hass.http.register_view(HBCApiStatusView())
     hass.http.register_view(HBCApiPingView())
+    hass.http.register_view(HBCApiTelemetryView())
+    hass.http.register_view(HBCApiPlanView())
+    hass.http.register_view(HBCApiOutlookView())
     hass.http.register_view(HBCConfigYamlView())
     hass.http.register_view(HBCLoadHistoryView())
     hass.http.register_view(HBCSyntheticOutlookView())
@@ -84,6 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             async_register_built_in_panel,
         )
 
+        # Production panel (Spec 050)
         async_register_built_in_panel(
             hass,
             component_name="custom",
@@ -93,8 +100,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             require_admin=entry.data.get(CONF_PANEL_ADMIN_ONLY, DEFAULT_PANEL_ADMIN_ONLY),
             config={
                 "_panel_custom": {
+                    "name": "hbc-panel-lite",
+                    "module_url": "/hbc/frontend/hbc-panel-lite.js?v=56",
+                }
+            },
+        )
+
+        # Legacy Debug panel (Spec 050)
+        async_register_built_in_panel(
+            hass,
+            component_name="custom",
+            sidebar_title="HBC Debug",
+            sidebar_icon="mdi:bug",
+            frontend_url_path="hbc-debug",
+            require_admin=entry.data.get(CONF_PANEL_ADMIN_ONLY, DEFAULT_PANEL_ADMIN_ONLY),
+            config={
+                "_panel_custom": {
                     "name": "hbc-panel",
-                    "module_url": "/hbc/frontend/hbc-panel.js?v=55",
+                    "module_url": "/hbc/frontend/hbc-panel.js?v=56",
                 }
             },
         )

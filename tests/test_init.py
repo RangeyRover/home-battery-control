@@ -68,10 +68,22 @@ def test_platforms_includes_sensor():
 def test_web_views_importable():
     """All web view classes must be importable from __init__."""
     from custom_components.house_battery_control import (  # noqa: F401
+        HBCApiOutlookView,
         HBCApiPingView,
+        HBCApiPlanView,
         HBCApiStatusView,
+        HBCApiTelemetryView,
         HBCDashboardView,
     )
+
+def test_init_registers_both_panels():
+    """Verify __init__.py contains calls to register both hbc-panel and hbc-debug."""
+    from custom_components.house_battery_control import __file__
+
+    content = Path(__file__).read_text(encoding="utf-8")
+    assert "frontend_url_path=\"hbc-panel\"" in content
+    assert "frontend_url_path=\"hbc-debug\"" in content
+    assert "hbc-panel-lite.js" in content
 
 
 def test_panel_admin_only_constant_exists():

@@ -236,6 +236,39 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             self, rates, solar_forecast, load_forecast, weather, current_soc, future_plan
         )
 
+    def _build_plan_matrix(self) -> dict[str, Any]:
+        """Build the plan matrix output using columnar arrays for payload reduction."""
+        table = self.data.get("plan", []) if self.data else []
+        if not table:
+            return {"columns": [], "rows": []}
+
+        columns = list(table[0].keys())
+        rows = []
+        for row in table:
+            rows.append([row[col] for col in columns])
+
+        return {"columns": columns, "rows": rows}
+
+    def _build_telemetry_payload(self) -> dict[str, Any]:
+        """Build the lightweight telemetry payload for continuous background polling."""
+        if not self.data:
+            return {}
+
+        return {
+            "soc": self.data.get("soc", 0.0),
+            "solar_power": self.data.get("solar_power", 0.0),
+            "grid_power": self.data.get("grid_power", 0.0),
+            "battery_power": self.data.get("battery_power", 0.0),
+            "load_power": self.data.get("load_power", 0.0),
+            "state": self.data.get("state", "UNKNOWN"),
+            "reason": self.data.get("reason", ""),
+            "limit_kw": self.data.get("limit_kw", 0.0),
+            "target_soc": self.data.get("target_soc"),
+            "acquisition_cost": self.data.get("acquisition_cost", 0.0),
+            "cumulative_cost": self.data.get("cumulative_cost", 0.0),
+            "current_price": self.data.get("current_price", 0.0),
+        }
+
     def _build_solver_inputs(
         self,
         rates_list: list[Any],

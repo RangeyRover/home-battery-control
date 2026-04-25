@@ -269,3 +269,56 @@ class HBCSyntheticOutlookView(HomeAssistantView):
                 break
 
         return self.json(data)
+
+
+# --- Telemetry API Split Views (Spec 050) ---
+
+class HBCApiTelemetryView(HomeAssistantView):
+    """JSON API: lightweight telemetry for continuous polling."""
+
+    url = "/hbc/api/telemetry"
+    name = "hbc:api:telemetry"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        hass = request.app["hass"]
+        domain_data = hass.data.get(DOMAIN, {})
+        for entry_data in domain_data.values():
+            coord = entry_data.get("coordinator")
+            if coord:
+                return self.json(coord._build_telemetry_payload())
+        return self.json({})
+
+
+class HBCApiPlanView(HomeAssistantView):
+    """JSON API: columnar plan matrix."""
+
+    url = "/hbc/api/plan"
+    name = "hbc:api:plan"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        hass = request.app["hass"]
+        domain_data = hass.data.get(DOMAIN, {})
+        for entry_data in domain_data.values():
+            coord = entry_data.get("coordinator")
+            if coord:
+                return self.json(coord._build_plan_matrix())
+        return self.json({"columns": [], "rows": []})
+
+
+class HBCApiOutlookView(HomeAssistantView):
+    """JSON API: Tomorrow's outlook state transitions."""
+
+    url = "/hbc/api/outlook"
+    name = "hbc:api:outlook"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        hass = request.app["hass"]
+        domain_data = hass.data.get(DOMAIN, {})
+        for entry_data in domain_data.values():
+            coord = entry_data.get("coordinator")
+            if coord and coord.data:
+                return self.json({"state_transitions": coord.data.get("state_transitions", [])})
+        return self.json({"state_transitions": []})

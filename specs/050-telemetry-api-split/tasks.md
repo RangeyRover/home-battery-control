@@ -15,12 +15,12 @@
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-- [ ] T002 Implement `_build_telemetry_payload()` in `custom_components/house_battery_control/coordinator.py`
-- [ ] T003 Implement `_build_plan_matrix()` in `custom_components/house_battery_control/diagnostics.py`
-- [ ] T004 Implement `HBCApiTelemetryView` in `custom_components/house_battery_control/web.py`
-- [ ] T005 Implement `HBCApiPlanView` in `custom_components/house_battery_control/web.py`
-- [ ] T006 Implement `HBCApiOutlookView` in `custom_components/house_battery_control/web.py`
-- [ ] T007 Register new views and debug panel in `custom_components/house_battery_control/__init__.py`
+- [x] T002 Implement `_build_telemetry_payload()` in `custom_components/house_battery_control/coordinator.py`
+- [x] T003 Implement `_build_plan_matrix()` in `custom_components/house_battery_control/diagnostics.py`
+- [x] T004 Implement `HBCApiTelemetryView` in `custom_components/house_battery_control/web.py`
+- [x] T005 Implement `HBCApiPlanView` in `custom_components/house_battery_control/web.py`
+- [x] T006 Implement `HBCApiOutlookView` in `custom_components/house_battery_control/web.py`
+- [x] T007 Register new views and debug panel in `custom_components/house_battery_control/__init__.py`
 
 ---
 
@@ -31,12 +31,12 @@
 **Independent Test**: Verify `/hbc/api/telemetry` is < 5KB and new frontend polls it.
 
 ### Tests for User Story 1
-- [ ] T008 [P] [US1] Add test for `/hbc/api/telemetry` response size and content in `tests/test_web.py`
+- [x] T008 [P] [US1] Add test for `/hbc/api/telemetry` response size and content in `tests/test_web.py`
 
 ### Implementation for User Story 1
-- [ ] T009 [US1] Create new root component `hbc-panel-lite.js` in `custom_components/house_battery_control/frontend/hbc-panel-lite.js`
-- [ ] T010 [US1] Implement `_fetchData()` in `hbc-panel-lite.js` to poll `/hbc/api/telemetry`
-- [ ] T011 [US1] Add inconspicuous debug link to `/hbc-debug` in `hbc-panel-lite.js`
+- [x] T009 [US1] Create new root component `hbc-panel-lite.js` in `custom_components/house_battery_control/frontend/hbc-panel-lite.js`
+- [x] T010 [US1] Implement `_fetchData()` in `hbc-panel-lite.js` to poll `/hbc/api/telemetry`
+- [x] T011 [US1] Add inconspicuous debug link to `/hbc-debug` in `hbc-panel-lite.js`
 
 ---
 
@@ -47,14 +47,14 @@
 **Independent Test**: Verify `/hbc/api/plan` returns a matrix and frontend renders it.
 
 ### Tests for User Story 2
-- [ ] T012 [P] [US2] Add test for `/hbc/api/plan` returning 30-min matrix format in `tests/test_web.py`
+- [x] T012 [P] [US2] Add test for `/hbc/api/plan` returning 30-min matrix format in `tests/test_web.py`
 
 ### Implementation for User Story 2
-- [ ] T013 [US2] Create lightweight plan table component `hbc-plan-table-lite.js`
-- [ ] T014 [US2] Implement parsing of columnar arrays in `hbc-plan-table-lite.js`
-- [ ] T015 [US2] Implement dynamic 5-min lazy loading in `hbc-plan-table-lite.js` when "5 Min" toggle is clicked.
-- [ ] T016 [US2] Create lightweight outlook component `hbc-outlook-lite.js` with explicit "Load Outlook" button.
-- [ ] T017 [US2] Implement fetch to `/hbc/api/outlook` when button is clicked in `hbc-outlook-lite.js`.
+- [x] T013 [US2] Create lightweight plan table component `hbc-plan-table-lite.js`
+- [x] T014 [US2] Implement parsing of columnar arrays in `hbc-plan-table-lite.js`
+- [x] T015 [US2] Implement dynamic 5-min lazy loading in `hbc-plan-table-lite.js` when "5 Min" toggle is clicked.
+- [x] T016 [US2] Create lightweight outlook component `hbc-outlook-lite.js` with explicit "Load Outlook" button.
+- [x] T017 [US2] Implement fetch to `/hbc/api/outlook` when button is clicked in `hbc-outlook-lite.js`.
 
 ---
 
@@ -65,12 +65,11 @@
 **Independent Test**: Verify legacy `/hbc/api/status` is untouched and `/hbc-debug` works.
 
 ### Implementation for User Story 3
-- [ ] T018 [US3] Ensure `hbc-panel.js` and `hbc-plan-table.js` remain completely untouched to support the `/hbc-debug` panel registered in `__init__.py`.
+- [x] T018 [US3] Ensure `hbc-panel.js` and `hbc-plan-table.js` remain completely untouched to support the `/hbc-debug` panel registered in `__init__.py`.
 
 ---
 
-## Phase N: Polish & Cross-Cutting Concerns
-
-- [ ] T019 Run automated tests (`pytest tests/ -v`)
-- [ ] T020 Run static checks (`ruff check custom_components/ tests/`)
-- [ ] T021 Validate manual frontend behavior inside Home Assistant
+### Phase N: Testing and Validation
+- [x] T019 Run automated tests (`pytest tests/ -v`)
+- [x] T020 Run static checks (`ruff check custom_components/ tests/`)
+- [x] T021 Validate manual frontend behavior inside Home Assistant
