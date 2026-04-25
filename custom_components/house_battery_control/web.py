@@ -299,11 +299,12 @@ class HBCApiPlanView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
+        resolution = request.query.get("resolution", "30min")
         domain_data = hass.data.get(DOMAIN, {})
         for entry_data in domain_data.values():
             coord = entry_data.get("coordinator")
             if coord:
-                return self.json(coord._build_plan_matrix())
+                return self.json(coord._build_plan_matrix(resolution=resolution))
         return self.json({"columns": [], "rows": []})
 
 

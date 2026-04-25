@@ -236,16 +236,87 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             self, rates, solar_forecast, load_forecast, weather, current_soc, future_plan
         )
 
-    def _build_plan_matrix(self) -> dict[str, Any]:
+    def _build_plan_matrix(self, resolution: str = "30min") -> dict[str, Any]:
         """Build the plan matrix output using columnar arrays for payload reduction."""
         table = self.data.get("plan", []) if self.data else []
         if not table:
             return {"columns": [], "rows": []}
 
+        if resolution == "30min":
+            import re
+            def parse_num(s):
+                if isinstance(s, (int, float)):
+                    return float(s)
+                m = re.search(r"[-+]?\d*\.\d+|\d+", str(s))
+                return float(m.group()) if m else 0.0
+
+            def avg_key(chunk, k):
+                return sum(parse_num(r.get(k, 0)) for r in chunk) / len(chunk)
+
+            def sum_key(chunk, k):
+                return sum(parse_num(r.get(k, 0)) for r in chunk)
+
+            def format_cost(val):
+                sign = "-$" if val < 0 else "$"
+                return f"{sign}{abs(val):.4f}"
+
+            chunks = []
+            current_chunk = []
+            for i, row in enumerate(table):
+                current_chunk.append(row)
+                time_str = row.get("Time", "")
+                is_boundary = time_str.endswith(":25") or time_str.endswith(":55")
+                is_last = i == len(table) - 1
+
+                if is_boundary or is_last:
+                    if not current_chunk:
+                        continue
+
+                    first = current_chunk[0]
+                    last = current_chunk[-1]
+
+                    state = "SELF_CONSUMPTION"
+                    limit = "0%"
+                    for r in current_chunk:
+                        if r.get("FSM State") == "CHARGE_GRID":
+                            state = "CHARGE_GRID"
+                            limit = r.get("Inverter Limit", "100%")
+                            break
+                        elif r.get("FSM State") == "DISCHARGE_GRID":
+                            state = "DISCHARGE_GRID"
+                            limit = r.get("Inverter Limit", "100%")
+                            break
+
+                    temp_val = "—" if first.get("Air Temp Forecast") == "—" else f"{avg_key(current_chunk, 'Air Temp Forecast'):.1f}°C"
+                    temp_delta_val = "—" if first.get("Temp Delta") == "—" else f"{avg_key(current_chunk, 'Temp Delta'):.1f}°C"
+
+                    agg_row = {
+                        "Time": first.get("Time", "—"),
+                        "Local Time": first.get("Local Time", "—"),
+                        "Import Rate": f"{avg_key(current_chunk, 'Import Rate'):.2f}",
+                        "Export Rate": f"{avg_key(current_chunk, 'Export Rate'):.2f}",
+                        "FSM State": state,
+                        "Inverter Limit": limit,
+                        "Net Grid": f"{avg_key(current_chunk, 'Net Grid'):.2f}",
+                        "PV Forecast": f"{avg_key(current_chunk, 'PV Forecast'):.2f}",
+                        "Load Forecast": f"{avg_key(current_chunk, 'Load Forecast'):.2f}",
+                        "Air Temp Forecast": temp_val,
+                        "Temp Delta": temp_delta_val,
+                        "Load Adj.": f"{avg_key(current_chunk, 'Load Adj.'):.2f}",
+                        "SoC Forecast": last.get("SoC Forecast", "—"),
+                        "Interval Cost": format_cost(sum_key(current_chunk, "Interval Cost")),
+                        "Cumul. Cost": last.get("Cumul. Cost", "—"),
+                        "Acq. Cost": format_cost(avg_key(current_chunk, "Acq. Cost")),
+                        "Synthetic": first.get("Synthetic", False),
+                    }
+                    chunks.append(agg_row)
+                    current_chunk = []
+            table = chunks
+
         columns = list(table[0].keys())
         rows = []
         for row in table:
-            rows.append([row[col] for col in columns])
+            rows.append([row.get(col, "—") for col in columns])
 
         return {"columns": columns, "rows": rows}
 

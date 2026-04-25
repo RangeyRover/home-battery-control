@@ -694,3 +694,23 @@ async def test_api_outlook_returns_transitions(mock_hass):
 
     assert "state_transitions" in data
     assert "sensors" not in data
+
+@pytest.mark.asyncio
+async def test_api_plan_passes_resolution(mock_hass):
+    """Verify HBCApiPlanView passes resolution query parameter."""
+    from unittest.mock import MagicMock
+
+    from custom_components.house_battery_control.const import DOMAIN
+    from custom_components.house_battery_control.web import HBCApiPlanView
+
+    view = HBCApiPlanView()
+    mock_request = MagicMock()
+    mock_request.app = {"hass": mock_hass}
+    mock_request.query = {"resolution": "5min"}
+
+    mock_coord = MagicMock()
+    mock_coord._build_plan_matrix = MagicMock(return_value={"columns": [], "rows": []})
+    mock_hass.data = {DOMAIN: {"entry_1": {"coordinator": mock_coord}}}
+
+    await view.get(mock_request)
+    mock_coord._build_plan_matrix.assert_called_once_with(resolution="5min")

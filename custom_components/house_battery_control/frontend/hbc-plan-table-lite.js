@@ -45,7 +45,7 @@ export class HBCPlanTableLite extends LitElement {
     this._loading = true;
     this._error = "";
     try {
-      const resp = await this.hass.fetchWithAuth("/hbc/api/plan");
+      const resp = await this.hass.fetchWithAuth(`/hbc/api/plan?resolution=${this._planResolution}`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const json = await resp.json();
       
@@ -69,7 +69,9 @@ export class HBCPlanTableLite extends LitElement {
   }
 
   _switchResolution(res) {
+    if (this._planResolution === res) return;
     this._planResolution = res;
+    this._fetchPlan();
   }
 
   _toggleCol(col) {
@@ -153,83 +155,27 @@ export class HBCPlanTableLite extends LitElement {
 
     let rows = [];
 
-    if (this._planResolution === "5min") {
-      rows = plan.map((r) => {
-        return {
-          time: r["Time"] || "—",
-          localTime: r["Local Time"] || "—",
-          synthetic: r["Synthetic"] || false,
-          imp: r["Import Rate"] || "0.0",
-          exp: r["Export Rate"] || "0.0",
-          state: r["FSM State"] || "—",
-          limit: r["Inverter Limit"] || "0%",
-          grid: r["Net Grid"] || "0.00",
-          pv: r["PV Forecast"] || "0.00",
-          ld: r["Load Forecast"] || "0.00",
-          temp: r["Air Temp Forecast"] || "—",
-          tempDelta: r["Temp Delta"] || "—",
-          loadAdj: r["Load Adj."] || "0.00",
-          soc: r["SoC Forecast"] || "—",
-          cost: formatCostStr(r["Interval Cost"]),
-          cumul: formatCostStr(r["Cumul. Cost"]),
-          acq: formatCostStr(r["Acq. Cost"]),
-        };
-      });
-    } else {
-      let currentChunk = [];
-      for (let i = 0; i < plan.length; i++) {
-        const r = plan[i];
-        currentChunk.push(r);
-
-        const timeStr = r["Time"] || "";
-        const isBoundary = timeStr.endsWith(":25") || timeStr.endsWith(":55");
-        const isLast = i === plan.length - 1;
-
-        if (isBoundary || isLast) {
-          const chunk = currentChunk;
-          currentChunk = [];
-          if (chunk.length === 0) continue;
-
-          const time = chunk[0]["Time"] || "—";
-          const localTime = chunk[0]["Local Time"] || "—";
-
-           let state = "SELF_CONSUMPTION";
-          let limit = "0%";
-          const chargeReq = chunk.find(row => row["FSM State"] === "CHARGE_GRID");
-          const dischargeReq = chunk.find(row => row["FSM State"] === "DISCHARGE_GRID");
-
-          if (chargeReq) {
-            state = "CHARGE_GRID";
-            limit = chargeReq["Inverter Limit"] || "100%";
-          } else if (dischargeReq) {
-            state = "DISCHARGE_GRID";
-            limit = dischargeReq["Inverter Limit"] || "100%";
-          }
-
-          const imp = (chunk.reduce((s, row) => s + parseNum(row["Import Rate"]), 0) / chunk.length).toFixed(2);
-          const exp = (chunk.reduce((s, row) => s + parseNum(row["Export Rate"]), 0) / chunk.length).toFixed(2);
-          const grid = (chunk.reduce((s, row) => s + parseNum(row["Net Grid"]), 0) / chunk.length).toFixed(2);
-          const pv = (chunk.reduce((s, row) => s + parseNum(row["PV Forecast"]), 0) / chunk.length).toFixed(2);
-          const ld = (chunk.reduce((s, row) => s + parseNum(row["Load Forecast"]), 0) / chunk.length).toFixed(2);
-          const tempNum = (chunk.reduce((s, row) => s + parseNum(row["Air Temp Forecast"]), 0) / chunk.length).toFixed(1);
-          const temp = chunk[0]["Air Temp Forecast"] === "—" ? "—" : `${tempNum}°C`;
-
-          const lastRow = chunk[chunk.length - 1];
-          const soc = lastRow["SoC Forecast"] || "—";
-          const costRaw = chunk.reduce((s, row) => s + parseNum(row["Interval Cost"]), 0);
-          const cost = formatCostStr(costRaw);
-          const cumul = formatCostStr(lastRow["Cumul. Cost"]);
-          const acq = formatCostStr(chunk.reduce((s, row) => s + parseNum(row["Acq. Cost"]), 0) / chunk.length);
-
-          const tempDeltaNum = (chunk.reduce((s, row) => s + parseNum(row["Temp Delta"]), 0) / chunk.length).toFixed(1);
-          const tempDelta = chunk[0]["Temp Delta"] === "—" ? "—" : `${tempDeltaNum}°C`;
-          const loadAdj = (chunk.reduce((s, row) => s + parseNum(row["Load Adj."]), 0) / chunk.length).toFixed(2);
-          const synthetic = chunk[0]["Synthetic"] || false;
-
-           rows.push({ time, localTime, synthetic, imp, exp, state, limit, grid, pv, ld, temp, tempDelta, loadAdj, soc, cost, cumul, acq });
-        }
-      }
-    }
+    let rows = plan.map((r) => {
+      return {
+        time: r["Time"] || "—",
+        localTime: r["Local Time"] || "—",
+        synthetic: r["Synthetic"] || false,
+        imp: r["Import Rate"] || "0.0",
+        exp: r["Export Rate"] || "0.0",
+        state: r["FSM State"] || "—",
+        limit: r["Inverter Limit"] || "0%",
+        grid: r["Net Grid"] || "0.00",
+        pv: r["PV Forecast"] || "0.00",
+        ld: r["Load Forecast"] || "0.00",
+        temp: r["Air Temp Forecast"] || "—",
+        tempDelta: r["Temp Delta"] || "—",
+        loadAdj: r["Load Adj."] || "0.00",
+        soc: r["SoC Forecast"] || "—",
+        cost: formatCostStr(r["Interval Cost"]),
+        cumul: formatCostStr(r["Cumul. Cost"]),
+        acq: formatCostStr(r["Acq. Cost"]),
+      };
+    });
 
     const summaryStats = this._calculateSummaryStats();
     const footerKeys = {
