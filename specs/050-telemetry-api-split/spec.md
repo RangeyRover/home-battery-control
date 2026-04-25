@@ -64,7 +64,9 @@ As a developer or power user troubleshooting the solver logic, I want to maintai
 - **FR-004**: The system MUST retain the existing legacy `/hbc/api/status` endpoint completely untouched (with full labels, sensor attributes, and massive payload) for pure 1:1 legacy debugging.
 - **FR-005**: The system MUST implement a completely new, lightweight production frontend panel (e.g. `hbc-panel-lite.js`) exposed at the default `/hbc-panel` URL, which uses the new `/hbc/api/telemetry` and `/hbc/api/plan` endpoints.
 - **FR-006**: The system MUST retain the existing heavy frontend dashboard and expose it at a separate URL (e.g. `/hbc-debug`) for advanced troubleshooting, ensuring production users do not unintentionally trigger heavy legacy data collection.
-- **FR-007**: The new production frontend MUST only fetch the `plan` payload when needed. It MUST strictly request the 30-minute interval data by default, and ONLY request the 5-minute interval data (`?resolution=5min`) if the user explicitly clicks the "5 Min" toggle.
+- **FR-007**: The new production frontend MUST include an inconspicuous link (e.g., a small icon in the dashboard or toolbar) to quickly navigate to the `/hbc-debug` view.
+- **FR-008**: The new production frontend MUST only fetch the `plan` payload when needed. It MUST strictly request the 30-minute interval data by default, and ONLY request the 5-minute interval data (`?resolution=5min`) if the user explicitly clicks the "5 Min" toggle.
+- **FR-009**: The "Tomorrow's Outlook" graph data (`state_transitions` array, which is ~244KB) MUST NOT be loaded by default in the new frontend. It MUST be separated into an explicit button/action that only fetches this heavy array when specifically requested by the user.
 
 ### Key Entities
 
