@@ -106,11 +106,12 @@ export class HBCPlanTableLite extends LitElement {
     });
 
     const count = plan.length;
+    const stepsPerHour = this._planResolution === "5min" ? 12 : 2;
     return {
       avgImport: (sumImport / count).toFixed(2),
       avgExport: (sumExport / count).toFixed(2),
-      totalPV: (sumPVKw / 12).toFixed(1),
-      totalLoad: (sumLoadKw / 12).toFixed(1)
+      totalPV: (sumPVKw / stepsPerHour).toFixed(1),
+      totalLoad: (sumLoadKw / stepsPerHour).toFixed(1)
     };
   }
 
