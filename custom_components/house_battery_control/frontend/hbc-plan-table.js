@@ -71,7 +71,7 @@ export class HBCPlanTable extends LitElement {
       const d = new Date(raw);
       if (isNaN(d.getTime())) return raw;
       return d.toLocaleString([], { dateStyle: "short", timeStyle: "medium" });
-    } catch (e) {
+    } catch {
       return raw;
     }
   }

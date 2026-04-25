@@ -40,16 +40,17 @@ Before bumping ANY version, you MUST check the current latest tag:
    - `hacs.json` → `"version": "X.Y.Z"`
 3. Run `pytest tests/ -v` — ALL tests must pass
 4. Run `ruff check custom_components/ tests/` — must be clean
-5. **GitIgnore Audit (MANDATORY)**: Run `git status` and verify NO accidental junk files are staged. You MUST ensure:
+5. Run `npm run lint:js` — must be clean
+6. **GitIgnore Audit (MANDATORY)**: Run `git status` and verify NO accidental junk files are staged. You MUST ensure:
    - `*.db` files (e.g. testing databases) are ignored (GitHub will block >100MB files).
    - Agent folders (e.g. `.agent/`, `.gemini/`) are not staged.
    - Scratch and Temp folders (`tmp/`, `scratch/`) are not staged.
-6. Commit: `git add -A; git commit -m "chore: bump version to X.Y.Z"`
-7. Push: `git push origin main` (WaitMsBeforeAsync: 10000)
-8. Tag: `git tag vX.Y.Z`
-9. Push tag: `git push origin vX.Y.Z` (WaitMsBeforeAsync: 10000)
-10. Create release: `gh release create vX.Y.Z --title "vX.Y.Z — <summary>" --notes "<release notes>"` (**WaitMsBeforeAsync: 3000, do NOT wait**)
-11. Verify (separate command, 3s later): `gh release list --limit 3`
+7. Commit: `git add -A; git commit -m "chore: bump version to X.Y.Z"`
+8. Push: `git push origin main` (WaitMsBeforeAsync: 10000)
+9. Tag: `git tag vX.Y.Z`
+10. Push tag: `git push origin vX.Y.Z` (WaitMsBeforeAsync: 10000)
+11. Create release: `gh release create vX.Y.Z --title "vX.Y.Z — <summary>" --notes "<release notes>"` (**WaitMsBeforeAsync: 3000, do NOT wait**)
+12. Verify (separate command, 3s later): `gh release list --limit 3`
 
 ## HACS COMPATIBILITY
 

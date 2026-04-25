@@ -8,7 +8,8 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "web-test-runner"
+    "test": "web-test-runner",
+    "lint:js": "eslint custom_components/house_battery_control/frontend/**/*.js --max-warnings=0"
   },
   "repository": {
     "type": "git",
@@ -23,8 +24,12 @@
   },
   "homepage": "https://github.com/RangeyRover/home-battery-control#readme",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@open-wc/testing": "^4.0.0",
     "@web/test-runner": "^0.20.2",
+    "eslint": "^10.2.1",
+    "eslint-plugin-lit": "^2.2.1",
+    "globals": "^17.5.0",
     "sinon": "^21.1.2"
   }
 }

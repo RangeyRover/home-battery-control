@@ -1,4 +1,4 @@
-import { LitElement, html, css, svg } from 'https://unpkg.com/lit-element@2.5.1/lit-element.js?module';
+import { LitElement, html, css } from 'https://unpkg.com/lit-element@2.5.1/lit-element.js?module';
 
 export class HBCOutlookLite extends LitElement {
   static get properties() {
