@@ -116,6 +116,7 @@ class LinearBatteryController:
         cumulative_cost: float = 0.0,
         reserve_soc: float = 0.0,
         no_import_steps: set[int] | None = None,
+        export_margin: float = 0.0,
     ):
         number_step = len(price_buy)
         self.step = number_step
@@ -166,8 +167,9 @@ class LinearBatteryController:
             max_home = max(0.0, energy[i])
             bounds[dh_off + i] = (-max_home, 0.0)
 
-            # Discharge to grid (dg): opportunity cost = max(ε, sell_price)
-            obj[dg_off + i] = sell_opp
+            # Discharge to grid (dg): opportunity cost = max(ε, sell_price - export_margin)
+            sell_opp_grid = max(0.001, price_sell[i] - export_margin)
+            obj[dg_off + i] = sell_opp_grid
             max_grid = max(0.0, dis_limit - max_home)
             bounds[dg_off + i] = (-max_grid, 0.0)
 
@@ -398,6 +400,7 @@ class LinearBatteryStateMachine(BatteryStateMachine):
                     cumulative_cost=context.cumulative_cost,
                     reserve_soc=float(context.config.get("reserve_soc", 0.0)),
                     no_import_steps=no_import_steps if no_import_steps else None,
+                    export_margin=float(context.config.get("export_margin", 0.0)),
                 )
             )
         except Exception as e:

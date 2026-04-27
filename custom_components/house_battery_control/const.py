@@ -59,6 +59,10 @@ CONF_ACQ_COST_OVERRIDE_VALUE = "acq_cost_override_value"
 # No-Import Periods (demand charge windows)
 CONF_NO_IMPORT_PERIODS = "no_import_periods"
 
+# Config Keys for Feature 054
+CONF_ROUND_TRIP_EFFICIENCY = "round_trip_efficiency"
+CONF_EXPORT_MARGIN = "export_margin"
+
 # Panel
 CONF_PANEL_ADMIN_ONLY = "panel_admin_only"
 
@@ -69,6 +73,8 @@ DEFAULT_INVERTER_LIMIT = 10.0
 DEFAULT_RESERVE_SOC = 0.0
 DEFAULT_PANEL_ADMIN_ONLY = True
 DEFAULT_CURRENCY = "c/kWh"
+DEFAULT_ROUND_TRIP_EFFICIENCY = 0.90
+DEFAULT_EXPORT_MARGIN = 0.0
 DEFAULT_SCAN_INTERVAL = 300
 # 5 minutes
 DEFAULT_LOAD_CACHE_TTL = 360  # 6 hours in minutes

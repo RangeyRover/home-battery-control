@@ -479,13 +479,14 @@ class DpBatteryStateMachine(BatteryStateMachine):
 
         price_buy = [0.0] * number_step
         price_sell = [0.0] * number_step
+        export_margin = float(context.config.get("export_margin", 0.0))
         for t in range(number_step):
             if isinstance(context.forecast_price[t], dict):
                 price_buy[t] = float(context.forecast_price[t].get("import_price", 0.0))
-                price_sell[t] = float(context.forecast_price[t].get("export_price", 0.0))
+                price_sell[t] = float(context.forecast_price[t].get("export_price", 0.0)) - export_margin
             else:
                 price_buy[t] = float(context.current_price)
-                price_sell[t] = float(context.current_price * 0.8)
+                price_sell[t] = float(context.current_price * 0.8) - export_margin
 
         load_f = [0.0] * number_step
         pv_f = [0.0] * number_step

@@ -33,6 +33,7 @@ from .const import (
     CONF_BATTERY_SOC_ENTITY,
     CONF_CURRENT_EXPORT_PRICE_ENTITY,
     CONF_CURRENT_IMPORT_PRICE_ENTITY,
+    CONF_EXPORT_MARGIN,
     CONF_EXPORT_PRICE_ENTITY,
     CONF_EXPORT_TODAY_ENTITY,
     CONF_GRID_ENTITY,
@@ -51,6 +52,7 @@ from .const import (
     CONF_OBSERVATION_MODE,
     CONF_PANEL_ADMIN_ONLY,
     CONF_RESERVE_SOC,
+    CONF_ROUND_TRIP_EFFICIENCY,
     CONF_SCRIPT_CHARGE,
     CONF_SCRIPT_CHARGE_STOP,
     CONF_SCRIPT_DISCHARGE,
@@ -64,10 +66,12 @@ from .const import (
     CONF_WEATHER_ENTITY,
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_RATE_MAX,
+    DEFAULT_EXPORT_MARGIN,
     DEFAULT_INVERTER_LIMIT,
     DEFAULT_LOAD_CACHE_TTL,
     DEFAULT_PANEL_ADMIN_ONLY,
     DEFAULT_RESERVE_SOC,
+    DEFAULT_ROUND_TRIP_EFFICIENCY,
     DEFAULT_SOLCAST_TODAY,
     DEFAULT_SOLCAST_TOMORROW,
     DEFAULT_USE_AMBER_EXPRESS,
@@ -211,6 +215,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_RESERVE_SOC, default=DEFAULT_RESERVE_SOC
                     ): NumberSelector(
                         NumberSelectorConfig(min=0, max=100, step=1.0, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Required(
+                        CONF_ROUND_TRIP_EFFICIENCY, default=DEFAULT_ROUND_TRIP_EFFICIENCY
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.5, max=1.0, step=0.01, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Required(
+                        CONF_EXPORT_MARGIN, default=DEFAULT_EXPORT_MARGIN
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.0, max=1.0, step=0.001, mode=NumberSelectorMode.BOX)
                     ),
                     vol.Required(CONF_IMPORT_PRICE_ENTITY): EntitySelector(
                         EntitySelectorConfig(domain="sensor")
@@ -461,6 +475,18 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
                         default=self._data.get(CONF_RESERVE_SOC, DEFAULT_RESERVE_SOC),
                     ): NumberSelector(
                         NumberSelectorConfig(min=0, max=100, step=1.0, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Required(
+                        CONF_ROUND_TRIP_EFFICIENCY,
+                        default=self._data.get(CONF_ROUND_TRIP_EFFICIENCY, DEFAULT_ROUND_TRIP_EFFICIENCY),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.5, max=1.0, step=0.01, mode=NumberSelectorMode.BOX)
+                    ),
+                    vol.Required(
+                        CONF_EXPORT_MARGIN,
+                        default=self._data.get(CONF_EXPORT_MARGIN, DEFAULT_EXPORT_MARGIN),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.0, max=1.0, step=0.001, mode=NumberSelectorMode.BOX)
                     ),
                     vol.Required(
                         CONF_IMPORT_PRICE_ENTITY, default=self._data.get(CONF_IMPORT_PRICE_ENTITY)
