@@ -304,7 +304,8 @@ class LinearBatteryController:
                 state = "SELF_CONSUMPTION"
 
             # --- Acquisition cost gate — FR-001: row-by-row check ---
-            if state == "DISCHARGE_GRID" and price_sell[i] < running_cost:
+            # Applies export_margin so that effective sell (after margin) must exceed acq cost
+            if state == "DISCHARGE_GRID" and price_sell[i] - export_margin < running_cost:
                 # FR-002: Battery retains energy — adjust state for subsequent steps
                 soc_correction += step_dg  # BUG-025B: carry forward to future steps
                 running_capacity = running_capacity + step_dg
