@@ -98,6 +98,7 @@ When the Low Renewables Guard is active, the dashboard displays a visual indicat
 - What happens when the battery is already fully charged when the guard activates? → No action needed. The constraint is already satisfied.
 - What happens when electricity prices are negative during the guard period? → The solver should still charge (negative prices = paid to import). The guard SoC target reinforces this natural behaviour.
 - What happens when 100% SoC by the deadline cannot be achieved? → The system targets 100% and the solver optimises toward it. Existing solver failure handling applies — no special fallback logic required.
+- What happens when fewer than 12 hours of forecast data is available? → Average across all available intervals. If no intervals contain renewables data, guard defaults to inactive.
 
 ## Clarifications
 

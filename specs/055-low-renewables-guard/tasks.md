@@ -60,15 +60,16 @@
 - [ ] T014 [P] [US1] Write test `test_guard_deactivates_above_40` in `tests/test_renewables_guard.py` — guard active, next cycle renewables 42% → deactivates
 - [ ] T015 [P] [US1] Write test `test_guard_no_amber_express_data` in `tests/test_renewables_guard.py` — None renewables timeline → guard inactive (fail-safe)
 - [ ] T016 [P] [US1] Write test `test_guard_empty_renewables` in `tests/test_renewables_guard.py` — empty list → guard inactive
-- [ ] T017 [P] [US1] Write test `test_guard_or_mode_renewables_only` in `tests/test_renewables_guard.py` — low renewables + high solar → active (OR mode)
-- [ ] T018 [P] [US1] Write test `test_guard_or_mode_solar_only` in `tests/test_renewables_guard.py` — high renewables + low solar → active (OR mode)
-- [ ] T019 [P] [US1] Write test `test_guard_and_mode_both_required` in `tests/test_renewables_guard.py` — low renewables + high solar → inactive (AND mode)
-- [ ] T020 [P] [US1] Write test `test_guard_and_mode_both_fire` in `tests/test_renewables_guard.py` — low renewables + low solar → active (AND mode)
+- [ ] T017 [P] [US1] Write test `test_guard_partial_forecast_data` in `tests/test_renewables_guard.py` — fewer than 12h of forecast intervals available → averages across all available intervals and evaluates correctly
+- [ ] T018 [P] [US1] Write test `test_guard_or_mode_renewables_only` in `tests/test_renewables_guard.py` — low renewables + high solar → active (OR mode)
+- [ ] T019 [P] [US1] Write test `test_guard_or_mode_solar_only` in `tests/test_renewables_guard.py` — high renewables + low solar → active (OR mode)
+- [ ] T020 [P] [US1] Write test `test_guard_and_mode_both_required` in `tests/test_renewables_guard.py` — low renewables + high solar → inactive (AND mode)
+- [ ] T021 [P] [US1] Write test `test_guard_and_mode_both_fire` in `tests/test_renewables_guard.py` — low renewables + low solar → active (AND mode)
 
 ### Implementation (make tests GREEN)
 
-- [ ] T021 [US1] Create `RenewablesGuard` class with `evaluate()` method in `custom_components/house_battery_control/renewables_guard.py` — implements GuardState dataclass, hysteresis logic (activate ≤30%, deactivate >40%), OR/AND trigger mode, 12h rolling average calculation
-- [ ] T022 [US1] Run `pytest tests/test_renewables_guard.py -v` — all 10 tests must pass
+- [ ] T022 [US1] Create `RenewablesGuard` class with `evaluate()` method in `custom_components/house_battery_control/renewables_guard.py` — implements GuardState dataclass, hysteresis logic (activate ≤30%, deactivate >40%), OR/AND trigger mode, 12h average calculation (uses all available intervals if <12h)
+- [ ] T023 [US1] Run `pytest tests/test_renewables_guard.py -v` — all 11 tests must pass
 
 **Checkpoint**: Guard logic works in isolation. No HA dependencies.
 
@@ -82,24 +83,25 @@
 
 ### Tests (write FIRST — must FAIL)
 
-- [ ] T023 [P] [US2] Write test `test_resolve_deadlines_today_only` in `tests/test_renewables_guard.py` — 24h rates timeline → correctly finds step indices for 05:00 and 15:00
-- [ ] T024 [P] [US2] Write test `test_resolve_deadlines_48h` in `tests/test_renewables_guard.py` — 48h rates timeline → finds 4 step indices (today 05:00+15:00, tomorrow 05:00+15:00)
-- [ ] T025 [P] [US2] Write test `test_resolve_deadlines_past_deadline` in `tests/test_renewables_guard.py` — current time is 08:00, only tomorrow's 05:00 is resolved (today's 05:00 has passed)
-- [ ] T026 [P] [US3] Write test `test_resolve_deadlines_custom_times` in `tests/test_renewables_guard.py` — deadline at 04:00 and 14:00 → correct step indices
-- [ ] T027 [P] [US2] Write test `test_guard_deadline_raises_battery_lower_bound` in `tests/test_fsm_lin.py` — pass guard_deadline_steps=[60], verify `b[60]` lower bound equals capacity
-- [ ] T028 [P] [US2] Write test `test_guard_deadline_solver_charges_cheapest` in `tests/test_fsm_lin.py` — cheap overnight prices with deadline at step 60, verify plan shows CHARGE_GRID during cheap intervals
-- [ ] T029 [P] [US2] Write test `test_guard_deadline_no_effect_when_none` in `tests/test_fsm_lin.py` — guard_deadline_steps=None → normal bounds unchanged
-- [ ] T030 [P] [US2] Write test `test_guard_deadline_already_full` in `tests/test_fsm_lin.py` — battery at 100% SoC → solver doesn't over-charge (already satisfied)
-- [ ] T031 [P] [US2] Write test `test_guard_deadline_coexists_with_no_import` in `tests/test_fsm_lin.py` — both no_import_steps and guard_deadline_steps active simultaneously, verify no conflict
-- [ ] T032 [P] [US3] Write test `test_guard_daytime_deadline_with_solar` in `tests/test_fsm_lin.py` — guard active, PV generating 2kW, deadline at step 180 (15:00), verify plan favours solar capture + charging toward deadline
-- [ ] T033 [P] [US3] Write test `test_guard_daytime_deadline_no_solar` in `tests/test_fsm_lin.py` — guard active, PV=0, deadline at step 180, verify plan charges from grid at cheapest intervals
+- [ ] T024 [P] [US2] Write test `test_resolve_deadlines_today_only` in `tests/test_renewables_guard.py` — 24h rates timeline → correctly finds step indices for 05:00 and 15:00
+- [ ] T025 [P] [US2] Write test `test_resolve_deadlines_48h` in `tests/test_renewables_guard.py` — 48h rates timeline → finds 4 step indices (today 05:00+15:00, tomorrow 05:00+15:00)
+- [ ] T026 [P] [US2] Write test `test_resolve_deadlines_past_deadline` in `tests/test_renewables_guard.py` — current time is 08:00, only tomorrow's 05:00 is resolved (today's 05:00 has passed)
+- [ ] T027 [P] [US3] Write test `test_resolve_deadlines_custom_times` in `tests/test_renewables_guard.py` — deadline at 04:00 and 14:00 → correct step indices
+- [ ] T028 [P] [US2] Write test `test_guard_deadline_raises_battery_lower_bound` in `tests/test_fsm_lin.py` — pass guard_deadline_steps=[60], verify `b[60]` lower bound equals capacity
+- [ ] T029 [P] [US2] Write test `test_guard_deadline_solver_charges_cheapest` in `tests/test_fsm_lin.py` — cheap overnight prices with deadline at step 60, verify plan shows CHARGE_GRID during cheap intervals
+- [ ] T030 [P] [US2] Write test `test_guard_deadline_no_effect_when_none` in `tests/test_fsm_lin.py` — guard_deadline_steps=None → normal bounds unchanged
+- [ ] T031 [P] [US2] Write test `test_guard_deadline_already_full` in `tests/test_fsm_lin.py` — battery at 100% SoC → solver doesn't over-charge (already satisfied)
+- [ ] T032 [P] [US2] Write test `test_guard_deadline_coexists_with_no_import` in `tests/test_fsm_lin.py` — both no_import_steps and guard_deadline_steps active simultaneously, verify no conflict
+- [ ] T033 [P] [US2] Write test `test_guard_active_export_still_permitted` in `tests/test_fsm_lin.py` — guard active with deadline, export price is high, verify solver still chooses DISCHARGE_GRID when profitable (FR-007)
+- [ ] T034 [P] [US3] Write test `test_guard_daytime_deadline_with_solar` in `tests/test_fsm_lin.py` — guard active, PV generating 2kW, deadline at step 180 (15:00), verify plan favours solar capture + charging toward deadline
+- [ ] T035 [P] [US3] Write test `test_guard_daytime_deadline_no_solar` in `tests/test_fsm_lin.py` — guard active, PV=0, deadline at step 180, verify plan charges from grid at cheapest intervals
 
 ### Implementation (make tests GREEN)
 
-- [ ] T034 [US2] Add `resolve_deadline_steps()` method to `RenewablesGuard` in `custom_components/house_battery_control/renewables_guard.py` — iterate rates timeline, convert UTC→local time, match deadline hours, return step indices for today + tomorrow
-- [ ] T035 [US2] Modify `propose_state_of_charge()` in `custom_components/house_battery_control/fsm/lin_fsm.py` to accept `guard_deadline_steps` parameter and raise `bounds[b_off + i]` lower bound to `capacity` for deadline steps (L192-200)
-- [ ] T036 [US2] Modify `calculate_next_state()` in `custom_components/house_battery_control/fsm/lin_fsm.py` to extract `si.guard_deadline_steps` and pass to `propose_state_of_charge()`
-- [ ] T037 Run `pytest tests/test_renewables_guard.py tests/test_fsm_lin.py -v -k "deadline or guard"` — all tests must pass. Then full `pytest tests/test_fsm_lin.py -v` — zero regressions.
+- [ ] T036 [US2] Add `resolve_deadline_steps()` method to `RenewablesGuard` in `custom_components/house_battery_control/renewables_guard.py` — iterate rates timeline, convert UTC→local time, match deadline hours, return step indices for today + tomorrow
+- [ ] T037 [US2] Modify `propose_state_of_charge()` in `custom_components/house_battery_control/fsm/lin_fsm.py` to accept `guard_deadline_steps` parameter and raise `bounds[b_off + i]` lower bound to `capacity` for deadline steps (L192-200)
+- [ ] T038 [US2] Modify `calculate_next_state()` in `custom_components/house_battery_control/fsm/lin_fsm.py` to extract `si.guard_deadline_steps` and pass to `propose_state_of_charge()`
+- [ ] T039 Run `pytest tests/test_renewables_guard.py tests/test_fsm_lin.py -v -k "deadline or guard"` — all tests must pass. Then full `pytest tests/test_fsm_lin.py -v` — zero regressions.
 
 **Checkpoint**: Solver correctly targets 100% SoC at both 05:00 and 15:00 deadline steps, including 48h horizon.
 
@@ -113,14 +115,14 @@
 
 ### Tests (write FIRST — must FAIL)
 
-- [ ] T038 [P] [US4] Write test `test_config_flow_guard_fields_present` in `tests/test_config_flow.py` — verify control step schema includes guard fields with correct defaults
-- [ ] T039 [P] [US4] Write test `test_config_flow_guard_values_saved` in `tests/test_config_flow.py` — submit guard settings and verify they are stored in config entry data
+- [ ] T040 [P] [US4] Write test `test_config_flow_guard_fields_present` in `tests/test_config_flow.py` — verify control step schema includes guard fields with correct defaults
+- [ ] T041 [P] [US4] Write test `test_config_flow_guard_values_saved` in `tests/test_config_flow.py` — submit guard settings and verify they are stored in config entry data
 
 ### Implementation (make tests GREEN)
 
-- [ ] T040 [US4] Add guard settings to `async_step_control()` in `custom_components/house_battery_control/config_flow.py` — renewables threshold (NumberSelector %), overnight deadline (TimeSelector), daytime deadline (TimeSelector), peak solar reference (NumberSelector kWh), trigger mode (SelectSelector OR/AND), low solar threshold (NumberSelector %)
-- [ ] T041 [US4] Add UI strings for guard settings in `custom_components/house_battery_control/strings.json` and `custom_components/house_battery_control/translations/en.json`
-- [ ] T042 [US4] Run `pytest tests/test_config_flow.py -v -k "guard"` — all tests must pass. Then full `pytest tests/test_config_flow.py -v` — zero regressions.
+- [ ] T042 [US4] Add guard settings to `async_step_control()` in `custom_components/house_battery_control/config_flow.py` — renewables threshold (NumberSelector %), overnight deadline (TimeSelector), daytime deadline (TimeSelector), peak solar reference (NumberSelector kWh), trigger mode (SelectSelector OR/AND), low solar threshold (NumberSelector %)
+- [ ] T043 [US4] Add UI strings for guard settings in `custom_components/house_battery_control/strings.json` and `custom_components/house_battery_control/translations/en.json`
+- [ ] T044 [US4] Run `pytest tests/test_config_flow.py -v -k "guard"` — all tests must pass. Then full `pytest tests/test_config_flow.py -v` — zero regressions.
 
 **Checkpoint**: Guard fully configurable from HA UI.
 
@@ -132,18 +134,18 @@
 
 ### Tests (write FIRST — must FAIL)
 
-- [ ] T043 [P] Write test `test_coordinator_guard_active_with_low_renewables` in `tests/test_coordinator.py` — mock Amber Express data with 4.9% renewables, verify coordinator returns `renewables_guard_active: True`
-- [ ] T044 [P] Write test `test_coordinator_guard_inactive_high_renewables` in `tests/test_coordinator.py` — mock 65% renewables, verify coordinator returns `renewables_guard_active: False`
-- [ ] T045 [P] Write test `test_coordinator_guard_passes_deadlines_to_solver` in `tests/test_coordinator.py` — guard active, verify `SolverInputs.guard_deadline_steps` is populated with correct step indices
-- [ ] T046 [P] Write test `test_coordinator_guard_skipped_without_amber_express` in `tests/test_coordinator.py` — standard Amber mode, verify guard silently skipped, no errors
+- [ ] T045 [P] Write test `test_coordinator_guard_active_with_low_renewables` in `tests/test_coordinator.py` — mock Amber Express data with 4.9% renewables, verify coordinator returns `renewables_guard_active: True`
+- [ ] T046 [P] Write test `test_coordinator_guard_inactive_high_renewables` in `tests/test_coordinator.py` — mock 65% renewables, verify coordinator returns `renewables_guard_active: False`
+- [ ] T047 [P] Write test `test_coordinator_guard_passes_deadlines_to_solver` in `tests/test_coordinator.py` — guard active, verify `SolverInputs.guard_deadline_steps` is populated with correct step indices
+- [ ] T048 [P] Write test `test_coordinator_guard_skipped_without_amber_express` in `tests/test_coordinator.py` — standard Amber mode, verify guard silently skipped, no errors
 
 ### Implementation (make tests GREEN)
 
-- [ ] T047 Instantiate `RenewablesGuard` in `custom_components/house_battery_control/coordinator.py` `__init__()` — persist across cycles for hysteresis state
-- [ ] T048 In `_async_update_data()` in `custom_components/house_battery_control/coordinator.py`: after `self.rates.update()`, extract renewables timeline from parsed rates; read Solcast tomorrow forecast via `hass.states.get()`; call `guard.evaluate()`; if active, call `guard.resolve_deadline_steps()`
-- [ ] T049 In `_build_solver_inputs()` in `custom_components/house_battery_control/coordinator.py`: accept and pass `guard_deadline_steps` to `SolverInputs(...)`
-- [ ] T050 In return data dict (~L693) in `custom_components/house_battery_control/coordinator.py`: add `renewables_guard_active`, `renewables_avg`, `guard_triggers` keys
-- [ ] T051 Run `pytest tests/test_coordinator.py -v -k "guard"` — all tests must pass. Then full `pytest tests/test_coordinator.py -v` — zero regressions.
+- [ ] T049 Instantiate `RenewablesGuard` in `custom_components/house_battery_control/coordinator.py` `__init__()` — persist across cycles for hysteresis state
+- [ ] T050 In `_async_update_data()` in `custom_components/house_battery_control/coordinator.py`: after `self.rates.update()`, extract renewables timeline from parsed rates; read Solcast tomorrow forecast via `hass.states.get()`; call `guard.evaluate()`; if active, call `guard.resolve_deadline_steps()`
+- [ ] T051 In `_build_solver_inputs()` in `custom_components/house_battery_control/coordinator.py`: accept and pass `guard_deadline_steps` to `SolverInputs(...)`
+- [ ] T052 In return data dict (~L693) in `custom_components/house_battery_control/coordinator.py`: add `renewables_guard_active`, `renewables_avg`, `guard_triggers` keys
+- [ ] T053 Run `pytest tests/test_coordinator.py -v -k "guard"` — all tests must pass. Then full `pytest tests/test_coordinator.py -v` — zero regressions.
 
 **Checkpoint**: Full end-to-end guard → solver → plan pipeline working.
 
@@ -157,15 +159,15 @@
 
 ### Tests (write FIRST — must FAIL)
 
-- [ ] T052 [P] [US5] Write test for guard badge rendering in `tests/js/` — verify badge HTML appears when `renewables_guard_active: true`
-- [ ] T053 [P] [US5] Write test for guard badge hidden when inactive — verify no badge HTML when `renewables_guard_active: false`
+- [ ] T054 [P] [US5] Write test for guard badge rendering in `tests/js/` — verify badge HTML appears when `renewables_guard_active: true`
+- [ ] T055 [P] [US5] Write test for guard badge hidden when inactive — verify no badge HTML when `renewables_guard_active: false`
 
 ### Implementation (make tests GREEN)
 
-- [ ] T054 [US5] Add guard data extraction in `custom_components/house_battery_control/frontend/hbc-dashboard.js` — read `renewables_guard_active`, `renewables_avg`, `guard_triggers` from coordinator data
-- [ ] T055 [US5] Add guard badge `<span class="constraint-badge renewables">` to constraints-bar in `custom_components/house_battery_control/frontend/hbc-dashboard.js` — shows "⚡ Low Renewables: X% — Targets: 05:00, 15:00"
-- [ ] T056 [US5] Add CSS for `.constraint-badge.renewables` in `custom_components/house_battery_control/frontend/hbc-dashboard.js` — amber/orange gradient matching existing badge style
-- [ ] T057 [US5] Run JS tests if applicable; visually verify badge in browser
+- [ ] T056 [US5] Add guard data extraction in `custom_components/house_battery_control/frontend/hbc-dashboard.js` — read `renewables_guard_active`, `renewables_avg`, `guard_triggers` from coordinator data
+- [ ] T057 [US5] Add guard badge `<span class="constraint-badge renewables">` to constraints-bar in `custom_components/house_battery_control/frontend/hbc-dashboard.js` — shows "⚡ Low Renewables: X% — Targets: 05:00, 15:00"
+- [ ] T058 [US5] Add CSS for `.constraint-badge.renewables` in `custom_components/house_battery_control/frontend/hbc-dashboard.js` — amber/orange gradient matching existing badge style
+- [ ] T059 [US5] Run JS tests if applicable; visually verify badge in browser
 
 **Checkpoint**: Dashboard shows guard status when active, clean when inactive.
 
@@ -175,10 +177,10 @@
 
 **Purpose**: Full regression and completion
 
-- [ ] T058 Run full test suite: `pytest tests/ -v` — zero regressions across ALL existing tests
-- [ ] T059 Run all guard-specific tests: `pytest tests/test_renewables_guard.py tests/test_fsm_lin.py tests/test_rates.py tests/test_coordinator.py tests/test_config_flow.py -v` — all pass
-- [ ] T060 Update spec.md status from "Draft" to "Implemented" in `specs/055-low-renewables-guard/spec.md`
-- [ ] T061 Commit all changes and push branch `055-low-renewables-guard`
+- [ ] T060 Run full test suite: `pytest tests/ -v` — zero regressions across ALL existing tests
+- [ ] T061 Run all guard-specific tests: `pytest tests/test_renewables_guard.py tests/test_fsm_lin.py tests/test_rates.py tests/test_coordinator.py tests/test_config_flow.py -v` — all pass
+- [ ] T062 Update spec.md status from "Draft" to "Implemented" in `specs/055-low-renewables-guard/spec.md`
+- [ ] T063 Commit all changes and push branch `055-low-renewables-guard`
 
 ---
 
