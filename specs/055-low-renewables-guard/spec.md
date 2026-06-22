@@ -97,6 +97,17 @@ When the Low Renewables Guard is active, the dashboard displays a visual indicat
 - What happens when no-import periods overlap with the solver's chosen charge window? → No-import periods always win. The solver must find alternative intervals to reach the target SoC.
 - What happens when the battery is already fully charged when the guard activates? → No action needed. The constraint is already satisfied.
 - What happens when electricity prices are negative during the guard period? → The solver should still charge (negative prices = paid to import). The guard SoC target reinforces this natural behaviour.
+- What happens when 100% SoC by the deadline is physically impossible (e.g., insufficient time × charge rate)? → The solver uses a hard lower-bound constraint at the deadline step. If infeasible, the guard constraint is disabled and the solver re-runs without it.
+
+## Clarifications
+
+### Session 2026-06-22
+
+- Q: Should the SoC deadline be a hard constraint, a best-effort target, or a soft penalty? → A: Hard lower-bound constraint at the deadline step. If solver returns infeasible, disable the guard constraint and re-solve without it. Single mechanism for both deadlines — no need for different constraint styles.
+- Q: Should the guard have hysteresis to prevent rapid on/off cycling? → A: Yes — activate at ≤30%, deactivate only when rising above 40% (10% hysteresis band).
+- Q: Should deadlines apply to tomorrow's horizon when 48h synthetic data is available? → A: Yes — apply deadlines to both today and tomorrow (up to 4 constraint points) so the solver can pre-position cheaply across the full visible window.
+- Q: Should the system auto-suggest peak solar reference from historical data? → A: No — manual configuration only. User sets the value (default 40 kWh). Auto-calibration is out of scope.
+- Q: Should the renewables and solar triggers use OR or AND logic? → A: OR as default (either trigger independently activates the guard). Make the trigger mode configurable in controls (OR/AND) so the user can tune sensitivity.
 
 ## Requirements *(mandatory)*
 
@@ -105,12 +116,12 @@ When the Low Renewables Guard is active, the dashboard displays a visual indicat
 - **FR-001**: System MUST extract the `renewables` percentage from each Amber Express forecast interval during the rates parsing cycle.
 - **FR-002**: System MUST calculate a rolling average renewables percentage across the next 12 hours of forecast data.
 - **FR-003**: System MUST activate the Low Renewables Guard when the average renewables percentage falls below the configured threshold (default 30%).
-- **FR-004**: System MUST deactivate the Low Renewables Guard when the average renewables percentage rises above the configured threshold.
-- **FR-005**: When the guard is active, the system MUST inject an LP constraint requiring the battery state to reach 100% of capacity by the configured overnight deadline (default 05:00 local time). The solver is free to choose when and how to charge to meet this deadline.
-- **FR-006**: When the guard is active, the system MUST inject an LP constraint requiring the battery state to reach 100% of capacity by the configured daytime deadline (default 15:00 local time). The solver is free to choose any mix of solar absorption and grid charging to meet this deadline.
+- **FR-004**: System MUST deactivate the Low Renewables Guard only when the average renewables percentage rises above the configured threshold plus a 10% hysteresis band (default 40%). This prevents rapid on/off cycling.
+- **FR-005**: When the guard is active, the system MUST inject an LP constraint requiring the battery state to reach 100% of capacity by the configured overnight deadline (default 05:00 local time). When the 48h synthetic horizon is available, this constraint MUST also apply to tomorrow's 05:00 step. The solver is free to choose when and how to charge to meet each deadline.
+- **FR-006**: When the guard is active, the system MUST inject an LP constraint requiring the battery state to reach 100% of capacity by the configured daytime deadline (default 15:00 local time). When the 48h synthetic horizon is available, this constraint MUST also apply to tomorrow's 15:00 step. The solver is free to choose any mix of solar absorption and grid charging to meet each deadline.
 - **FR-007**: The system MUST NOT block or suppress grid export during spike risk periods — profitable sales must remain available to the solver.
-- **FR-008**: System MUST provide configuration controls for: renewables threshold (%), overnight deadline time (HH:MM, default 05:00), daytime deadline time (HH:MM, default 15:00), and peak solar reference (kWh).
-- **FR-009**: System MUST provide a secondary trigger based on Solcast tomorrow forecast: if forecast kWh < configured percentage (default 50%) of peak solar reference, the guard also activates.
+- **FR-008**: System MUST provide configuration controls for: renewables threshold (%), overnight deadline time (HH:MM, default 05:00), daytime deadline time (HH:MM, default 15:00), peak solar reference (kWh, default 40), and trigger mode (OR/AND, default OR).
+- **FR-009**: System MUST provide a secondary trigger based on Solcast tomorrow forecast: if forecast kWh < configured percentage (default 50%) of peak solar reference, the guard also activates. The trigger mode (default OR) determines whether either trigger independently activates the guard, or both must agree. The trigger mode is configurable in the options flow.
 - **FR-010**: The guard MUST be backward-compatible — when Amber Express is not in use, the guard detection for renewables is silently skipped. The Solcast-based trigger may still operate independently.
 - **FR-011**: The guard MUST NOT interfere with existing no-import periods. If no-import periods prevent charging during the solver's chosen intervals, the solver must work around them.
 - **FR-012**: The system MUST expose the current guard state (active/inactive), current renewables %, and active triggers as diagnostic attributes visible on the dashboard.
