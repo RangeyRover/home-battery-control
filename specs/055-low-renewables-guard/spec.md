@@ -24,36 +24,37 @@ When the system receives Amber Electric price forecast data, it extracts the `re
 
 ---
 
-### User Story 2 - Target SoC Drive (Priority: P1)
+### User Story 2 - Overnight SoC Deadline (Priority: P1)
 
-When the Low Renewables Guard is active, the LP solver receives a raised minimum battery state constraint. Instead of the normal reserve SoC floor (e.g. 10%), the solver is told the battery must maintain at least the configured "guard SoC target" (default 80%) by the end of the overnight period. The solver is free to decide *when* and *how* to reach this target — the system does not prescribe a fixed overnight charge window.
+When the Low Renewables Guard is active, the LP solver receives a deadline constraint: the battery must reach 100% SoC by 05:00 local time. The solver is free to decide *when* and *how* to reach this target — it will naturally find the cheapest overnight intervals to charge. The deadline time is configurable (default 05:00).
 
-**Why this priority**: This is the primary protective action. By raising the SoC floor, the solver naturally finds the cheapest intervals to charge the battery, which is usually overnight when prices are lowest. This prevents the "ambush" scenario where the battery enters a low-renewables day empty.
+**Why this priority**: This is the primary protective action. By setting a hard deadline, the solver proactively charges overnight when prices are lowest, ensuring the battery enters a low-renewables day fully charged. This prevents the "ambush" scenario.
 
-**Independent Test**: Can be tested by running the LP solver with the guard active and verifying the battery state variable has raised lower bounds.
+**Independent Test**: Can be tested by running the LP solver with the guard active and verifying the battery state variable reaches 100% at the deadline step index.
 
 **Acceptance Scenarios**:
 
-1. **Given** the guard is active with target SoC 80%, **When** the LP solver runs, **Then** the battery state lower bound is raised to 80% of capacity for the overnight horizon.
-2. **Given** the guard is active, **When** the solver finds the optimal plan, **Then** the plan shows grid charging during the cheapest available intervals to reach the target SoC.
-3. **Given** the guard is active but the battery is already at 90% SoC, **When** the solver runs, **Then** no unnecessary charging occurs (the constraint is already satisfied).
+1. **Given** the guard is active with overnight deadline 05:00, **When** the LP solver runs, **Then** the battery state at the 05:00 step is constrained to 100% of capacity.
+2. **Given** the guard is active, **When** the solver finds the optimal plan, **Then** the plan shows grid charging during the cheapest available overnight intervals to reach 100% by 05:00.
+3. **Given** the guard is active but the battery is already at 100% SoC at 03:00, **When** the solver runs, **Then** no unnecessary additional charging occurs (the constraint is already satisfied).
 4. **Given** the guard is NOT active, **When** the solver runs, **Then** the normal reserve SoC floor applies unchanged.
 
 ---
 
-### User Story 3 - Daytime Solar Capture Window (Priority: P2)
+### User Story 3 - Daytime SoC Deadline (Priority: P2)
 
-When the Low Renewables Guard is active, the system establishes a daytime solar capture window (default 10:00–15:00 local time, configurable). During this window, the solver receives a bias that prioritises absorbing whatever solar generation is available into the battery rather than exporting it. This does not block export entirely — it makes self-consumption more attractive during these hours.
+When the Low Renewables Guard is active, the LP solver receives a second deadline constraint: the battery must reach 100% SoC by 15:00 local time. This ensures that whatever solar generation is available during the day (10:00–15:00) is captured into the battery rather than exported at depressed feed-in rates. The solver decides the optimal mix of solar absorption and grid charging to meet the deadline. The deadline time is configurable (default 15:00).
 
-**Why this priority**: On low solar winter days, even reduced solar output should be captured for battery charging rather than sold at depressed feed-in rates. This complements the overnight SoC drive by topping up during the day.
+**Why this priority**: On low solar winter days, even reduced solar output should be captured for battery charging. By setting a 15:00 deadline, the solver naturally favours self-consumption during solar hours and can supplement with grid charging if solar is insufficient. This ensures the battery is full before the expensive evening peak (17:00–21:00).
 
-**Independent Test**: Can be tested by running the solver with the guard active during solar hours and verifying that self-consumption is preferred over export when solar generation is present.
+**Independent Test**: Can be tested by running the solver with the guard active and verifying the battery state reaches 100% at the 15:00 step index.
 
 **Acceptance Scenarios**:
 
-1. **Given** the guard is active during the solar capture window and PV is generating 2 kW, **When** the solver runs, **Then** the plan favours CHARGE or SELF_CONSUMPTION over DISCHARGE_GRID for those intervals.
-2. **Given** the guard is active during the solar capture window and PV is generating 0 kW, **When** the solver runs, **Then** no change to normal behaviour (no solar to capture).
-3. **Given** the guard is active but outside the solar capture window, **When** the solver runs, **Then** normal export/discharge behaviour applies.
+1. **Given** the guard is active with daytime deadline 15:00 and PV is generating 2 kW, **When** the solver runs, **Then** the battery state at the 15:00 step is constrained to 100% and the plan favours CHARGE or SELF_CONSUMPTION during solar hours.
+2. **Given** the guard is active with daytime deadline 15:00 and PV is generating 0 kW, **When** the solver runs, **Then** the solver finds the cheapest grid charging intervals between 05:00 and 15:00 to reach 100%.
+3. **Given** the guard is active but the battery is already at 100% at 12:00, **When** the solver runs, **Then** no unnecessary additional charging occurs.
+4. **Given** the guard is NOT active, **When** the solver runs, **Then** no daytime deadline constraint applies.
 
 ---
 
@@ -69,7 +70,7 @@ The user can configure the Low Renewables Guard settings through the Home Assist
 
 1. **Given** the user opens the HBC options flow, **When** they navigate to the control settings, **Then** they see the Low Renewables Guard settings with defaults populated.
 2. **Given** the user changes the renewables threshold from 30% to 20%, **When** the guard next evaluates, **Then** it uses the new threshold.
-3. **Given** the user sets the target SoC to 60%, **When** the guard is active and the solver runs, **Then** the raised SoC floor is 60%.
+3. **Given** the user sets the overnight deadline to 04:00 and daytime deadline to 14:00, **When** the guard is active and the solver runs, **Then** the solver targets 100% SoC by those times.
 4. **Given** the user sets peak solar reference to 35 kWh, **When** Solcast tomorrow forecast is 14 kWh (40%), **Then** the low solar condition is also flagged as a secondary trigger.
 
 ---
@@ -84,7 +85,7 @@ When the Low Renewables Guard is active, the dashboard displays a visual indicat
 
 **Acceptance Scenarios**:
 
-1. **Given** the guard is active, **When** the user views the dashboard, **Then** a visual indicator shows "Low Renewables Guard: ACTIVE" with the current renewables % and target SoC.
+1. **Given** the guard is active, **When** the user views the dashboard, **Then** a visual indicator shows "Low Renewables Guard: ACTIVE" with the current renewables % and the deadline times.
 2. **Given** the guard is inactive, **When** the user views the dashboard, **Then** no guard indicator is shown (clean dashboard).
 
 ---
@@ -92,7 +93,7 @@ When the Low Renewables Guard is active, the dashboard displays a visual indicat
 ### Edge Cases
 
 - What happens when Amber Express data is unavailable or the `renewables` field is missing from forecast intervals? → Guard defaults to inactive (fail-safe).
-- What happens when both the low-renewables trigger and the low-solar trigger fire simultaneously? → Both conditions reinforce the same action (raise SoC target). The higher of the two target SoC values applies.
+- What happens when both the low-renewables trigger and the low-solar trigger fire simultaneously? → Both conditions reinforce the same action (100% SoC deadlines). No conflict — same constraints apply.
 - What happens when no-import periods overlap with the solver's chosen charge window? → No-import periods always win. The solver must find alternative intervals to reach the target SoC.
 - What happens when the battery is already fully charged when the guard activates? → No action needed. The constraint is already satisfied.
 - What happens when electricity prices are negative during the guard period? → The solver should still charge (negative prices = paid to import). The guard SoC target reinforces this natural behaviour.
@@ -105,10 +106,10 @@ When the Low Renewables Guard is active, the dashboard displays a visual indicat
 - **FR-002**: System MUST calculate a rolling average renewables percentage across the next 12 hours of forecast data.
 - **FR-003**: System MUST activate the Low Renewables Guard when the average renewables percentage falls below the configured threshold (default 30%).
 - **FR-004**: System MUST deactivate the Low Renewables Guard when the average renewables percentage rises above the configured threshold.
-- **FR-005**: When the guard is active, the system MUST raise the LP solver's minimum battery state (SoC floor) to the configured target SoC (default 80%) for the overnight portion of the planning horizon.
-- **FR-006**: When the guard is active, the system MUST apply a solar capture bias during the configured daytime window (default 10:00–15:00 local time) that makes self-consumption more attractive than export.
+- **FR-005**: When the guard is active, the system MUST inject an LP constraint requiring the battery state to reach 100% of capacity by the configured overnight deadline (default 05:00 local time). The solver is free to choose when and how to charge to meet this deadline.
+- **FR-006**: When the guard is active, the system MUST inject an LP constraint requiring the battery state to reach 100% of capacity by the configured daytime deadline (default 15:00 local time). The solver is free to choose any mix of solar absorption and grid charging to meet this deadline.
 - **FR-007**: The system MUST NOT block or suppress grid export during spike risk periods — profitable sales must remain available to the solver.
-- **FR-008**: System MUST provide configuration controls for: renewables threshold (%), target SoC when guard active (%), daytime solar capture window (HH:MM–HH:MM), and peak solar reference (kWh).
+- **FR-008**: System MUST provide configuration controls for: renewables threshold (%), overnight deadline time (HH:MM, default 05:00), daytime deadline time (HH:MM, default 15:00), and peak solar reference (kWh).
 - **FR-009**: System MUST provide a secondary trigger based on Solcast tomorrow forecast: if forecast kWh < configured percentage (default 50%) of peak solar reference, the guard also activates.
 - **FR-010**: The guard MUST be backward-compatible — when Amber Express is not in use, the guard detection for renewables is silently skipped. The Solcast-based trigger may still operate independently.
 - **FR-011**: The guard MUST NOT interfere with existing no-import periods. If no-import periods prevent charging during the solver's chosen intervals, the solver must work around them.
@@ -124,7 +125,7 @@ When the Low Renewables Guard is active, the dashboard displays a visual indicat
 
 ### Measurable Outcomes
 
-- **SC-001**: When SA grid renewables fall below 30%, the system proactively charges the battery to 80% SoC before the high-price period begins, reducing import costs by at least 50% compared to the unguarded scenario.
+- **SC-001**: When SA grid renewables fall below 30%, the system proactively charges the battery to 100% SoC by 05:00 and again by 15:00, reducing import costs during the subsequent peak period by at least 50% compared to the unguarded scenario.
 - **SC-002**: The guard activates within one coordination cycle (≤5 minutes) of receiving low-renewables forecast data.
 - **SC-003**: All guard settings are configurable through the standard options flow without requiring integration reinstallation.
 - **SC-004**: The guard operates without increasing coordination cycle time by more than 100ms.
@@ -135,7 +136,7 @@ When the Low Renewables Guard is active, the dashboard displays a visual indicat
 
 - The Amber Express forecast data reliably contains the `renewables` field in each interval. Based on live data observation, this field is consistently present.
 - The 30% renewables threshold is appropriate for the SA grid based on backtesting against 8 known price spike events (5/8 hit rate at 100% when below 30%).
-- The LP solver can accept a dynamically raised SoC floor without requiring structural changes to the constraint formulation.
+- The LP solver can accept deadline-based SoC constraints (battery state at step index N must equal capacity) without requiring structural changes to the constraint formulation — this is a simple additional equality or lower-bound constraint on the battery state variable at the relevant step.
 - The Solcast integration is available for the secondary low-solar trigger.
 - Peak solar reference is a user-configured value representing the system's best-day output, not a fixed constant.
 
@@ -143,8 +144,8 @@ When the Low Renewables Guard is active, the dashboard displays a visual indicat
 
 **In scope**:
 - Amber Express renewables % extraction and threshold detection
-- LP solver SoC floor raising
-- Daytime solar capture bias
+- LP solver overnight SoC deadline constraint (100% by 05:00)
+- LP solver daytime SoC deadline constraint (100% by 15:00)
 - Configuration controls in options flow
 - Dashboard guard status indicator
 - Solcast-based secondary trigger
