@@ -201,10 +201,19 @@ class LinearBatteryController:
             bounds[b_off + i] = (safe_lb, capacity)
 
         # Apply guard deadlines (Phase 4)
+        # Use a soft lower bound rather than hard equality to avoid LP infeasibility.
+        # The guard wants SoC=100% by the deadline, but if the battery physically
+        # cannot reach capacity by that step, a hard (capacity, capacity) constraint
+        # makes the LP infeasible and the solver returns an empty plan.
         if guard_deadline_steps:
             for deadline_idx in guard_deadline_steps:
-                if 0 <= deadline_idx < (number_step + 1):
-                    bounds[b_off + deadline_idx] = (capacity, capacity)
+                if 0 < deadline_idx < (number_step + 1):
+                    # Calculate the maximum physically achievable SoC at this step
+                    max_reachable = min(capacity, current + deadline_idx * charge_limit * eta_in)
+                    # Raise the lower bound to push toward full charge
+                    current_lb, current_ub = bounds[b_off + deadline_idx]
+                    new_lb = max(current_lb, max_reachable)
+                    bounds[b_off + deadline_idx] = (new_lb, current_ub)
 
         # --- Inequality constraints ---
         # Row 0..N-1: grid balance  g[i] - c[i] - dh[i] - dg[i] >= energy[i]
