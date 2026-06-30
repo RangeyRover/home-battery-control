@@ -11,6 +11,7 @@ class SolverInputs:
     load_kwh: list[float]                   # 288 load values (kWh per 5-min step)
     pv_kwh: list[float]                     # 288 solar values (kWh per 5-min step)
     no_import_steps: set[int] | None = None # blocked step indices
+    guard_deadline_steps: list[int] | None = None  # Step indices targeting 100% SoC
 
 
 @dataclass

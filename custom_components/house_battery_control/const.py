@@ -63,6 +63,14 @@ CONF_NO_IMPORT_PERIODS = "no_import_periods"
 CONF_ROUND_TRIP_EFFICIENCY = "round_trip_efficiency"
 CONF_EXPORT_MARGIN = "export_margin"
 
+# Config Keys for Feature 055 (Low Renewables Guard)
+CONF_GUARD_RENEWABLES_THRESHOLD = "guard_renewables_threshold"
+CONF_GUARD_OVERNIGHT_DEADLINE = "guard_overnight_deadline"
+CONF_GUARD_DAYTIME_DEADLINE = "guard_daytime_deadline"
+CONF_GUARD_PEAK_SOLAR = "guard_peak_solar"
+CONF_GUARD_TRIGGER_MODE = "guard_trigger_mode"
+CONF_GUARD_LOW_SOLAR_THRESHOLD = "guard_low_solar_threshold"
+
 # Panel
 CONF_PANEL_ADMIN_ONLY = "panel_admin_only"
 
@@ -81,6 +89,14 @@ DEFAULT_LOAD_CACHE_TTL = 360  # 6 hours in minutes
 DEFAULT_USE_AMBER_EXPRESS = False
 DEFAULT_SOLCAST_TODAY = "sensor.solcast_pv_forecast_today"
 DEFAULT_SOLCAST_TOMORROW = "sensor.solcast_pv_forecast_tomorrow"
+
+# Feature 055 Defaults
+DEFAULT_GUARD_RENEWABLES_THRESHOLD = 30.0
+DEFAULT_GUARD_OVERNIGHT_DEADLINE = "05:00"
+DEFAULT_GUARD_DAYTIME_DEADLINE = "15:00"
+DEFAULT_GUARD_PEAK_SOLAR = 40.0
+DEFAULT_GUARD_TRIGGER_MODE = "OR"
+DEFAULT_GUARD_LOW_SOLAR_THRESHOLD = 50.0
 
 # States (match System Requirements §16)
 STATE_CHARGE_GRID = "CHARGE_GRID"

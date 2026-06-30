@@ -235,3 +235,78 @@ def test_rates_manager_handles_576_steps(mock_hass):
     # Otherwise it succeeds and proves no hardcap exists.
     assert len(rates) == 576, f"Expected exactly 576 5-minute ticks for 48h horizon, got {len(rates)}."
 
+
+def test_amber_express_preserves_renewables(mock_hass):
+    """T004: verify parsed Amber Express intervals include renewables field with correct value."""
+    import_prices = [
+        {
+            "periodType": "FORECAST",
+            "start_time": "2025-02-20T12:00:00+00:00",
+            "end_time": "2025-02-20T12:30:00+00:00",
+            "per_kwh": 25.5,
+            "renewables": 28.5,
+        },
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(import_prices, key="forecasts"),
+        "sensor.amber_export": _make_amber_state([], key="forecasts"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=True)
+    manager.update()
+
+    rates = manager.get_rates()
+    assert len(rates) > 0
+    assert rates[0]["renewables"] == 28.5
+
+
+def test_amber_express_renewables_default(mock_hass):
+    """T005: verify missing renewables field defaults to None (or 100.0 based on implementation)."""
+    # Note: earlier research showed it defaults to 100.0 in Amber Express parse logic.
+    import_prices = [
+        {
+            "periodType": "FORECAST",
+            "start_time": "2025-02-20T12:00:00+00:00",
+            "end_time": "2025-02-20T12:30:00+00:00",
+            "per_kwh": 25.5,
+            # no renewables key
+        },
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(import_prices, key="forecasts"),
+        "sensor.amber_export": _make_amber_state([], key="forecasts"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=True)
+    manager.update()
+
+    rates = manager.get_rates()
+    assert len(rates) > 0
+    assert rates[0]["renewables"] == 100.0
+
+
+def test_standard_amber_renewables_none(mock_hass):
+    """T006: verify non-Express intervals have renewables: None."""
+    import_prices = [
+        {
+            "periodType": "ACTUAL",
+            "periodStart": "2025-02-20T12:00:00+00:00",
+            "periodEnd": "2025-02-20T12:30:00+00:00",
+            "perKwh": 25.5,
+        },
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(import_prices, key="forecast"),
+        "sensor.amber_export": _make_amber_state([], key="forecast"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=False)
+    manager.update()
+
+    rates = manager.get_rates()
+    assert len(rates) > 0
+    assert rates[0]["renewables"] is None
+

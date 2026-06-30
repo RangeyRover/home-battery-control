@@ -47,5 +47,39 @@ describe('HBCDashboard', () => {
     expect(bar.querySelector('.observation')).to.exist;
   });
 
+  it('renders renewables guard badge when active', async () => {
+    const el = await fixture('<hbc-dashboard></hbc-dashboard>');
+    el.data = {
+      renewables_guard_active: true,
+      renewables_avg: 4.9,
+      guard_triggers: ['Amber Express (4.9% <= 30%)']
+    };
+    await el.updateComplete;
+
+    const bar = el.shadowRoot.querySelector('.constraints-bar');
+    expect(bar).to.exist;
+    const badge = bar.querySelector('.constraint-badge.renewables');
+    expect(badge).to.exist;
+    expect(badge.textContent).to.include('Low Renewables');
+    expect(badge.textContent).to.include('4.9');
+  });
+
+  it('does not render renewables guard badge when inactive', async () => {
+    const el = await fixture('<hbc-dashboard></hbc-dashboard>');
+    el.data = {
+      renewables_guard_active: false,
+      renewables_avg: 65.0,
+      guard_triggers: []
+    };
+    await el.updateComplete;
+
+    const bar = el.shadowRoot.querySelector('.constraints-bar');
+    // Bar may not exist at all if no constraints are active
+    if (bar) {
+      const badge = bar.querySelector('.constraint-badge.renewables');
+      expect(badge).to.not.exist;
+    }
+  });
+
 
 });

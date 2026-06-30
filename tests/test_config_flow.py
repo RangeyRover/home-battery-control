@@ -5,6 +5,7 @@ Spec 3.1: Split import/export price entities.
 Spec 3.6: Control step is optional (debug mode).
 """
 
+import pytest
 from custom_components.house_battery_control.const import (
     CONF_ALLOW_CHARGE_FROM_GRID_ENTITY,
     CONF_ALLOW_EXPORT_ENTITY,
@@ -143,3 +144,85 @@ def test_options_control_has_panel_visibility():
     assert "BooleanSelector" in source, (
         "Panel visibility must use BooleanSelector"
     )
+
+
+@pytest.mark.asyncio
+async def test_config_flow_guard_fields_present():
+    """T040: [US4] Verify control step schema includes guard fields."""
+    from custom_components.house_battery_control.config_flow import HBCOptionsFlowHandler
+    from custom_components.house_battery_control.const import (
+        CONF_GUARD_DAYTIME_DEADLINE,
+        CONF_GUARD_LOW_SOLAR_THRESHOLD,
+        CONF_GUARD_OVERNIGHT_DEADLINE,
+        CONF_GUARD_PEAK_SOLAR,
+        CONF_GUARD_RENEWABLES_THRESHOLD,
+        CONF_GUARD_TRIGGER_MODE,
+    )
+
+    class MockConfigEntry:
+        options = {}
+        data = {}
+
+    handler = HBCOptionsFlowHandler(MockConfigEntry())
+    result = await handler.async_step_control()
+
+    # Extract keys from voluptuous schema
+    schema_keys = [k.schema for k in result["data_schema"].schema.keys()]
+
+    assert CONF_GUARD_RENEWABLES_THRESHOLD in schema_keys
+    assert CONF_GUARD_LOW_SOLAR_THRESHOLD in schema_keys
+    assert CONF_GUARD_PEAK_SOLAR in schema_keys
+    assert CONF_GUARD_TRIGGER_MODE in schema_keys
+    assert CONF_GUARD_OVERNIGHT_DEADLINE in schema_keys
+    assert CONF_GUARD_DAYTIME_DEADLINE in schema_keys
+
+
+@pytest.mark.asyncio
+async def test_config_flow_guard_values_saved():
+    """T041: [US4] Submit guard settings and verify they are stored."""
+    import unittest.mock as mock
+
+    from custom_components.house_battery_control.config_flow import HBCOptionsFlowHandler
+    from custom_components.house_battery_control.const import (
+        CONF_GUARD_DAYTIME_DEADLINE,
+        CONF_GUARD_LOW_SOLAR_THRESHOLD,
+        CONF_GUARD_OVERNIGHT_DEADLINE,
+        CONF_GUARD_PEAK_SOLAR,
+        CONF_GUARD_RENEWABLES_THRESHOLD,
+        CONF_GUARD_TRIGGER_MODE,
+    )
+
+    class MockConfigEntry:
+        options = {}
+        data = {}
+        entry_id = "test_entry_id"
+
+    config_entry = MockConfigEntry()
+    handler = HBCOptionsFlowHandler(config_entry)
+    handler.hass = mock.MagicMock()
+    # Mock the handler attribute so config_entry property resolves
+    handler.handler = mock.MagicMock()
+    handler.handler.config_entry_id = config_entry.entry_id
+    handler.hass.config_entries.async_get_known_entry.return_value = config_entry
+
+    user_input = {
+        CONF_GUARD_RENEWABLES_THRESHOLD: 35.0,
+        CONF_GUARD_LOW_SOLAR_THRESHOLD: 60.0,
+        CONF_GUARD_PEAK_SOLAR: 45.0,
+        CONF_GUARD_TRIGGER_MODE: "AND",
+        CONF_GUARD_OVERNIGHT_DEADLINE: "06:00:00",
+        CONF_GUARD_DAYTIME_DEADLINE: "14:00:00",
+    }
+
+    result = await handler.async_step_control(user_input)
+
+    # async_create_entry returns type=create_entry with empty data,
+    # but the guard values are persisted in handler._data via async_update_entry.
+    assert result["type"] == "create_entry"
+    assert handler._data[CONF_GUARD_RENEWABLES_THRESHOLD] == 35.0
+    assert handler._data[CONF_GUARD_LOW_SOLAR_THRESHOLD] == 60.0
+    assert handler._data[CONF_GUARD_PEAK_SOLAR] == 45.0
+    assert handler._data[CONF_GUARD_TRIGGER_MODE] == "AND"
+    assert handler._data[CONF_GUARD_OVERNIGHT_DEADLINE] == "06:00:00"
+    assert handler._data[CONF_GUARD_DAYTIME_DEADLINE] == "14:00:00"
+

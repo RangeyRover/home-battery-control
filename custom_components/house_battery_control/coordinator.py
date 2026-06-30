@@ -26,6 +26,12 @@ from .const import (
     CONF_EXPORT_TODAY_ENTITY,
     CONF_GRID_ENTITY,
     CONF_GRID_POWER_INVERT,
+    CONF_GUARD_DAYTIME_DEADLINE,
+    CONF_GUARD_LOW_SOLAR_THRESHOLD,
+    CONF_GUARD_OVERNIGHT_DEADLINE,
+    CONF_GUARD_PEAK_SOLAR,
+    CONF_GUARD_RENEWABLES_THRESHOLD,
+    CONF_GUARD_TRIGGER_MODE,
     CONF_IMPORT_PRICE_ENTITY,
     CONF_IMPORT_TODAY_ENTITY,
     CONF_INVERTER_LIMIT_MAX,
@@ -46,6 +52,12 @@ from .const import (
     CONF_USE_AMBER_EXPRESS,
     CONF_WEATHER_ENTITY,
     DEFAULT_EXPORT_MARGIN,
+    DEFAULT_GUARD_DAYTIME_DEADLINE,
+    DEFAULT_GUARD_LOW_SOLAR_THRESHOLD,
+    DEFAULT_GUARD_OVERNIGHT_DEADLINE,
+    DEFAULT_GUARD_PEAK_SOLAR,
+    DEFAULT_GUARD_RENEWABLES_THRESHOLD,
+    DEFAULT_GUARD_TRIGGER_MODE,
     DEFAULT_LOAD_CACHE_TTL,
     DEFAULT_ROUND_TRIP_EFFICIENCY,
     DEFAULT_SCAN_INTERVAL,
@@ -63,6 +75,7 @@ from .fsm.lin_fsm import (
 from .load import LoadPredictor
 from .rates import RatesManager
 from .rates_predictor import SyntheticRatesPredictor
+from .renewables_guard import RenewablesGuard
 from .solar.solcast import SolcastSolar
 from .telemetry_tracker import TelemetryCostTracker
 from .weather import WeatherManager
@@ -140,6 +153,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         # FSM + Executor
         self.fsm = LinearBatteryStateMachine()
         self.executor = PowerwallExecutor(hass, config)
+
+        # Feature 055: Low Renewables Guard (persisted across cycles for hysteresis)
+        self.renewables_guard = RenewablesGuard()
 
         # Set up state tracking for immediate FSM recalculation
         telemetry_entities = [
@@ -351,6 +367,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         forecast_solar: list[Any],
         current_price: float,
         current_export_price: float,
+        guard_deadline_steps: list[int] | None = None,
     ) -> SolverInputs:
         n = len(rates_list) if rates_list else 288
 
@@ -442,6 +459,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             load_kwh=load_kwh,
             pv_kwh=pv_kwh,
             no_import_steps=no_import_steps,
+            guard_deadline_steps=guard_deadline_steps,
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -457,6 +475,37 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 await self.weather.async_update()
             except Exception as e:
                 _LOGGER.warning("Weather plugin not ready on boot: %s", e)
+
+            # Feature 055: Evaluate Low Renewables Guard
+            guard_deadline_steps: list[int] | None = None
+            try:
+                rates_timeline = self.rates.get_rates()
+                # Read Solcast tomorrow value for solar condition
+                solcast_tomorrow = self._get_sensor_value(
+                    self.config.get(CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW)
+                )
+                guard_active = self.renewables_guard.evaluate(
+                    rates=rates_timeline,
+                    solcast_tomorrow=solcast_tomorrow,
+                    trigger_mode=self.config.get(CONF_GUARD_TRIGGER_MODE, DEFAULT_GUARD_TRIGGER_MODE),
+                    renewables_threshold=float(self.config.get(CONF_GUARD_RENEWABLES_THRESHOLD, DEFAULT_GUARD_RENEWABLES_THRESHOLD)),
+                    solcast_threshold=float(self.config.get(CONF_GUARD_LOW_SOLAR_THRESHOLD, DEFAULT_GUARD_LOW_SOLAR_THRESHOLD)),
+                    peak_solar=float(self.config.get(CONF_GUARD_PEAK_SOLAR, DEFAULT_GUARD_PEAK_SOLAR)),
+                )
+                if guard_active and rates_timeline:
+                    deadlines = [
+                        self.config.get(CONF_GUARD_OVERNIGHT_DEADLINE, DEFAULT_GUARD_OVERNIGHT_DEADLINE),
+                        self.config.get(CONF_GUARD_DAYTIME_DEADLINE, DEFAULT_GUARD_DAYTIME_DEADLINE),
+                    ]
+                    guard_deadline_steps = self.renewables_guard.resolve_deadline_steps(
+                        rates=rates_timeline,
+                        deadlines=deadlines,
+                        base_time=rates_timeline[0]["start"],
+                    )
+                    if not guard_deadline_steps:
+                        guard_deadline_steps = None
+            except Exception as e:
+                _LOGGER.warning("Renewables guard evaluation failed: %s", e)
 
             # Fetch Current Telemetry with Inversion Logic
             soc = self._get_sensor_value(self.config.get(CONF_BATTERY_SOC_ENTITY, ""))
@@ -595,6 +644,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                     forecast_solar=aligned_solar,
                     current_price=current_price,
                     current_export_price=current_export_price,
+                    guard_deadline_steps=guard_deadline_steps,
                 ),
             )
             # Run decision logic in background thread
@@ -736,6 +786,10 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "synthetic_pricing_curve": synthetic_pricing_curve,
                 "synthetic_export_curve": synthetic_export_curve,
                 "synthetic_load_curve": synthetic_load_curve,
+                # Feature 055: Low Renewables Guard
+                "renewables_guard_active": self.renewables_guard.is_active,
+                "renewables_avg": self.renewables_guard.renewables_avg,
+                "guard_triggers": list(self.renewables_guard.trigger_reasons),
             }
         except Exception as err:
             raise UpdateFailed(f"Error in HBC update cycle: {err}")

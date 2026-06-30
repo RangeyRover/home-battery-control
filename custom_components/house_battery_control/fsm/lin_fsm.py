@@ -117,6 +117,7 @@ class LinearBatteryController:
         reserve_soc: float = 0.0,
         no_import_steps: set[int] | None = None,
         export_margin: float = 0.0,
+        guard_deadline_steps: list[int] | None = None,
     ):
         number_step = len(price_buy)
         self.step = number_step
@@ -198,6 +199,12 @@ class LinearBatteryController:
             physically_accessible = current + i * charge_limit * eta_in
             safe_lb = min(reserve_kwh, physically_accessible)
             bounds[b_off + i] = (safe_lb, capacity)
+
+        # Apply guard deadlines (Phase 4)
+        if guard_deadline_steps:
+            for deadline_idx in guard_deadline_steps:
+                if 0 <= deadline_idx < (number_step + 1):
+                    bounds[b_off + deadline_idx] = (capacity, capacity)
 
         # --- Inequality constraints ---
         # Row 0..N-1: grid balance  g[i] - c[i] - dh[i] - dg[i] >= energy[i]
@@ -402,6 +409,7 @@ class LinearBatteryStateMachine(BatteryStateMachine):
                     reserve_soc=float(context.config.get("reserve_soc", 0.0)),
                     no_import_steps=no_import_steps if no_import_steps else None,
                     export_margin=float(context.config.get("export_margin", 0.0)),
+                    guard_deadline_steps=si.guard_deadline_steps,
                 )
             )
         except Exception as e:

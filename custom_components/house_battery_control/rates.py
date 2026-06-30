@@ -13,6 +13,7 @@ class RateInterval(TypedDict):
     end: datetime
     import_price: float  # c/kWh
     export_price: float  # c/kWh
+    renewables: float | None  # renewables % (Amber Express)
     type: str  # ACTUAL or FORECAST
 
 
@@ -50,6 +51,7 @@ class RatesManager:
                 "end": r["end"],
                 "import_price": r["price"],
                 "export_price": 0.0,
+                "renewables": r.get("renewables"),
                 "type": r["type"],
             }
         for r in export_rates:
@@ -62,6 +64,7 @@ class RatesManager:
                     "end": r["end"],
                     "import_price": 0.0,
                     "export_price": r["price"],
+                    "renewables": r.get("renewables"),
                     "type": r["type"],
                 }
 
@@ -119,6 +122,7 @@ class RatesManager:
                             "start": current_ts,
                             "end": next_ts,
                             "price": price,
+                            "renewables": None,
                             "type": interval.get("type") or interval.get("periodType", "UNKNOWN"),
                         }
                     )
@@ -188,6 +192,7 @@ class RatesManager:
                             "start": current_ts,
                             "end": next_ts,
                             "price": price,
+                            "renewables": renewables,
                             "type": "FORECAST", # Amber Express is purely forecast arrays
                         }
                     )

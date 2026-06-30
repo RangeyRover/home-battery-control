@@ -17,8 +17,13 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
+    TimeSelector,
 )
 
 from .const import (
@@ -38,6 +43,12 @@ from .const import (
     CONF_EXPORT_TODAY_ENTITY,
     CONF_GRID_ENTITY,
     CONF_GRID_POWER_INVERT,
+    CONF_GUARD_DAYTIME_DEADLINE,
+    CONF_GUARD_LOW_SOLAR_THRESHOLD,
+    CONF_GUARD_OVERNIGHT_DEADLINE,
+    CONF_GUARD_PEAK_SOLAR,
+    CONF_GUARD_RENEWABLES_THRESHOLD,
+    CONF_GUARD_TRIGGER_MODE,
     CONF_IMPORT_PRICE_ENTITY,
     CONF_IMPORT_TODAY_ENTITY,
     CONF_INVERTER_LIMIT_MAX,
@@ -67,6 +78,12 @@ from .const import (
     DEFAULT_BATTERY_CAPACITY,
     DEFAULT_BATTERY_RATE_MAX,
     DEFAULT_EXPORT_MARGIN,
+    DEFAULT_GUARD_DAYTIME_DEADLINE,
+    DEFAULT_GUARD_LOW_SOLAR_THRESHOLD,
+    DEFAULT_GUARD_OVERNIGHT_DEADLINE,
+    DEFAULT_GUARD_PEAK_SOLAR,
+    DEFAULT_GUARD_RENEWABLES_THRESHOLD,
+    DEFAULT_GUARD_TRIGGER_MODE,
     DEFAULT_INVERTER_LIMIT,
     DEFAULT_LOAD_CACHE_TTL,
     DEFAULT_PANEL_ADMIN_ONLY,
@@ -317,6 +334,44 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_NO_IMPORT_PERIODS,
                         default="",
                     ): TextSelector(TextSelectorConfig(type="text")),
+                    vol.Optional(
+                        CONF_GUARD_RENEWABLES_THRESHOLD,
+                        default=self._data.get(CONF_GUARD_RENEWABLES_THRESHOLD, DEFAULT_GUARD_RENEWABLES_THRESHOLD),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.0, max=100.0, step=0.1, mode=NumberSelectorMode.BOX, unit_of_measurement="%")
+                    ),
+                    vol.Optional(
+                        CONF_GUARD_LOW_SOLAR_THRESHOLD,
+                        default=self._data.get(CONF_GUARD_LOW_SOLAR_THRESHOLD, DEFAULT_GUARD_LOW_SOLAR_THRESHOLD),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.0, max=100.0, step=0.1, mode=NumberSelectorMode.BOX, unit_of_measurement="%")
+                    ),
+                    vol.Optional(
+                        CONF_GUARD_PEAK_SOLAR,
+                        default=self._data.get(CONF_GUARD_PEAK_SOLAR, DEFAULT_GUARD_PEAK_SOLAR),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.0, max=100.0, step=0.1, mode=NumberSelectorMode.BOX, unit_of_measurement="kWh")
+                    ),
+                    vol.Optional(
+                        CONF_GUARD_TRIGGER_MODE,
+                        default=self._data.get(CONF_GUARD_TRIGGER_MODE, DEFAULT_GUARD_TRIGGER_MODE),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                SelectOptionDict(value="OR", label="OR"),
+                                SelectOptionDict(value="AND", label="AND"),
+                            ],
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_GUARD_OVERNIGHT_DEADLINE,
+                        default=self._data.get(CONF_GUARD_OVERNIGHT_DEADLINE, DEFAULT_GUARD_OVERNIGHT_DEADLINE),
+                    ): TimeSelector(),
+                    vol.Optional(
+                        CONF_GUARD_DAYTIME_DEADLINE,
+                        default=self._data.get(CONF_GUARD_DAYTIME_DEADLINE, DEFAULT_GUARD_DAYTIME_DEADLINE),
+                    ): TimeSelector(),
                 }
             ),
         )
@@ -587,6 +642,18 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
                 else:
                     self._data[key] = val
 
+            # Persist low renewables guard settings (Feature 055)
+            for key in (
+                CONF_GUARD_RENEWABLES_THRESHOLD,
+                CONF_GUARD_LOW_SOLAR_THRESHOLD,
+                CONF_GUARD_PEAK_SOLAR,
+                CONF_GUARD_TRIGGER_MODE,
+                CONF_GUARD_OVERNIGHT_DEADLINE,
+                CONF_GUARD_DAYTIME_DEADLINE,
+            ):
+                if key in user_input:
+                    self._data[key] = user_input[key]
+
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=self._data
             )
@@ -638,6 +705,44 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
                             "suggested_value": self._data.get(CONF_NO_IMPORT_PERIODS, "")
                         },
                     ): TextSelector(TextSelectorConfig(type="text")),
+                    vol.Optional(
+                        CONF_GUARD_RENEWABLES_THRESHOLD,
+                        default=self._data.get(CONF_GUARD_RENEWABLES_THRESHOLD, DEFAULT_GUARD_RENEWABLES_THRESHOLD),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.0, max=100.0, step=0.1, mode=NumberSelectorMode.BOX, unit_of_measurement="%")
+                    ),
+                    vol.Optional(
+                        CONF_GUARD_LOW_SOLAR_THRESHOLD,
+                        default=self._data.get(CONF_GUARD_LOW_SOLAR_THRESHOLD, DEFAULT_GUARD_LOW_SOLAR_THRESHOLD),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.0, max=100.0, step=0.1, mode=NumberSelectorMode.BOX, unit_of_measurement="%")
+                    ),
+                    vol.Optional(
+                        CONF_GUARD_PEAK_SOLAR,
+                        default=self._data.get(CONF_GUARD_PEAK_SOLAR, DEFAULT_GUARD_PEAK_SOLAR),
+                    ): NumberSelector(
+                        NumberSelectorConfig(min=0.0, max=100.0, step=0.1, mode=NumberSelectorMode.BOX, unit_of_measurement="kWh")
+                    ),
+                    vol.Optional(
+                        CONF_GUARD_TRIGGER_MODE,
+                        default=self._data.get(CONF_GUARD_TRIGGER_MODE, DEFAULT_GUARD_TRIGGER_MODE),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                SelectOptionDict(value="OR", label="OR"),
+                                SelectOptionDict(value="AND", label="AND"),
+                            ],
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_GUARD_OVERNIGHT_DEADLINE,
+                        default=self._data.get(CONF_GUARD_OVERNIGHT_DEADLINE, DEFAULT_GUARD_OVERNIGHT_DEADLINE),
+                    ): TimeSelector(),
+                    vol.Optional(
+                        CONF_GUARD_DAYTIME_DEADLINE,
+                        default=self._data.get(CONF_GUARD_DAYTIME_DEADLINE, DEFAULT_GUARD_DAYTIME_DEADLINE),
+                    ): TimeSelector(),
                 }
             ),
         )

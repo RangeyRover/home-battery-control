@@ -50,7 +50,13 @@
                     "script_discharge": "Script: Discharge to Grid",
                     "script_discharge_stop": "Script: Stop Discharging",
                     "panel_admin_only": "Panel Visible to Admins Only",
-                    "no_import_periods": "No-Import Periods (e.g. 15:00-21:00)"
+                    "no_import_periods": "No-Import Periods (e.g. 15:00-21:00)",
+                    "guard_renewables_threshold": "Guard: Renewables Threshold (%)",
+                    "guard_low_solar_threshold": "Guard: Low Solar Threshold (%)",
+                    "guard_peak_solar": "Guard: Peak Solar Reference (kWh)",
+                    "guard_trigger_mode": "Guard: Trigger Mode (OR/AND)",
+                    "guard_overnight_deadline": "Guard: Overnight Deadline",
+                    "guard_daytime_deadline": "Guard: Daytime Deadline"
                 }
             }
         }
@@ -113,7 +119,13 @@
                     "script_discharge": "Script: Discharge to Grid",
                     "script_discharge_stop": "Script: Stop Discharging",
                     "panel_admin_only": "Panel visible to admins only",
-                    "no_import_periods": "No-Import Periods (e.g. 15:00-21:00)"
+                    "no_import_periods": "No-Import Periods (e.g. 15:00-21:00)",
+                    "guard_renewables_threshold": "Guard: Renewables Threshold (%)",
+                    "guard_low_solar_threshold": "Guard: Low Solar Threshold (%)",
+                    "guard_peak_solar": "Guard: Peak Solar Reference (kWh)",
+                    "guard_trigger_mode": "Guard: Trigger Mode (OR/AND)",
+                    "guard_overnight_deadline": "Guard: Overnight Deadline",
+                    "guard_daytime_deadline": "Guard: Daytime Deadline"
                 }
             }
         }

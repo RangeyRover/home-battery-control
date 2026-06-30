@@ -107,6 +107,9 @@ export class HBCDashboard extends LitElement {
     const reason = d.reason || "";
     const noImportPeriods = d.no_import_periods || "";
     const observationMode = d.observation_mode || false;
+    const guardActive = d.renewables_guard_active || false;
+    const renewablesAvg = d.renewables_avg !== undefined && d.renewables_avg !== null ? d.renewables_avg.toFixed(1) : null;
+    const guardTriggers = d.guard_triggers || [];
     const summaryStats = this._calculateSummaryStats();
 
     return html`
@@ -164,10 +167,11 @@ export class HBCDashboard extends LitElement {
           </div>
         </div>
       </div>
-      ${(noImportPeriods || observationMode) ? html`
+      ${(noImportPeriods || observationMode || guardActive) ? html`
       <div class="constraints-bar">
         ${observationMode ? html`<span class="constraint-badge observation">👁 Observation Mode</span>` : ''}
         ${noImportPeriods ? html`<span class="constraint-badge no-import">🚫 No-Import: ${noImportPeriods}</span>` : ''}
+        ${guardActive ? html`<span class="constraint-badge renewables">⚡ Low Renewables: ${renewablesAvg}% — ${guardTriggers.join(', ')}</span>` : ''}
       </div>
       ` : ''}
       <div class="card">
@@ -397,6 +401,10 @@ export class HBCDashboard extends LitElement {
       }
       .constraint-badge.observation {
         background: linear-gradient(135deg, #ff4444, #cc0000);
+        color: #fff;
+      }
+      .constraint-badge.renewables {
+        background: linear-gradient(135deg, #ffa726, #ef6c00);
         color: #fff;
       }
       .meta {

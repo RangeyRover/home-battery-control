@@ -2,7 +2,7 @@
 
 **Feature Branch**: `055-low-renewables-guard`  
 **Created**: 2026-06-22  
-**Status**: Draft  
+**Status**: Implemented  
 **Input**: User description: "Detect low renewable penetration from Amber Express forecast and drive proactive battery charging behaviour, including a daytime solar capture component and overnight SoC target, to prevent high import costs during SA grid price spikes caused by low wind and low solar."
 
 ## User Scenarios & Testing *(mandatory)*

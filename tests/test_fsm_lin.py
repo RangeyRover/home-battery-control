@@ -761,3 +761,241 @@ class TestDynamicLengths:
             f"Expected {long_n} steps, but got {len(result.future_plan)}"
         )
 
+
+# ---------------------------------------------------------------------------
+#  Renewables Guard Deadline tests (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+class TestRenewablesGuardDeadlines:
+    """Tests for LP solver behavior when guard_deadline_steps is provided."""
+
+    def test_guard_deadline_raises_battery_lower_bound(self):
+        """T028: pass guard_deadline_steps=[60], verify target capacity is reached."""
+        from custom_components.house_battery_control.fsm.lin_fsm import (
+            FakeBattery,
+            LinearBatteryController,
+        )
+
+        battery = FakeBattery(capacity=10.0, current_charge=0.0, charge_limit=50.0, discharge_limit=50.0)
+        controller = LinearBatteryController()
+        controller.step = 288
+
+        b_1, obj_val, sequence = controller.propose_state_of_charge(
+            battery=battery,
+            price_buy=[0.20] * 288,
+            price_sell=[0.05] * 288,
+            load_forecast=[0.0] * 288,
+            pv_forecast=[0.0] * 288,
+            guard_deadline_steps=[60]
+        )
+
+        assert sequence is not None
+        plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
+
+        # Verify that by step 60, battery is at capacity (10.0)
+        assert plan[60] >= 9.99
+
+    def test_guard_deadline_solver_charges_cheapest(self):
+        """T029: cheap overnight prices with deadline at step 60, verify plan shows CHARGE_GRID during cheap intervals."""
+        from custom_components.house_battery_control.fsm.lin_fsm import (
+            FakeBattery,
+            LinearBatteryController,
+        )
+
+        battery = FakeBattery(capacity=10.0, current_charge=0.0, charge_limit=50.0, discharge_limit=50.0)
+        controller = LinearBatteryController()
+        controller.step = 288
+
+        price_buy = [0.20] * 288
+        # Make steps 10-15 very cheap
+        for i in range(10, 15):
+            price_buy[i] = 0.01
+
+        b_1, obj_val, sequence = controller.propose_state_of_charge(
+            battery=battery,
+            price_buy=price_buy,
+            price_sell=[0.00] * 288,
+            load_forecast=[0.0] * 288,
+            pv_forecast=[0.0] * 288,
+            guard_deadline_steps=[60]
+        )
+
+        # Check it charges during the cheap period (10-14)
+        total_cheap_charge = sum(sequence[i]["net_grid"] for i in range(10, 15))
+        assert total_cheap_charge >= 9.9  # Should have acquired the full capacity during these steps
+
+    def test_guard_deadline_no_effect_when_none(self):
+        """T030: guard_deadline_steps=None -> normal bounds unchanged."""
+        from custom_components.house_battery_control.fsm.lin_fsm import (
+            FakeBattery,
+            LinearBatteryController,
+        )
+
+        battery = FakeBattery(capacity=10.0, current_charge=0.0, charge_limit=50.0, discharge_limit=50.0)
+        controller = LinearBatteryController()
+        controller.step = 288
+
+        # Without a deadline, a flat price and no load/solar means it does nothing
+        b_1, obj_val, sequence = controller.propose_state_of_charge(
+            battery=battery,
+            price_buy=[0.20] * 288,
+            price_sell=[0.05] * 288,
+            load_forecast=[0.0] * 288,
+            pv_forecast=[0.0] * 288,
+            guard_deadline_steps=None
+        )
+
+        plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
+        # Shouldn't charge at all
+        assert max(plan) <= 0.01
+
+    def test_guard_deadline_already_full(self):
+        """T031: battery at 100% SoC -> solver doesn't over-charge."""
+        from custom_components.house_battery_control.fsm.lin_fsm import (
+            FakeBattery,
+            LinearBatteryController,
+        )
+
+        battery = FakeBattery(capacity=10.0, current_charge=1.0, charge_limit=50.0, discharge_limit=50.0)
+        controller = LinearBatteryController()
+        controller.step = 288
+
+        b_1, obj_val, sequence = controller.propose_state_of_charge(
+            battery=battery,
+            price_buy=[0.20] * 288,
+            price_sell=[0.05] * 288,
+            load_forecast=[0.0] * 288,
+            pv_forecast=[0.0] * 288,
+            guard_deadline_steps=[60]
+        )
+
+        # It should just stay at 100% (or slightly fluctuate depending on constraints, but not > 100%)
+        plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
+        assert plan[60] >= 9.99
+        for p in plan:
+            assert p <= 10.01
+
+    def test_guard_deadline_coexists_with_no_import(self):
+        """T032: both no_import_steps and guard_deadline_steps active simultaneously."""
+        from custom_components.house_battery_control.fsm.lin_fsm import (
+            FakeBattery,
+            LinearBatteryController,
+        )
+
+        battery = FakeBattery(capacity=10.0, current_charge=0.0, charge_limit=50.0, discharge_limit=50.0)
+        controller = LinearBatteryController()
+        controller.step = 288
+
+        # Deadline at step 20. no_import_steps from 0 to 15.
+        # It MUST charge between 16 and 20 to hit the deadline.
+        b_1, obj_val, sequence = controller.propose_state_of_charge(
+            battery=battery,
+            price_buy=[0.20] * 288,
+            price_sell=[0.05] * 288,
+            load_forecast=[0.0] * 288,
+            pv_forecast=[0.0] * 288,
+            no_import_steps=set(range(16)),
+            guard_deadline_steps=[20]
+        )
+
+        plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
+        assert plan[20] >= 9.99
+
+        # Verify it didn't import during 0-15
+        for i in range(16):
+            assert sequence[i]["net_grid"] <= 0.01
+
+    def test_guard_active_export_still_permitted(self):
+        """T033: guard active with deadline, verify solver still chooses DISCHARGE_GRID when profitable."""
+        from custom_components.house_battery_control.fsm.lin_fsm import (
+            FakeBattery,
+            LinearBatteryController,
+        )
+
+        battery = FakeBattery(capacity=10.0, current_charge=0.0, charge_limit=50.0, discharge_limit=50.0)
+        controller = LinearBatteryController()
+        controller.step = 288
+
+        # Deadline at 60. Then massive export price at 80.
+        price_sell = [0.05] * 288
+        price_sell[80] = 50.0  # Huge incentive to export!
+
+        b_1, obj_val, sequence = controller.propose_state_of_charge(
+            battery=battery,
+            price_buy=[0.20] * 288,
+            price_sell=price_sell,
+            load_forecast=[0.0] * 288,
+            pv_forecast=[0.0] * 288,
+            guard_deadline_steps=[60]
+        )
+
+        plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
+        assert plan[60] >= 9.99
+
+        # By step 81, it should have dumped everything it can for profit (limited by discharge_limit)
+        assert sequence[80]["net_grid"] < -1.0
+        assert plan[81] < 6.0
+
+    def test_guard_daytime_deadline_with_solar(self):
+        """T034: guard active, PV generating 2kW, deadline at step 180 (15:00), verify plan favours solar capture."""
+        from custom_components.house_battery_control.fsm.lin_fsm import (
+            FakeBattery,
+            LinearBatteryController,
+        )
+
+        battery = FakeBattery(capacity=10.0, current_charge=0.0, charge_limit=50.0, discharge_limit=50.0)
+        controller = LinearBatteryController()
+        controller.step = 288
+
+        # PV generates 1kWh per step between 100 and 150
+        pv_forecast = [0.0] * 288
+        for i in range(100, 150):
+            pv_forecast[i] = 1.0
+
+        b_1, obj_val, sequence = controller.propose_state_of_charge(
+            battery=battery,
+            price_buy=[0.20] * 288,
+            price_sell=[0.05] * 288,  # Sell is low, better to store
+            load_forecast=[0.0] * 288,
+            pv_forecast=pv_forecast,
+            guard_deadline_steps=[180]
+        )
+
+        plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
+        assert plan[180] >= 9.99
+
+        # It should soak the solar. Grid import should be minimal.
+        total_import = sum(max(0, s["net_grid"]) for s in sequence[:180])
+        # Solar gives 50kWh, battery holds 10kWh. It shouldn't need ANY grid!
+        assert total_import <= 0.1
+
+    def test_guard_daytime_deadline_no_solar(self):
+        """T035: guard active, PV=0, deadline at step 180, verify plan charges from grid at cheapest intervals."""
+        from custom_components.house_battery_control.fsm.lin_fsm import (
+            FakeBattery,
+            LinearBatteryController,
+        )
+
+        battery = FakeBattery(capacity=10.0, current_charge=0.0, charge_limit=50.0, discharge_limit=50.0)
+        controller = LinearBatteryController()
+        controller.step = 288
+
+        price_buy = [0.20] * 288
+        price_buy[120] = 0.01  # Cheapest step!
+
+        b_1, obj_val, sequence = controller.propose_state_of_charge(
+            battery=battery,
+            price_buy=price_buy,
+            price_sell=[0.0] * 288,
+            load_forecast=[0.0] * 288,
+            pv_forecast=[0.0] * 288,
+            guard_deadline_steps=[180]
+        )
+
+        plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
+        assert plan[180] >= 9.99
+
+        # Should have mostly charged at step 120
+        assert sequence[120]["net_grid"] > 0.0
+
