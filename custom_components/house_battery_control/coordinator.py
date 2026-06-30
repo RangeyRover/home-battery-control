@@ -484,6 +484,10 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 solcast_tomorrow = self._get_sensor_value(
                     self.config.get(CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW)
                 )
+                # Feature 056: Read Solcast today value for today solar condition
+                solcast_today = self._get_sensor_value(
+                    self.config.get(CONF_SOLCAST_TODAY_ENTITY, DEFAULT_SOLCAST_TODAY)
+                )
                 guard_active = self.renewables_guard.evaluate(
                     rates=rates_timeline,
                     solcast_tomorrow=solcast_tomorrow,
@@ -491,6 +495,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                     renewables_threshold=float(self.config.get(CONF_GUARD_RENEWABLES_THRESHOLD, DEFAULT_GUARD_RENEWABLES_THRESHOLD)),
                     solcast_threshold=float(self.config.get(CONF_GUARD_LOW_SOLAR_THRESHOLD, DEFAULT_GUARD_LOW_SOLAR_THRESHOLD)),
                     peak_solar=float(self.config.get(CONF_GUARD_PEAK_SOLAR, DEFAULT_GUARD_PEAK_SOLAR)),
+                    solcast_today=solcast_today,
                 )
                 if guard_active and rates_timeline:
                     deadlines = [

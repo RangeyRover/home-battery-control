@@ -123,10 +123,10 @@ def test_guard_and_mode_both_required():
 
 @pytest.mark.skipif(RenewablesGuard is None, reason="RenewablesGuard not implemented")
 def test_guard_and_mode_both_fire():
-    """T021: low renewables + low solar -> active (AND mode)"""
+    """T021: low renewables + low tomorrow solar + low today solar -> active (AND mode)"""
     guard = RenewablesGuard()
     rates = [{"renewables": 20.0}] * 144
-    active = guard.evaluate(rates, 10.0, "AND", 30.0, 50.0, 40.0)
+    active = guard.evaluate(rates, 10.0, "AND", 30.0, 50.0, 40.0, solcast_today=10.0)
     assert active is True
 
 
@@ -214,3 +214,75 @@ def test_resolve_deadlines_custom_times():
     dt_util.as_local = original_as_local
 
     assert deadlines == [48, 168]
+
+
+# ── Feature 056: Solar Today Guard Tests ──────────────────────────────
+
+
+@pytest.mark.skipif(RenewablesGuard is None, reason="RenewablesGuard not implemented")
+def test_guard_today_solar_triggers_alone():
+    """T001-056: low today (5 kWh), high tomorrow (35 kWh), high renewables (65%), OR → guard active."""
+    guard = RenewablesGuard()
+    rates = [{"renewables": 65.0}] * 144
+    active = guard.evaluate(
+        rates, solcast_tomorrow=35.0, solcast_today=5.0,
+        trigger_mode="OR", renewables_threshold=30.0,
+        solcast_threshold=50.0, peak_solar=40.0,
+    )
+    assert active is True
+    assert any("Solcast Today" in r for r in guard.trigger_reasons)
+
+
+@pytest.mark.skipif(RenewablesGuard is None, reason="RenewablesGuard not implemented")
+def test_guard_today_solar_high_no_trigger():
+    """T002-056: high today (35 kWh), high tomorrow, high renewables → guard NOT active."""
+    guard = RenewablesGuard()
+    rates = [{"renewables": 65.0}] * 144
+    active = guard.evaluate(
+        rates, solcast_tomorrow=35.0, solcast_today=35.0,
+        trigger_mode="OR", renewables_threshold=30.0,
+        solcast_threshold=50.0, peak_solar=40.0,
+    )
+    assert active is False
+
+
+@pytest.mark.skipif(RenewablesGuard is None, reason="RenewablesGuard not implemented")
+def test_guard_and_mode_all_three_required():
+    """T003-056: AND mode, all three low → guard active with 3 reasons."""
+    guard = RenewablesGuard()
+    rates = [{"renewables": 5.0}] * 144
+    active = guard.evaluate(
+        rates, solcast_tomorrow=5.0, solcast_today=5.0,
+        trigger_mode="AND", renewables_threshold=30.0,
+        solcast_threshold=50.0, peak_solar=40.0,
+    )
+    assert active is True
+    assert len(guard.trigger_reasons) == 3
+
+
+@pytest.mark.skipif(RenewablesGuard is None, reason="RenewablesGuard not implemented")
+def test_guard_and_mode_today_high_blocks():
+    """T004-056: AND mode, today high but others low → guard NOT active."""
+    guard = RenewablesGuard()
+    rates = [{"renewables": 5.0}] * 144
+    active = guard.evaluate(
+        rates, solcast_tomorrow=5.0, solcast_today=35.0,
+        trigger_mode="AND", renewables_threshold=30.0,
+        solcast_threshold=50.0, peak_solar=40.0,
+    )
+    assert active is False
+
+
+@pytest.mark.skipif(RenewablesGuard is None, reason="RenewablesGuard not implemented")
+def test_guard_or_mode_today_only():
+    """T005-056: OR mode, only today fires → guard active."""
+    guard = RenewablesGuard()
+    rates = [{"renewables": 65.0}] * 144
+    active = guard.evaluate(
+        rates, solcast_tomorrow=100.0, solcast_today=5.0,
+        trigger_mode="OR", renewables_threshold=30.0,
+        solcast_threshold=50.0, peak_solar=40.0,
+    )
+    assert active is True
+    assert any("Solcast Today" in r for r in guard.trigger_reasons)
+    assert not any("Solcast Tomorrow" in r for r in guard.trigger_reasons)

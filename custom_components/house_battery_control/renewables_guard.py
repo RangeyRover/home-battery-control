@@ -30,6 +30,7 @@ class RenewablesGuard:
         renewables_threshold: float,
         solcast_threshold: float,
         peak_solar: float,
+        solcast_today: float = 100.0,
     ) -> bool:
         """
         Evaluate if the low renewables guard should be active.
@@ -41,6 +42,7 @@ class RenewablesGuard:
             renewables_threshold: e.g., 30.0 for 30%
             solcast_threshold: e.g., 50.0 for 50%
             peak_solar: e.g., 40.0 kWh (the reference value for 100% solcast)
+            solcast_today: Today's forecasted solar (kWh), default 100.0 (no trigger)
 
         Returns:
             bool: True if guard is active, False otherwise.
@@ -70,20 +72,25 @@ class RenewablesGuard:
             # If we don't have Amber Express data, it cannot trigger the Amber side
             amber_triggered = False
 
-        # 2. Calculate Solcast condition
+        # 2. Calculate Solcast tomorrow condition
         solcast_target_kwh = peak_solar * (solcast_threshold / 100.0)
-        solcast_triggered = False
+        solcast_tomorrow_triggered = False
         if solcast_tomorrow <= solcast_target_kwh:
-            solcast_triggered = True
+            solcast_tomorrow_triggered = True
             self.trigger_reasons.append(f"Solcast Tomorrow ({solcast_tomorrow:.1f} <= {solcast_target_kwh:.1f} kWh)")
 
-        # 3. Apply Trigger Mode logic
+        # 3. Calculate Solcast today condition (Feature 056)
+        solcast_today_triggered = False
+        if solcast_today <= solcast_target_kwh:
+            solcast_today_triggered = True
+            self.trigger_reasons.append(f"Solcast Today ({solcast_today:.1f} <= {solcast_target_kwh:.1f} kWh)")
+
+        # 4. Apply Trigger Mode logic
         if trigger_mode.upper() == "AND":
-            # If we lack Amber Express data, we can't satisfy AND
-            self.is_active = amber_triggered and solcast_triggered
+            self.is_active = amber_triggered and solcast_tomorrow_triggered and solcast_today_triggered
         else:
             # OR mode
-            self.is_active = amber_triggered or solcast_triggered
+            self.is_active = amber_triggered or solcast_tomorrow_triggered or solcast_today_triggered
 
         if self.is_active:
             _LOGGER.info(

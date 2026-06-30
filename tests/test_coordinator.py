@@ -1394,3 +1394,139 @@ async def test_coordinator_guard_skipped_without_amber_express():
     # Guard should be inactive (skipped)
     assert result["renewables_guard_active"] is False
     assert result.get("guard_triggers", []) == []
+
+
+# ── Feature 056: Today Solar Coordinator Tests ──────────────────────
+
+
+@pytest.mark.asyncio
+async def test_coordinator_guard_today_solar_trigger():
+    """T011-056: Mock low Solcast today (5.0 kWh), high renewables (65%), high tomorrow (35 kWh) → guard active via 'Solcast Today'."""
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from custom_components.house_battery_control.const import (
+        CONF_GUARD_DAYTIME_DEADLINE,
+        CONF_GUARD_LOW_SOLAR_THRESHOLD,
+        CONF_GUARD_OVERNIGHT_DEADLINE,
+        CONF_GUARD_PEAK_SOLAR,
+        CONF_GUARD_RENEWABLES_THRESHOLD,
+        CONF_GUARD_TRIGGER_MODE,
+        CONF_SOLCAST_TODAY_ENTITY,
+        CONF_SOLCAST_TOMORROW_ENTITY,
+        CONF_USE_AMBER_EXPRESS,
+        DEFAULT_GUARD_DAYTIME_DEADLINE,
+        DEFAULT_GUARD_LOW_SOLAR_THRESHOLD,
+        DEFAULT_GUARD_OVERNIGHT_DEADLINE,
+        DEFAULT_GUARD_PEAK_SOLAR,
+        DEFAULT_GUARD_RENEWABLES_THRESHOLD,
+        DEFAULT_GUARD_TRIGGER_MODE,
+    )
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
+    mock_hass = MagicMock()
+    async def mock_async_add_executor_job(func, *args, **kwargs):
+        return func(*args, **kwargs)
+    mock_hass.async_add_executor_job = mock_async_add_executor_job
+
+    config = {
+        CONF_BATTERY_SOC_ENTITY: "sensor.soc",
+        CONF_BATTERY_POWER_ENTITY: "sensor.battery",
+        CONF_SOLAR_ENTITY: "sensor.solar",
+        CONF_GRID_ENTITY: "sensor.grid",
+        CONF_LOAD_TODAY_ENTITY: "sensor.load",
+        CONF_IMPORT_TODAY_ENTITY: "sensor.import",
+        CONF_EXPORT_TODAY_ENTITY: "sensor.export",
+        CONF_USE_AMBER_EXPRESS: True,
+        CONF_GUARD_RENEWABLES_THRESHOLD: DEFAULT_GUARD_RENEWABLES_THRESHOLD,
+        CONF_GUARD_LOW_SOLAR_THRESHOLD: DEFAULT_GUARD_LOW_SOLAR_THRESHOLD,
+        CONF_GUARD_PEAK_SOLAR: DEFAULT_GUARD_PEAK_SOLAR,
+        CONF_GUARD_TRIGGER_MODE: DEFAULT_GUARD_TRIGGER_MODE,
+        CONF_GUARD_OVERNIGHT_DEADLINE: DEFAULT_GUARD_OVERNIGHT_DEADLINE,
+        CONF_GUARD_DAYTIME_DEADLINE: DEFAULT_GUARD_DAYTIME_DEADLINE,
+        CONF_SOLCAST_TODAY_ENTITY: "sensor.solcast_today",
+        CONF_SOLCAST_TOMORROW_ENTITY: "sensor.solcast_tomorrow",
+    }
+
+    mock_hass.states.get.return_value = _make_state("50.0")
+
+    with (
+        patch("custom_components.house_battery_control.coordinator.async_track_state_change_event"),
+        patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None),
+        patch("custom_components.house_battery_control.coordinator.Store"),
+    ):
+        mock_tracker = MagicMock()
+        mock_tracker.cumulative_cost = 0.0
+        coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config, mock_tracker)
+        coordinator.hass = mock_hass
+        coordinator._update_count = 0
+        coordinator._costs_loaded = True
+        coordinator._last_saved_acquisition = 0.10
+        coordinator.acquisition_cost = 0.10
+        coordinator._previous_state = None
+        coordinator._solver_snapshot = None
+        coordinator._state_transitions = []
+        coordinator.store = MagicMock()
+
+        # Rates with HIGH renewables (65%) — should NOT trigger amber
+        now = datetime(2026, 6, 30, 0, 0, tzinfo=timezone.utc)
+        rates_with_renewables = []
+        for i in range(288):
+            rates_with_renewables.append({
+                "start": now + timedelta(minutes=5 * i),
+                "end": now + timedelta(minutes=5 * (i + 1)),
+                "import_price": 10.0,
+                "export_price": 5.0,
+                "renewables": 65.0,  # HIGH — won't trigger
+            })
+
+        coordinator.rates = MagicMock()
+        coordinator.rates.get_rates.return_value = rates_with_renewables
+        coordinator.rates.get_import_price_at.return_value = 10.0
+        coordinator.rates.get_export_price_at = MagicMock(return_value=5.0)
+        coordinator.weather = MagicMock()
+        coordinator.weather.async_update = AsyncMock()
+        coordinator.weather.get_forecast.return_value = []
+        coordinator.solar = MagicMock()
+        coordinator.solar.async_get_forecast = AsyncMock(return_value=[])
+        coordinator.load_predictor = MagicMock()
+        coordinator.load_predictor.async_predict = AsyncMock(return_value=[])
+        coordinator.load_predictor.cache_date = None
+        coordinator.load_predictor.cache_refreshed_at = None
+        coordinator.load_predictor.history_start = None
+        coordinator.load_predictor.history_end = None
+        coordinator.load_predictor.CACHE_TTL_MINUTES = 60
+        coordinator.load_predictor.last_history = []
+        coordinator.fsm = MagicMock()
+        coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(
+            state="standby", reason="test", limit_kw=0.0, future_plan=[]
+        )
+        coordinator.executor = MagicMock()
+        coordinator.executor.apply_state = AsyncMock()
+        coordinator.executor.get_command_summary.return_value = ""
+        coordinator.synthetic_predictor = MagicMock()
+        coordinator.synthetic_predictor.async_get_synthetic_outlook = AsyncMock(
+            return_value=([], [], [], [])
+        )
+
+        # Key: _get_sensor_value returns different values by entity
+        # Solcast today = 5.0 kWh (LOW — should trigger)
+        # Solcast tomorrow = 35.0 kWh (HIGH — should NOT trigger)
+        # SoC and others = 50.0
+        def mock_sensor(entity_id):
+            if entity_id == "sensor.solcast_today":
+                return 5.0  # LOW solar today
+            elif entity_id == "sensor.solcast_tomorrow":
+                return 35.0  # HIGH solar tomorrow
+            return 50.0
+        coordinator._get_sensor_value = MagicMock(side_effect=mock_sensor)
+
+        result = await coordinator._async_update_data()
+
+    # Guard should be active due to Solcast Today trigger
+    assert result["renewables_guard_active"] is True
+    assert any("Solcast Today" in t for t in result.get("guard_triggers", []))
+    # Amber and tomorrow should NOT be in triggers
+    assert not any("Amber Express" in t for t in result.get("guard_triggers", []))
+    assert not any("Solcast Tomorrow" in t for t in result.get("guard_triggers", []))
