@@ -793,8 +793,8 @@ class TestRenewablesGuardDeadlines:
         assert sequence is not None
         plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
 
-        # Verify that by step 60, battery is at capacity (10.0)
-        assert plan[60] >= 9.99
+        # Verify that by step 60, battery is at capacity (10.0) minus tolerance (0.1)
+        assert plan[60] >= 9.90
 
     def test_guard_deadline_solver_charges_cheapest(self):
         """T029: cheap overnight prices with deadline at step 60, verify plan shows CHARGE_GRID during cheap intervals."""
@@ -900,7 +900,7 @@ class TestRenewablesGuardDeadlines:
         )
 
         plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
-        assert plan[20] >= 9.99
+        assert plan[20] >= 9.90
 
         # Verify it didn't import during 0-15
         for i in range(16):
@@ -931,7 +931,7 @@ class TestRenewablesGuardDeadlines:
         )
 
         plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
-        assert plan[60] >= 9.99
+        assert plan[60] >= 9.90
 
         # By step 81, it should have dumped everything it can for profit (limited by discharge_limit)
         assert sequence[80]["net_grid"] < -1.0
@@ -994,8 +994,42 @@ class TestRenewablesGuardDeadlines:
         )
 
         plan = [s["target_soc"] / 100.0 * 10.0 for s in sequence]
-        assert plan[180] >= 9.99
+        assert plan[180] >= 9.90
 
         # Should have mostly charged at step 120
         assert sequence[120]["net_grid"] > 0.0
 
+
+def test_lin_fsm_float_precision_guard(base_context):
+    """Test 13: Ensure float precision boundaries on guard constraints do not stall the solver."""
+    # Simulate a scenario where the solver is forced to charge exactly at max rate to meet a deadline.
+    base_context.soc = 5.0
+
+    # Let's set capacity to 50.0 to prevent capacity capping.
+    base_context.config["battery_capacity"] = 50.0
+    base_context.config["battery_rate_max"] = 6.3
+    base_context.config["round_trip_efficiency"] = 0.90
+
+    fsm = LinearBatteryStateMachine()
+
+    # Let's inject a guard deadline at exactly 60 steps.
+    base_context.guard_deadline_steps = [60]
+
+    result = fsm.calculate_next_state(base_context)
+
+    assert result.state != "ERROR", "Solver failed with infeasible constraints due to strict equality bounds"
+
+
+def test_lin_fsm_float_precision_reserve(base_context):
+    """Test 14: Ensure float precision on safe_lb reserve_soc calculation doesn't stall the solver."""
+    # Battery starts at 1.0, reserve is 5.0.
+    base_context.soc = 1.0
+    base_context.config["reserve_soc"] = 100 * (5.0 / 27.0) # Reserve of 5 kWh
+    base_context.config["battery_capacity"] = 27.0
+    base_context.config["battery_rate_max"] = 6.3
+    base_context.config["round_trip_efficiency"] = 0.90
+
+    fsm = LinearBatteryStateMachine()
+    result = fsm.calculate_next_state(base_context)
+
+    assert result.state != "ERROR", "Solver failed with infeasible constraints on reserve_soc due to strict equality bounds"

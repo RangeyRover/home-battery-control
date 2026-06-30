@@ -4,9 +4,11 @@ lin_fsm.py — LP FSM (SciPy HiGHS)
 Implements all system requirements from specs/03-lp-fsm-system/system_requirements.md.
 """
 try:
+    from ..const import SOLVER_TOLERANCE_KWH
     from .base import BatteryStateMachine, FSMContext, FSMResult
 except ImportError:
     from base import BatteryStateMachine, FSMContext, FSMResult
+    from const import SOLVER_TOLERANCE_KWH
 
 import logging
 import math
@@ -198,6 +200,8 @@ class LinearBatteryController:
                 obj[b_off + i] = 0.0
             physically_accessible = current + i * charge_limit * eta_in
             safe_lb = min(reserve_kwh, physically_accessible)
+            if physically_accessible < reserve_kwh:
+                safe_lb = max(0.0, safe_lb - SOLVER_TOLERANCE_KWH)
             bounds[b_off + i] = (safe_lb, capacity)
 
         # Apply guard deadlines (Phase 4)
@@ -210,9 +214,9 @@ class LinearBatteryController:
                 if 0 < deadline_idx < (number_step + 1):
                     # Calculate the maximum physically achievable SoC at this step
                     max_reachable = min(capacity, current + deadline_idx * charge_limit * eta_in)
-                    # Raise the lower bound to push toward full charge
+                    # Raise the lower bound to push toward full charge, with numerical tolerance
                     current_lb, current_ub = bounds[b_off + deadline_idx]
-                    new_lb = max(current_lb, max_reachable)
+                    new_lb = max(current_lb, max_reachable - SOLVER_TOLERANCE_KWH)
                     bounds[b_off + deadline_idx] = (new_lb, current_ub)
 
         # --- Inequality constraints ---
