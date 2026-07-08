@@ -1530,3 +1530,61 @@ async def test_coordinator_guard_today_solar_trigger():
     # Amber and tomorrow should NOT be in triggers
     assert not any("Amber Express" in t for t in result.get("guard_triggers", []))
     assert not any("Solcast Tomorrow" in t for t in result.get("guard_triggers", []))
+
+async def test_amber_express_entity_mapping(mock_hass, monkeypatch):
+    """Test that RatesManager receives the correct detailed entities when Amber Express is active."""
+    import homeassistant.helpers.frame
+    monkeypatch.setattr(homeassistant.helpers.frame, "report_usage", lambda *args, **kwargs: None)
+
+    from custom_components.house_battery_control.const import (
+        CONF_CURRENT_EXPORT_PRICE_ENTITY,
+        CONF_CURRENT_IMPORT_PRICE_ENTITY,
+        CONF_EXPORT_PRICE_ENTITY,
+        CONF_IMPORT_PRICE_ENTITY,
+        CONF_USE_AMBER_EXPRESS,
+    )
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
+    config = {
+        CONF_IMPORT_PRICE_ENTITY: "sensor.amber_general",
+        CONF_EXPORT_PRICE_ENTITY: "sensor.amber_feedin",
+        CONF_CURRENT_IMPORT_PRICE_ENTITY: "sensor.amber_express_import_detailed",
+        CONF_CURRENT_EXPORT_PRICE_ENTITY: "sensor.amber_express_export_detailed",
+        CONF_USE_AMBER_EXPRESS: True,
+    }
+    mock_hass.data = {}
+    from unittest.mock import MagicMock
+    mock_hass.config = MagicMock()
+    mock_hass.config.config_dir = "test_dir"
+    coord = HBCDataUpdateCoordinator(mock_hass, "test", config, MagicMock())
+
+    assert coord.rates._import_entity_id == "sensor.amber_express_import_detailed"
+    assert coord.rates._export_entity_id == "sensor.amber_express_export_detailed"
+
+async def test_amber_express_entity_mapping_fallback(mock_hass, monkeypatch):
+    """Test that RatesManager falls back to forecast entities if detailed entities are missing."""
+    import homeassistant.helpers.frame
+    monkeypatch.setattr(homeassistant.helpers.frame, "report_usage", lambda *args, **kwargs: None)
+
+    from custom_components.house_battery_control.const import (
+        CONF_EXPORT_PRICE_ENTITY,
+        CONF_IMPORT_PRICE_ENTITY,
+        CONF_USE_AMBER_EXPRESS,
+    )
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
+    config = {
+        CONF_IMPORT_PRICE_ENTITY: "sensor.amber_general",
+        CONF_EXPORT_PRICE_ENTITY: "sensor.amber_feedin",
+        # Detailed entities omitted!
+        CONF_USE_AMBER_EXPRESS: True,
+    }
+    mock_hass.data = {}
+    from unittest.mock import MagicMock
+    mock_hass.config = MagicMock()
+    mock_hass.config.config_dir = "test_dir"
+    coord = HBCDataUpdateCoordinator(mock_hass, "test", config, MagicMock())
+
+    # Should safely fall back to the general forecast entity fields
+    assert coord.rates._import_entity_id == "sensor.amber_general"
+    assert coord.rates._export_entity_id == "sensor.amber_feedin"

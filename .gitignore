@@ -42,3 +42,6 @@ archive/
 
 node_modules/
 *.db 
+ 
+renewable forecast/
+scratch/

@@ -121,11 +121,17 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         self._previous_state: str | None = None
 
         # Initialize Managers
+        use_amber_express = config.get(CONF_USE_AMBER_EXPRESS, False)
+
+        # Feature 058: When using Amber Express, prefer the CURRENT detailed entities (which contain advanced_price_predicted)
+        import_entity = config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY) or config.get(CONF_IMPORT_PRICE_ENTITY, "") if use_amber_express else config.get(CONF_IMPORT_PRICE_ENTITY, "")
+        export_entity = config.get(CONF_CURRENT_EXPORT_PRICE_ENTITY) or config.get(CONF_EXPORT_PRICE_ENTITY, "") if use_amber_express else config.get(CONF_EXPORT_PRICE_ENTITY, "")
+
         self.rates = RatesManager(
             hass,
-            config.get(CONF_IMPORT_PRICE_ENTITY, ""),
-            config.get(CONF_EXPORT_PRICE_ENTITY, ""),
-            use_amber_express=config.get(CONF_USE_AMBER_EXPRESS, False),
+            import_entity,
+            export_entity,
+            use_amber_express=use_amber_express,
         )
         self.weather = WeatherManager(hass, config.get(CONF_WEATHER_ENTITY, ""))
         self.load_predictor = LoadPredictor(hass)
