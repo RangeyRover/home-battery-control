@@ -57,11 +57,16 @@ As a user updating my electricity contract, I want to change my Fixed TOU rates 
 - What happens if the Home Assistant OS timezone is set to UTC but the user lives in Australia? (The generated forecast will strictly use the HA OS timezone; this is a user configuration issue, but we should document it).
 - What happens during the 1-hour overlap when DST ends (Fall back)? (The local time repeats; the generator must handle UTC conversions carefully so the 48-hour array remains contiguous and monotonic).
 
+## Clarifications
+
+### Session 2026-07-11
+- Q: How should we isolate Dynamic Pricing (Amber) from Fixed TOU in the Config Flow? → A: Global Pricing Mode Toggle. Add a new dropdown asking "Pricing Mode" and dynamically show/hide entity inputs vs TOU rates based on the selection.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST provide a configuration interface (Config Flow Options) for users to select "Fixed TOU" mode instead of providing dynamic Home Assistant entity IDs.
+- **FR-001**: System MUST provide a "Pricing Mode" selection (e.g., Dynamic vs Fixed TOU) at the start of the configuration flow, dynamically showing/hiding Amber entity requirements based on the chosen mode.
 - **FR-002**: System MUST allow users to configure start times, end times, and prices (import and export) for Peak, Shoulder, and Off-Peak periods.
 - **FR-003**: System MUST internally generate a 48-hour forward-looking price array that mimics the Amber Electric forecast JSON structure.
 - **FR-004**: System MUST apply the configured TOU schedule identically to all 7 days of the week (Daily schedule).
