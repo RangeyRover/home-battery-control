@@ -29,7 +29,7 @@
 
 ---
 
-## Phase 3: User Story 1 - Configure Fixed TOU Tariffs (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 - Configure Fixed TOU Tariffs (Priority: P1)
 
 **Goal**: As a user with a fixed Time-of-Use electricity plan, I want to manually configure my Peak, Shoulder, and Off-Peak times and rates within the integration's Config Flow so that I don't have to build complex Home Assistant template sensors to mimic dynamic pricing.
 
@@ -124,7 +124,7 @@
 
 ## Implementation Strategy
 
-### MVP First (User Story 1 & 2)
+### Implementation Sequence
 
 1. Complete Phase 1 & 2: Setup & Foundation
 2. Complete Phase 3: Config Flow UI (US1)
