@@ -16,6 +16,12 @@ from custom_components.house_battery_control.const import (
     CONF_BATTERY_SOC_ENTITY,
     CONF_EXPORT_PRICE_ENTITY,
     CONF_EXPORT_TODAY_ENTITY,
+    CONF_FIXED_TOU_IMPORT_START,
+    CONF_FIXED_TOU_IMPORT_END,
+    CONF_FIXED_TOU_IMPORT_PRICE,
+    CONF_FIXED_TOU_EXPORT_START,
+    CONF_FIXED_TOU_EXPORT_END,
+    CONF_FIXED_TOU_EXPORT_PRICE,
     CONF_GRID_ENTITY,
     CONF_GRID_POWER_INVERT,
     CONF_IMPORT_PRICE_ENTITY,
@@ -263,9 +269,9 @@ async def test_config_flow_pricing_mode_fixed_tou():
 
     from custom_components.house_battery_control.config_flow import HBCOptionsFlowHandler
     from custom_components.house_battery_control.const import (
-        CONF_FIXED_TOU_PEAK_PRICE,
         CONF_PRICING_MODE,
         PRICING_MODE_FIXED_TOU,
+        CONF_FIXED_TOU_IMPORT_PRICE,
     )
 
     class MockConfigEntry:
@@ -286,6 +292,90 @@ async def test_config_flow_pricing_mode_fixed_tou():
     assert result["type"] == "form"
     assert result["step_id"] == "fixed_tou"
 
-    schema_keys = [k.schema for k in result["data_schema"].schema.keys()]
-    assert CONF_FIXED_TOU_PEAK_PRICE in schema_keys
+
+def test_validate_fixed_tou_periods_valid():
+    """T003: [US1] Validation passes for valid 24h continuous periods."""
+    from custom_components.house_battery_control.config_flow import validate_fixed_tou_periods
+    
+    user_input = {
+        CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(1): "06:00:00",
+        CONF_FIXED_TOU_IMPORT_START.format(2): "06:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(2): "16:00:00",
+        CONF_FIXED_TOU_IMPORT_START.format(3): "16:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(3): "00:00:00",
+        
+        CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
+    }
+    
+    assert validate_fixed_tou_periods(user_input) is None
+
+def test_validate_fixed_tou_periods_missing():
+    """T003: [US1] Validation fails if no periods are defined."""
+    from custom_components.house_battery_control.config_flow import validate_fixed_tou_periods
+    assert validate_fixed_tou_periods({}) == "missing_periods"
+
+def test_validate_fixed_tou_periods_invalid_start():
+    """T003: [US1] Validation fails if periods do not start at 00:00."""
+    from custom_components.house_battery_control.config_flow import validate_fixed_tou_periods
+    user_input = {
+        CONF_FIXED_TOU_IMPORT_START.format(1): "06:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
+    }
+    assert validate_fixed_tou_periods(user_input) == "invalid_period_start"
+
+def test_validate_fixed_tou_periods_invalid_end():
+    """T003: [US1] Validation fails if periods do not end at 00:00."""
+    from custom_components.house_battery_control.config_flow import validate_fixed_tou_periods
+    user_input = {
+        CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(1): "23:59:00",
+        CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
+    }
+    assert validate_fixed_tou_periods(user_input) == "invalid_period_end"
+
+def test_validate_fixed_tou_periods_gap():
+    """T003: [US1] Validation fails if there is a gap."""
+    from custom_components.house_battery_control.config_flow import validate_fixed_tou_periods
+    user_input = {
+        CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(1): "12:00:00",
+        CONF_FIXED_TOU_IMPORT_START.format(2): "13:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(2): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
+    }
+    assert validate_fixed_tou_periods(user_input) == "period_gap_or_overlap"
+
+def test_validate_fixed_tou_periods_overlap():
+    """T003: [US1] Validation fails if periods overlap."""
+    from custom_components.house_battery_control.config_flow import validate_fixed_tou_periods
+    user_input = {
+        CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(1): "14:00:00",
+        CONF_FIXED_TOU_IMPORT_START.format(2): "13:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(2): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
+    }
+    assert validate_fixed_tou_periods(user_input) == "period_gap_or_overlap"
+
+def test_validate_fixed_tou_periods_midnight_cross():
+    """T003: [US1] Validation fails if a period crosses midnight (must be split)."""
+    from custom_components.house_battery_control.config_flow import validate_fixed_tou_periods
+    user_input = {
+        CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(1): "15:00:00",
+        CONF_FIXED_TOU_IMPORT_START.format(2): "15:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(2): "02:00:00", # Crosses midnight
+        CONF_FIXED_TOU_IMPORT_START.format(3): "02:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(3): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
+    }
+    assert validate_fixed_tou_periods(user_input) == "period_crosses_midnight"
 

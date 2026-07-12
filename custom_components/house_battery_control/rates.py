@@ -58,7 +58,7 @@ class RatesManager:
                     "start": r["start_time"],
                     "end": r["end_time"],
                     "import_price": r["per_kwh"],
-                    "export_price": 0.0,
+                    "export_price": r["export_price"],
                     "renewables": None,
                     "type": r["type"],
                 }

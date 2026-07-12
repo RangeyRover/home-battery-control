@@ -314,13 +314,24 @@ def test_standard_amber_renewables_none(mock_hass):
 
 def test_rates_manager_fixed_tou_mode(mock_hass):
     """T007: Verify RatesManager delegates to FixedTOUGenerator when in Fixed TOU mode."""
-    from custom_components.house_battery_control.const import PRICING_MODE_FIXED_TOU
+    from custom_components.house_battery_control.const import (
+        PRICING_MODE_FIXED_TOU,
+        CONF_FIXED_TOU_IMPORT_START,
+        CONF_FIXED_TOU_IMPORT_END,
+        CONF_FIXED_TOU_IMPORT_PRICE,
+        CONF_FIXED_TOU_EXPORT_START,
+        CONF_FIXED_TOU_EXPORT_END,
+        CONF_FIXED_TOU_EXPORT_PRICE,
+    )
     from custom_components.house_battery_control.rates import RatesManager
 
     config = {
-        "fixed_tou_peak_price": 40.0,
-        "fixed_tou_offpeak_price": 10.0,
-        "fixed_tou_shoulder_price": 20.0,
+        CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(1): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_PRICE.format(1): 40.0,
+        CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_PRICE.format(1): 15.0,
     }
     manager = RatesManager(
         mock_hass,
@@ -333,6 +344,5 @@ def test_rates_manager_fixed_tou_mode(mock_hass):
 
     rates = manager.get_rates()
     assert len(rates) == 576
-    assert rates[0]['import_price'] in (40.0, 10.0, 20.0)
-    assert rates[0]['export_price'] == 0.0
-
+    assert rates[0]['import_price'] == 40.0
+    assert rates[0]['export_price'] == 15.0

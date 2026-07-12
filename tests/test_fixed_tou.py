@@ -1,25 +1,47 @@
 """Tests for Fixed TOU Generator."""
-from datetime import datetime
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
-
-# We will need the generator class. We know it will be FixedTOUGenerator in fixed_tou.py.
-# The user spec expects a 48-hour continuous array of pricing blocks, structually identical to Amber dynamic forecasts.
-# FR-004: Daily schedule identical all 7 days
-# FR-005: Use local timezone, accounting for DST.
+from custom_components.house_battery_control.const import (
+    CONF_FIXED_TOU_IMPORT_START,
+    CONF_FIXED_TOU_IMPORT_END,
+    CONF_FIXED_TOU_IMPORT_PRICE,
+    CONF_FIXED_TOU_EXPORT_START,
+    CONF_FIXED_TOU_EXPORT_END,
+    CONF_FIXED_TOU_EXPORT_PRICE,
+)
 
 def test_fixed_tou_generator_structure():
-    """T005: Verify the basic structure of the output."""
+    """T007: Verify the basic structure and dynamic price lookup of the output."""
     from custom_components.house_battery_control.fixed_tou import FixedTOUGenerator
 
-    # Example config data
     config = {
-        "fixed_tou_peak_start": "16:00:00",
-        "fixed_tou_peak_end": "20:00:00",
-        "fixed_tou_peak_price": 40.0,
-        "fixed_tou_offpeak_start": "00:00:00",
-        "fixed_tou_offpeak_end": "06:00:00",
-        "fixed_tou_offpeak_price": 10.0,
-        "fixed_tou_shoulder_price": 20.0,
+        CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(1): "06:00:00",
+        CONF_FIXED_TOU_IMPORT_PRICE.format(1): 30.558,
+        
+        CONF_FIXED_TOU_IMPORT_START.format(2): "06:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(2): "10:00:00",
+        CONF_FIXED_TOU_IMPORT_PRICE.format(2): 47.014,
+        
+        CONF_FIXED_TOU_IMPORT_START.format(3): "10:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(3): "15:00:00",
+        CONF_FIXED_TOU_IMPORT_PRICE.format(3): 21.604,
+        
+        CONF_FIXED_TOU_IMPORT_START.format(4): "15:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(4): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_PRICE.format(4): 47.014,
+        
+        CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(1): "17:00:00",
+        CONF_FIXED_TOU_EXPORT_PRICE.format(1): 1.0,
+        
+        CONF_FIXED_TOU_EXPORT_START.format(2): "17:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(2): "21:00:00",
+        CONF_FIXED_TOU_EXPORT_PRICE.format(2): 27.0,
+        
+        CONF_FIXED_TOU_EXPORT_START.format(3): "21:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(3): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_PRICE.format(3): 1.0,
     }
 
     generator = FixedTOUGenerator(config)
@@ -33,26 +55,37 @@ def test_fixed_tou_generator_structure():
     # Expected: 48 hours = 2 days, 5 min intervals = 12 * 48 = 576 blocks
     assert len(forecast) == 576
 
-    # First block should be 10:00 AM (shoulder period, so price is 20)
+    # First block should be 10:00 AM (shoulder period, so price is 21.604, export 1.0)
     assert forecast[0]["start_time"] == start_dt
-    assert forecast[0]["per_kwh"] == 20.0
+    assert forecast[0]["per_kwh"] == 21.604
+    assert forecast[0]["export_price"] == 1.0
 
-    # Verify peak period starts at 16:00
-    peak_start_idx = 12 * 6 # 6 hours later = 72 blocks
-    assert forecast[peak_start_idx]["per_kwh"] == 40.0
+    # Verify peak period starts at 15:00
+    peak_start_idx = 12 * 5 # 5 hours later = 60 blocks
+    assert forecast[peak_start_idx]["per_kwh"] == 47.014
+    assert forecast[peak_start_idx]["export_price"] == 1.0
+
+    # Verify export peak starts at 17:00
+    export_peak_start_idx = 12 * 7 # 7 hours later = 84 blocks
+    assert forecast[export_peak_start_idx]["per_kwh"] == 47.014
+    assert forecast[export_peak_start_idx]["export_price"] == 27.0
 
 def test_fixed_tou_generator_dst_boundary():
-    """T005: Verify generation across a DST boundary."""
+    """T007: Verify generation across a DST boundary with dynamic periods."""
     from custom_components.house_battery_control.fixed_tou import FixedTOUGenerator
 
     config = {
-        "fixed_tou_peak_start": "16:00:00",
-        "fixed_tou_peak_end": "20:00:00",
-        "fixed_tou_peak_price": 40.0,
-        "fixed_tou_offpeak_start": "00:00:00",
-        "fixed_tou_offpeak_end": "06:00:00",
-        "fixed_tou_offpeak_price": 10.0,
-        "fixed_tou_shoulder_price": 20.0,
+        CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(1): "12:00:00",
+        CONF_FIXED_TOU_IMPORT_PRICE.format(1): 10.0,
+        
+        CONF_FIXED_TOU_IMPORT_START.format(2): "12:00:00",
+        CONF_FIXED_TOU_IMPORT_END.format(2): "00:00:00",
+        CONF_FIXED_TOU_IMPORT_PRICE.format(2): 40.0,
+        
+        CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
+        CONF_FIXED_TOU_EXPORT_PRICE.format(1): 1.0,
     }
     generator = FixedTOUGenerator(config)
 
@@ -62,13 +95,9 @@ def test_fixed_tou_generator_dst_boundary():
 
     forecast = generator.generate_forecast(start_dt)
 
-    # 48 hours means it crosses the boundary.
-    # The output length should still be exactly 576 blocks (48 real elapsed hours).
     assert len(forecast) == 576
 
-    # The timezone shifts inside the array. Verify that the peak period on day 2 is STILL at 16:00 local time
     day2_1600 = datetime(2026, 4, 5, 16, 0, tzinfo=tz)
-
     found_peak = False
     for block in forecast:
         if block["start_time"] == day2_1600:

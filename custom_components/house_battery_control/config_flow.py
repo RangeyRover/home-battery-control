@@ -41,13 +41,12 @@ from .const import (
     CONF_EXPORT_MARGIN,
     CONF_EXPORT_PRICE_ENTITY,
     CONF_EXPORT_TODAY_ENTITY,
-    CONF_FIXED_TOU_OFFPEAK_END,
-    CONF_FIXED_TOU_OFFPEAK_PRICE,
-    CONF_FIXED_TOU_OFFPEAK_START,
-    CONF_FIXED_TOU_PEAK_END,
-    CONF_FIXED_TOU_PEAK_PRICE,
-    CONF_FIXED_TOU_PEAK_START,
-    CONF_FIXED_TOU_SHOULDER_PRICE,
+    CONF_FIXED_TOU_IMPORT_START,
+    CONF_FIXED_TOU_IMPORT_END,
+    CONF_FIXED_TOU_IMPORT_PRICE,
+    CONF_FIXED_TOU_EXPORT_START,
+    CONF_FIXED_TOU_EXPORT_END,
+    CONF_FIXED_TOU_EXPORT_PRICE,
     CONF_GRID_ENTITY,
     CONF_GRID_POWER_INVERT,
     CONF_GUARD_DAYTIME_DEADLINE,
@@ -107,6 +106,62 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+def _parse_time_str(time_str: str) -> __import__('datetime').time:
+    """Parse a time string (HH:MM:SS) into a datetime.time object."""
+    from datetime import time
+    if not time_str:
+        return time(0, 0)
+    try:
+        parts = time_str.split(":")
+        h = int(parts[0])
+        m = int(parts[1]) if len(parts) > 1 else 0
+        s = int(parts[2]) if len(parts) > 2 else 0
+        return time(h, m, s)
+    except ValueError:
+        return time(0, 0)
+
+def validate_fixed_tou_periods(user_input: dict[str, Any]) -> str | None:
+    """Validate that import and export periods cover exactly 24 hours with no gaps/overlaps."""
+    from datetime import time
+    from .const import (
+        CONF_FIXED_TOU_IMPORT_START, CONF_FIXED_TOU_IMPORT_END,
+        CONF_FIXED_TOU_EXPORT_START, CONF_FIXED_TOU_EXPORT_END
+    )
+    
+    for prefix_start, prefix_end in [
+        (CONF_FIXED_TOU_IMPORT_START, CONF_FIXED_TOU_IMPORT_END),
+        (CONF_FIXED_TOU_EXPORT_START, CONF_FIXED_TOU_EXPORT_END)
+    ]:
+        periods = []
+        for i in range(1, 11):
+            start_str = user_input.get(prefix_start.format(i))
+            end_str = user_input.get(prefix_end.format(i))
+            if start_str and end_str:
+                start_t = _parse_time_str(start_str)
+                end_t = _parse_time_str(end_str)
+                if end_t != time(0, 0) and start_t >= end_t:
+                    return "period_crosses_midnight"
+                periods.append((start_t, end_t))
+                
+        if not periods:
+            return "missing_periods"
+            
+        periods.sort(key=lambda p: p[0])
+        
+        if periods[0][0] != time(0, 0):
+            return "invalid_period_start"
+            
+        if periods[-1][1] != time(0, 0):
+            return "invalid_period_end"
+            
+        for i in range(len(periods)):
+            start, end = periods[i]
+            if i > 0:
+                prev_end = periods[i-1][1]
+                if start != prev_end:
+                    return "period_gap_or_overlap"
+                    
+    return None
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for House Battery Control."""
@@ -217,23 +272,28 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_fixed_tou(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step 1c: Fixed TOU."""
+        errors = {}
         if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_energy()
+            err = validate_fixed_tou_periods(user_input)
+            if err:
+                errors["base"] = err
+            else:
+                self._data.update(user_input)
+                return await self.async_step_energy()
+
+        schema = {}
+        for i in range(1, 11):
+            schema[vol.Optional(CONF_FIXED_TOU_IMPORT_START.format(i))] = TimeSelector()
+            schema[vol.Optional(CONF_FIXED_TOU_IMPORT_END.format(i))] = TimeSelector()
+            schema[vol.Optional(CONF_FIXED_TOU_IMPORT_PRICE.format(i))] = NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX))
+            schema[vol.Optional(CONF_FIXED_TOU_EXPORT_START.format(i))] = TimeSelector()
+            schema[vol.Optional(CONF_FIXED_TOU_EXPORT_END.format(i))] = TimeSelector()
+            schema[vol.Optional(CONF_FIXED_TOU_EXPORT_PRICE.format(i))] = NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX))
 
         return self.async_show_form(
             step_id="fixed_tou",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_FIXED_TOU_PEAK_START, default="16:00:00"): TimeSelector(),
-                    vol.Required(CONF_FIXED_TOU_PEAK_END, default="20:00:00"): TimeSelector(),
-                    vol.Required(CONF_FIXED_TOU_PEAK_PRICE, default=40.0): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
-                    vol.Required(CONF_FIXED_TOU_OFFPEAK_START, default="00:00:00"): TimeSelector(),
-                    vol.Required(CONF_FIXED_TOU_OFFPEAK_END, default="06:00:00"): TimeSelector(),
-                    vol.Required(CONF_FIXED_TOU_OFFPEAK_PRICE, default=10.0): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
-                    vol.Required(CONF_FIXED_TOU_SHOULDER_PRICE, default=20.0): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
-                }
-            ),
+            data_schema=vol.Schema(schema),
+            errors=errors,
         )
 
     async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -526,24 +586,29 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_fixed_tou(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step 1c: Fixed TOU."""
+        errors = {}
         if user_input is not None:
-            self._data.update(user_input)
-            self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
-            return await self.async_step_energy()
+            err = validate_fixed_tou_periods(user_input)
+            if err:
+                errors["base"] = err
+            else:
+                self._data.update(user_input)
+                self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
+                return await self.async_step_energy()
+
+        schema = {}
+        for i in range(1, 11):
+            schema[vol.Optional(CONF_FIXED_TOU_IMPORT_START.format(i), description={"suggested_value": self._data.get(CONF_FIXED_TOU_IMPORT_START.format(i))})] = TimeSelector()
+            schema[vol.Optional(CONF_FIXED_TOU_IMPORT_END.format(i), description={"suggested_value": self._data.get(CONF_FIXED_TOU_IMPORT_END.format(i))})] = TimeSelector()
+            schema[vol.Optional(CONF_FIXED_TOU_IMPORT_PRICE.format(i), description={"suggested_value": self._data.get(CONF_FIXED_TOU_IMPORT_PRICE.format(i))})] = NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX))
+            schema[vol.Optional(CONF_FIXED_TOU_EXPORT_START.format(i), description={"suggested_value": self._data.get(CONF_FIXED_TOU_EXPORT_START.format(i))})] = TimeSelector()
+            schema[vol.Optional(CONF_FIXED_TOU_EXPORT_END.format(i), description={"suggested_value": self._data.get(CONF_FIXED_TOU_EXPORT_END.format(i))})] = TimeSelector()
+            schema[vol.Optional(CONF_FIXED_TOU_EXPORT_PRICE.format(i), description={"suggested_value": self._data.get(CONF_FIXED_TOU_EXPORT_PRICE.format(i))})] = NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX))
 
         return self.async_show_form(
             step_id="fixed_tou",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_FIXED_TOU_PEAK_START, default=self._data.get(CONF_FIXED_TOU_PEAK_START, "16:00:00")): TimeSelector(),
-                    vol.Required(CONF_FIXED_TOU_PEAK_END, default=self._data.get(CONF_FIXED_TOU_PEAK_END, "20:00:00")): TimeSelector(),
-                    vol.Required(CONF_FIXED_TOU_PEAK_PRICE, default=self._data.get(CONF_FIXED_TOU_PEAK_PRICE, 40.0)): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
-                    vol.Required(CONF_FIXED_TOU_OFFPEAK_START, default=self._data.get(CONF_FIXED_TOU_OFFPEAK_START, "00:00:00")): TimeSelector(),
-                    vol.Required(CONF_FIXED_TOU_OFFPEAK_END, default=self._data.get(CONF_FIXED_TOU_OFFPEAK_END, "06:00:00")): TimeSelector(),
-                    vol.Required(CONF_FIXED_TOU_OFFPEAK_PRICE, default=self._data.get(CONF_FIXED_TOU_OFFPEAK_PRICE, 10.0)): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
-                    vol.Required(CONF_FIXED_TOU_SHOULDER_PRICE, default=self._data.get(CONF_FIXED_TOU_SHOULDER_PRICE, 20.0)): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
-                }
-            ),
+            data_schema=vol.Schema(schema),
+            errors=errors,
         )
 
     async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:

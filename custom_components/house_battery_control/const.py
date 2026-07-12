@@ -27,13 +27,13 @@ CONF_PRICING_MODE = "pricing_mode"
 PRICING_MODE_AMBER = "amber"
 PRICING_MODE_FIXED_TOU = "fixed_tou"
 
-CONF_FIXED_TOU_PEAK_START = "fixed_tou_peak_start"
-CONF_FIXED_TOU_PEAK_END = "fixed_tou_peak_end"
-CONF_FIXED_TOU_PEAK_PRICE = "fixed_tou_peak_price"
-CONF_FIXED_TOU_OFFPEAK_START = "fixed_tou_offpeak_start"
-CONF_FIXED_TOU_OFFPEAK_END = "fixed_tou_offpeak_end"
-CONF_FIXED_TOU_OFFPEAK_PRICE = "fixed_tou_offpeak_price"
-CONF_FIXED_TOU_SHOULDER_PRICE = "fixed_tou_shoulder_price"
+CONF_FIXED_TOU_IMPORT_START = "fixed_tou_import_{}_start"
+CONF_FIXED_TOU_IMPORT_END = "fixed_tou_import_{}_end"
+CONF_FIXED_TOU_IMPORT_PRICE = "fixed_tou_import_{}_price"
+
+CONF_FIXED_TOU_EXPORT_START = "fixed_tou_export_{}_start"
+CONF_FIXED_TOU_EXPORT_END = "fixed_tou_export_{}_end"
+CONF_FIXED_TOU_EXPORT_PRICE = "fixed_tou_export_{}_price"
 
 # Telemetry Cost Tracker Keys
 CONF_TRACKER_IMPORT_PRICE = "tracker_import_price"
