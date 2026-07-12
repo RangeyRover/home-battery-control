@@ -27,11 +27,26 @@ class FixedTOUGenerator:
             CONF_FIXED_TOU_IMPORT_END, 
             CONF_FIXED_TOU_IMPORT_PRICE
         )
+        if not self._import_periods:
+            self._import_periods = [
+                {"start": time(0, 0), "end": time(1, 0), "price": 47.014},
+                {"start": time(1, 0), "end": time(6, 0), "price": 30.558},
+                {"start": time(6, 0), "end": time(10, 0), "price": 47.014},
+                {"start": time(10, 0), "end": time(15, 0), "price": 21.604},
+                {"start": time(15, 0), "end": time(0, 0), "price": 47.014},
+            ]
+
         self._export_periods = self._parse_periods(
             CONF_FIXED_TOU_EXPORT_START, 
             CONF_FIXED_TOU_EXPORT_END, 
             CONF_FIXED_TOU_EXPORT_PRICE
         )
+        if not self._export_periods:
+            self._export_periods = [
+                {"start": time(0, 0), "end": time(17, 0), "price": 1.0},
+                {"start": time(17, 0), "end": time(21, 0), "price": 27.0},
+                {"start": time(21, 0), "end": time(0, 0), "price": 1.0},
+            ]
 
     def _parse_periods(self, start_prefix: str, end_prefix: str, price_prefix: str) -> list[dict[str, Any]]:
         periods = []
