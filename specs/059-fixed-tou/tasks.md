@@ -13,7 +13,7 @@
 
 **Purpose**: Project initialization and basic data model additions.
 
-- [ ] T001 Create `CONF_PRICING_MODE` and `CONF_FIXED_TOU_*` constants in `custom_components/house_battery_control/const.py`
+- [x] T001 Create `CONF_PRICING_MODE` and `CONF_FIXED_TOU_*` constants in `custom_components/house_battery_control/const.py`
 
 ---
 
@@ -23,7 +23,7 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T002 Update translations file `custom_components/house_battery_control/translations/en.json` to include new Config Flow strings for Fixed TOU.
+- [x] T002 Update translations file `custom_components/house_battery_control/translations/en.json` to include new Config Flow strings for Fixed TOU.
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -39,11 +39,11 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T003 [P] [US1] Create Config Flow isolation tests (Pricing Mode switch) in `tests/test_config_flow.py`
+- [x] T003 [P] [US1] Create Config Flow isolation tests (Pricing Mode switch) in `tests/test_config_flow.py`
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Implement `async_step_pricing_mode` and update `async_step_energy` branching in `custom_components/house_battery_control/config_flow.py` (depends on T003)
+- [x] T004 [US1] Implement `async_step_pricing_mode` and update `async_step_energy` branching in `custom_components/house_battery_control/config_flow.py` (depends on T003)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -57,11 +57,11 @@
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T005 [P] [US2] Create unit tests for `FixedTOUGenerator` output and DST boundary mapping in `tests/test_fixed_tou.py`
+- [x] T005 [P] [US2] Create unit tests for `FixedTOUGenerator` output and DST boundary mapping in `tests/test_fixed_tou.py`
 
 ### Implementation for User Story 2
 
-- [ ] T006 [US2] Implement the `FixedTOUGenerator` class logic in `custom_components/house_battery_control/fixed_tou.py` (depends on T005)
+- [x] T006 [US2] Implement the `FixedTOUGenerator` class logic in `custom_components/house_battery_control/fixed_tou.py` (depends on T005)
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -75,11 +75,11 @@
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T007 [P] [US3] Create integration tests for the `RatesManager` solver input switch in `tests/test_coordinator.py`
+- [x] T007 [P] [US3] Create integration tests for the `RatesManager` solver input switch in `tests/test_coordinator.py`
 
 ### Implementation for User Story 3
 
-- [ ] T008 [US3] Update `RatesManager` initialization and fetch logic in `custom_components/house_battery_control/coordinator.py` to route to `FixedTOUGenerator` when in Fixed TOU mode.
+- [x] T008 [US3] Update `RatesManager` initialization and fetch logic in `custom_components/house_battery_control/coordinator.py` to route to `FixedTOUGenerator` when in Fixed TOU mode.
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -89,8 +89,8 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T009 Code cleanup and refactoring
-- [ ] T010 Final end-to-end testing verification
+- [x] T009 Code cleanup and refactoring
+- [x] T010 Final end-to-end testing verification
 
 ---
 

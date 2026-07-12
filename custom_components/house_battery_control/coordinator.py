@@ -44,6 +44,7 @@ from .const import (
     CONF_LOAD_TODAY_ENTITY,
     CONF_NO_IMPORT_PERIODS,
     CONF_OBSERVATION_MODE,
+    CONF_PRICING_MODE,
     CONF_RESERVE_SOC,
     CONF_ROUND_TRIP_EFFICIENCY,
     CONF_SOLAR_ENTITY,
@@ -64,6 +65,7 @@ from .const import (
     DEFAULT_SOLCAST_TODAY,
     DEFAULT_SOLCAST_TOMORROW,
     DOMAIN,
+    PRICING_MODE_AMBER,
 )
 from .execute import PowerwallExecutor
 from .fsm.base import FSMContext, SolverInputs
@@ -127,11 +129,15 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         import_entity = config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY) or config.get(CONF_IMPORT_PRICE_ENTITY, "") if use_amber_express else config.get(CONF_IMPORT_PRICE_ENTITY, "")
         export_entity = config.get(CONF_CURRENT_EXPORT_PRICE_ENTITY) or config.get(CONF_EXPORT_PRICE_ENTITY, "") if use_amber_express else config.get(CONF_EXPORT_PRICE_ENTITY, "")
 
+        pricing_mode = config.get(CONF_PRICING_MODE, PRICING_MODE_AMBER)
+
         self.rates = RatesManager(
             hass,
             import_entity,
             export_entity,
             use_amber_express=use_amber_express,
+            pricing_mode=pricing_mode,
+            config=config,
         )
         self.weather = WeatherManager(hass, config.get(CONF_WEATHER_ENTITY, ""))
         self.load_predictor = LoadPredictor(hass)

@@ -26,15 +26,46 @@ class RatesManager:
         import_entity_id: str,
         export_entity_id: str,
         use_amber_express: bool = False,
+        pricing_mode: str = "amber_dynamic",
+        config: dict | None = None,
     ):
         self._hass = hass
         self._import_entity_id = import_entity_id
         self._export_entity_id = export_entity_id
         self._use_amber_express = use_amber_express
+        self._pricing_mode = pricing_mode
+        self._config = config or {}
         self._rates: List[RateInterval] = []
 
     def update(self) -> None:
         """Fetch latest rates from both import and export sensors."""
+        from .const import PRICING_MODE_FIXED_TOU
+        if self._pricing_mode == PRICING_MODE_FIXED_TOU:
+            from .fixed_tou import FixedTOUGenerator
+            gen = FixedTOUGenerator(self._config)
+
+            # Start forecast exactly on the current 5-minute boundary
+            now = dt_util.now()
+            minute_rounded = (now.minute // 5) * 5
+            start_dt = now.replace(minute=minute_rounded, second=0, microsecond=0)
+
+            raw_forecast = gen.generate_forecast(start_dt)
+
+            merged = {}
+            for r in raw_forecast:
+                key = r["start_time"]
+                merged[key] = {
+                    "start": r["start_time"],
+                    "end": r["end_time"],
+                    "import_price": r["per_kwh"],
+                    "export_price": 0.0,
+                    "renewables": None,
+                    "type": r["type"],
+                }
+            self._rates = sorted(merged.values(), key=lambda x: x["start"])
+            _LOGGER.debug(f"Loaded {len(self._rates)} fixed TOU intervals")
+            return
+
         if self._use_amber_express:
             import_rates = self._parse_amber_express_entity(self._import_entity_id, "import")
             export_rates = self._parse_amber_express_entity(self._export_entity_id, "export")

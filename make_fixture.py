@@ -25,4 +25,4 @@ fixture = {
 with open(r'tests\fixtures\solver_replay_20260308_bug034.json', 'w') as f:
     json.dump(fixture, f, indent=2)
 
-print("Created fixture tests\fixtures\solver_replay_20260308_bug034.json")
+print("Created fixture tests\fixtures\\solver_replay_20260308_bug034.json")

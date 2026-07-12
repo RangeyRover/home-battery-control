@@ -58,6 +58,26 @@
                     "guard_overnight_deadline": "Guard: Overnight Deadline",
                     "guard_daytime_deadline": "Guard: Daytime Deadline"
                 }
+            },
+            "pricing_mode": {
+                "title": "Pricing Mode",
+                "description": "Select how your electricity pricing is structured.",
+                "data": {
+                    "pricing_mode": "Pricing Mode"
+                }
+            },
+            "fixed_tou": {
+                "title": "Fixed Time-of-Use Schedule",
+                "description": "Configure your daily Fixed TOU rates and times. Use 24-hour HH:MM format for times.",
+                "data": {
+                    "fixed_tou_peak_start": "Peak Start Time (e.g. 16:00)",
+                    "fixed_tou_peak_end": "Peak End Time (e.g. 20:00)",
+                    "fixed_tou_peak_price": "Peak Price (c/kWh)",
+                    "fixed_tou_offpeak_start": "Off-Peak Start Time (e.g. 00:00)",
+                    "fixed_tou_offpeak_end": "Off-Peak End Time (e.g. 06:00)",
+                    "fixed_tou_offpeak_price": "Off-Peak Price (c/kWh)",
+                    "fixed_tou_shoulder_price": "Shoulder Price (c/kWh)"
+                }
             }
         }
     },
@@ -67,8 +87,10 @@
                 "title": "House Battery Control Options",
                 "description": "Select a category to configure.",
                 "menu_options": {
+                    "pricing_mode": "Pricing Mode",
                     "manual": "Telemetry (Power Sensors)",
                     "energy": "Energy & Metrics",
+                    "fixed_tou": "Fixed Time-of-Use Schedule",
                     "control": "Control Services"
                 }
             },
@@ -126,6 +148,26 @@
                     "guard_trigger_mode": "Guard: Trigger Mode (OR/AND)",
                     "guard_overnight_deadline": "Guard: Overnight Deadline",
                     "guard_daytime_deadline": "Guard: Daytime Deadline"
+                }
+            },
+            "pricing_mode": {
+                "title": "Pricing Mode",
+                "description": "Select how your electricity pricing is structured.",
+                "data": {
+                    "pricing_mode": "Pricing Mode"
+                }
+            },
+            "fixed_tou": {
+                "title": "Fixed Time-of-Use Schedule",
+                "description": "Configure your daily Fixed TOU rates and times. Use 24-hour HH:MM format for times.",
+                "data": {
+                    "fixed_tou_peak_start": "Peak Start Time (e.g. 16:00)",
+                    "fixed_tou_peak_end": "Peak End Time (e.g. 20:00)",
+                    "fixed_tou_peak_price": "Peak Price (c/kWh)",
+                    "fixed_tou_offpeak_start": "Off-Peak Start Time (e.g. 00:00)",
+                    "fixed_tou_offpeak_end": "Off-Peak End Time (e.g. 06:00)",
+                    "fixed_tou_offpeak_price": "Off-Peak Price (c/kWh)",
+                    "fixed_tou_shoulder_price": "Shoulder Price (c/kWh)"
                 }
             }
         }

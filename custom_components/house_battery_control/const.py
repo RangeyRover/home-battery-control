@@ -22,6 +22,19 @@ CONF_LOAD_TODAY_ENTITY = "load_today_entity"
 CONF_IMPORT_TODAY_ENTITY = "import_today_entity"
 CONF_EXPORT_TODAY_ENTITY = "export_today_entity"
 
+# Pricing Mode & Fixed TOU
+CONF_PRICING_MODE = "pricing_mode"
+PRICING_MODE_AMBER = "amber"
+PRICING_MODE_FIXED_TOU = "fixed_tou"
+
+CONF_FIXED_TOU_PEAK_START = "fixed_tou_peak_start"
+CONF_FIXED_TOU_PEAK_END = "fixed_tou_peak_end"
+CONF_FIXED_TOU_PEAK_PRICE = "fixed_tou_peak_price"
+CONF_FIXED_TOU_OFFPEAK_START = "fixed_tou_offpeak_start"
+CONF_FIXED_TOU_OFFPEAK_END = "fixed_tou_offpeak_end"
+CONF_FIXED_TOU_OFFPEAK_PRICE = "fixed_tou_offpeak_price"
+CONF_FIXED_TOU_SHOULDER_PRICE = "fixed_tou_shoulder_price"
+
 # Telemetry Cost Tracker Keys
 CONF_TRACKER_IMPORT_PRICE = "tracker_import_price"
 CONF_TRACKER_EXPORT_PRICE = "tracker_export_price"

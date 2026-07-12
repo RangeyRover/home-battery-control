@@ -349,3 +349,52 @@ class TestBuildNoImportMidnightWrap:
         assert 24 in result.no_import_steps
         # Step 120 = 20:00 + 10h = 06:00 next day UTC, should NOT be blocked (end of period)
         assert 120 not in result.no_import_steps
+
+
+# ---------------------------------------------------------------------------
+#  T014: Synthetic Load Merging
+# ---------------------------------------------------------------------------
+
+class TestBuildSyntheticLoadMerging:
+    """T014: Principle: Synthetic long-term load is merged with short-term forecast."""
+
+    def test_build_solver_inputs_merges_synthetic_load(self):
+        builder = _get_builder()
+        coordinator = MagicMock()
+        coordinator.config = {}
+
+        # 288-step rates list, with synthetic_load_kw = 3.0 for all steps
+        rates = _make_rates(288)
+        for r in rates:
+            r["synthetic_load_kw"] = 3.0
+            r["synthetic_solar_kw"] = 4.0
+
+        # But we only have short-term actual forecasts (length 100)
+        # short-term load = 1.0, short-term solar = 2.0
+        forecast_load = _make_forecast_kw(100, kw=1.0)
+        forecast_solar = _make_forecast_kw(100, kw=2.0)
+
+        result = builder(
+            coordinator,
+            rates_list=rates,
+            forecast_load=forecast_load,
+            forecast_solar=forecast_solar,
+            current_price=10.0,
+            current_export_price=5.0,
+        )
+
+        assert len(result.load_kwh) == 288
+        assert len(result.pv_kwh) == 288
+
+        # First 100 intervals should use the live forecast:
+        # 1.0 kW * (5/60) = 0.08333 kWh
+        assert result.load_kwh[0] == pytest.approx(1.0 * 5 / 60, abs=0.001)
+        assert result.load_kwh[99] == pytest.approx(1.0 * 5 / 60, abs=0.001)
+        assert result.pv_kwh[0] == pytest.approx(2.0 * 5 / 60, abs=0.001)
+        assert result.pv_kwh[99] == pytest.approx(2.0 * 5 / 60, abs=0.001)
+
+        # Remaining 188 intervals should fallback to the synthetic load
+        # 3.0 kW * (5/60) = 0.25 kWh
+        assert result.load_kwh[100] == pytest.approx(3.0 * 5 / 60, abs=0.001)
+        assert result.load_kwh[287] == pytest.approx(3.0 * 5 / 60, abs=0.001)
+

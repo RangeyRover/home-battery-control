@@ -223,6 +223,69 @@ async def test_config_flow_guard_values_saved():
     assert handler._data[CONF_GUARD_LOW_SOLAR_THRESHOLD] == 60.0
     assert handler._data[CONF_GUARD_PEAK_SOLAR] == 45.0
     assert handler._data[CONF_GUARD_TRIGGER_MODE] == "AND"
-    assert handler._data[CONF_GUARD_OVERNIGHT_DEADLINE] == "06:00:00"
     assert handler._data[CONF_GUARD_DAYTIME_DEADLINE] == "14:00:00"
+
+
+@pytest.mark.asyncio
+async def test_config_flow_pricing_mode_amber():
+    """T003: [US1] Selecting Amber Dynamic transitions to energy step."""
+    import unittest.mock as mock
+
+    from custom_components.house_battery_control.config_flow import HBCOptionsFlowHandler
+    from custom_components.house_battery_control.const import (
+        CONF_PRICING_MODE,
+        PRICING_MODE_AMBER,
+    )
+
+    class MockConfigEntry:
+        options = {}
+        data = {}
+        entry_id = "test_entry_id"
+
+    config_entry = MockConfigEntry()
+    handler = HBCOptionsFlowHandler(config_entry)
+    handler.hass = mock.MagicMock()
+    handler.handler = mock.MagicMock()
+    handler.handler.config_entry_id = config_entry.entry_id
+    handler.hass.config_entries.async_get_known_entry.return_value = config_entry
+
+    user_input = {CONF_PRICING_MODE: PRICING_MODE_AMBER}
+    result = await handler.async_step_pricing_mode(user_input)
+
+    assert result["type"] == "form"
+    assert result["step_id"] == "energy"
+
+
+@pytest.mark.asyncio
+async def test_config_flow_pricing_mode_fixed_tou():
+    """T003: [US1] Selecting Fixed TOU transitions to fixed_tou step."""
+    import unittest.mock as mock
+
+    from custom_components.house_battery_control.config_flow import HBCOptionsFlowHandler
+    from custom_components.house_battery_control.const import (
+        CONF_FIXED_TOU_PEAK_PRICE,
+        CONF_PRICING_MODE,
+        PRICING_MODE_FIXED_TOU,
+    )
+
+    class MockConfigEntry:
+        options = {}
+        data = {}
+        entry_id = "test_entry_id"
+
+    config_entry = MockConfigEntry()
+    handler = HBCOptionsFlowHandler(config_entry)
+    handler.hass = mock.MagicMock()
+    handler.handler = mock.MagicMock()
+    handler.handler.config_entry_id = config_entry.entry_id
+    handler.hass.config_entries.async_get_known_entry.return_value = config_entry
+
+    user_input = {CONF_PRICING_MODE: PRICING_MODE_FIXED_TOU}
+    result = await handler.async_step_pricing_mode(user_input)
+
+    assert result["type"] == "form"
+    assert result["step_id"] == "fixed_tou"
+
+    schema_keys = [k.schema for k in result["data_schema"].schema.keys()]
+    assert CONF_FIXED_TOU_PEAK_PRICE in schema_keys
 

@@ -189,6 +189,60 @@ async def test_load_derives_power_from_energy_deltas(mock_hass):
 
 
 @pytest.mark.asyncio
+async def test_load_truth_table_temp_adjustment(mock_hass):
+    """Principle: Translates kWh jump to kW and applies temperature adjustment correctly."""
+    import datetime as dt
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from homeassistant.core import State
+
+    predictor = LoadPredictor(mock_hass)
+
+    async def mock_add_executor_job(func, *args):
+        return func(*args)
+
+    mock_hass.async_add_executor_job = AsyncMock(side_effect=mock_add_executor_job)
+
+    start = dt.datetime(2025, 2, 20, 12, 0, 0, tzinfo=dt.timezone.utc)
+    base_past = start - dt.timedelta(days=1)
+
+    mock_hass.states.get.return_value = MagicMock(attributes={"unit_of_measurement": "kWh"})
+
+    # Simulating a massive 0.467 kWh jump over 5 minutes (35.5155 -> 35.9825)
+    # This equals a base load of 5.604 kW
+    mock_states = [
+        State("sensor.energy", "35.5155", last_updated=base_past, last_changed=base_past),
+        State(
+            "sensor.energy",
+            "35.9825",
+            last_updated=base_past + dt.timedelta(minutes=5),
+            last_changed=base_past + dt.timedelta(minutes=5),
+        )
+    ]
+
+    # Temp forecast of 34C with a threshold of 25C and sensitivity of 1.0
+    # Expected Temp Adjustment = (34 - 25) * 1.0 = +9.0 kW
+    # Total Expected Load = 5.604 + 9.0 = 14.604 kW
+    temp_forecast = [{"datetime": start, "temperature": 34.0}]
+
+    with patch(
+        "homeassistant.components.recorder.history.get_significant_states",
+        return_value={"sensor.energy": mock_states},
+    ):
+        prediction = await predictor.async_predict(
+            start,
+            duration_hours=1,
+            load_entity_id="sensor.energy",
+            temp_forecast=temp_forecast,
+            high_sensitivity=1.0,
+            high_threshold=25.0,
+        )
+
+    # We use abs=0.1 to account for any internal rounding in the predictor logic
+    assert prediction[0]["kw"] == pytest.approx(14.604, abs=0.1)
+
+
+@pytest.mark.asyncio
 async def test_load_derives_history_payload_schema(mock_hass):
     """Phase 17A: Verify that the internal history fetch precisely formats exactly like the REST API payload."""
     import datetime as dt

@@ -497,6 +497,69 @@ def test_plan_table_interval_cost_calculation():
     assert row["Interval Cost"] == "$0.0333"
 
 
+def test_diagnostic_plan_table_synthetic_flag():
+    """Principle: The diagnostics UI plan table must correctly flag rows as 'Synthetic'."""
+    from datetime import timedelta
+
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    from homeassistant.util import dt as dt_util
+
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.config = {}
+    coordinator.fsm = None
+
+    start_time = dt_util.utcnow()
+
+    rates = [
+        {
+            "start": start_time,
+            "end": start_time + timedelta(minutes=5),
+            "import_price": 0.20,
+            "export_price": 0.05,
+            "synthetic": False,
+        },
+        {
+            "start": start_time + timedelta(minutes=5),
+            "end": start_time + timedelta(minutes=10),
+            "import_price": 0.30,
+            "export_price": 0.05,
+            "synthetic": True,
+        }
+    ]
+
+    future_plan = [
+        {
+            "target_soc": 50.0,
+            "load": 4.0,
+            "pv": 2.0,
+            "net_grid": 2.0,
+            "import_price": 0.20,
+            "export_price": 0.05,
+        },
+        {
+            "target_soc": 50.0,
+            "load": 4.0,
+            "pv": 2.0,
+            "net_grid": 2.0,
+            "import_price": 0.30,
+            "export_price": 0.05,
+        }
+    ]
+
+    table = coordinator._build_diagnostic_plan_table(
+        rates=rates,
+        solar_forecast=[],
+        load_forecast=[],
+        weather=[],
+        current_soc=50.0,
+        future_plan=future_plan,
+    )
+
+    assert len(table) == 2
+    assert table[0]["Synthetic"] is False
+    assert table[1]["Synthetic"] is True
+
+
 @pytest.mark.asyncio
 async def test_coordinator_load_stored_costs_empty(mock_hass):
     """Spec US1: Ensure empty store defaults to 0.00 and 0.10."""

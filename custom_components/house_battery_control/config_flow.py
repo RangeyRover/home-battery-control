@@ -41,6 +41,13 @@ from .const import (
     CONF_EXPORT_MARGIN,
     CONF_EXPORT_PRICE_ENTITY,
     CONF_EXPORT_TODAY_ENTITY,
+    CONF_FIXED_TOU_OFFPEAK_END,
+    CONF_FIXED_TOU_OFFPEAK_PRICE,
+    CONF_FIXED_TOU_OFFPEAK_START,
+    CONF_FIXED_TOU_PEAK_END,
+    CONF_FIXED_TOU_PEAK_PRICE,
+    CONF_FIXED_TOU_PEAK_START,
+    CONF_FIXED_TOU_SHOULDER_PRICE,
     CONF_GRID_ENTITY,
     CONF_GRID_POWER_INVERT,
     CONF_GUARD_DAYTIME_DEADLINE,
@@ -62,6 +69,7 @@ from .const import (
     CONF_NO_IMPORT_PERIODS,
     CONF_OBSERVATION_MODE,
     CONF_PANEL_ADMIN_ONLY,
+    CONF_PRICING_MODE,
     CONF_RESERVE_SOC,
     CONF_ROUND_TRIP_EFFICIENCY,
     CONF_SCRIPT_CHARGE,
@@ -93,6 +101,8 @@ from .const import (
     DEFAULT_SOLCAST_TOMORROW,
     DEFAULT_USE_AMBER_EXPRESS,
     DOMAIN,
+    PRICING_MODE_AMBER,
+    PRICING_MODE_FIXED_TOU,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -152,7 +162,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Step 1: Telemetry (Power)."""
         if user_input is not None:
             self._data.update(user_input)
-            return await self.async_step_energy()
+            return await self.async_step_pricing_mode()
 
         return self.async_show_form(
             step_id="manual",
@@ -179,94 +189,148 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
+
+    async def async_step_pricing_mode(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Step 1b: Pricing Mode."""
+        if user_input is not None:
+            self._data.update(user_input)
+            if user_input.get(CONF_PRICING_MODE) == PRICING_MODE_FIXED_TOU:
+                return await self.async_step_fixed_tou()
+            return await self.async_step_energy()
+
+        return self.async_show_form(
+            step_id="pricing_mode",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PRICING_MODE, default=PRICING_MODE_AMBER): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                SelectOptionDict(value=PRICING_MODE_AMBER, label="Amber Dynamic"),
+                                SelectOptionDict(value=PRICING_MODE_FIXED_TOU, label="Fixed Time-of-Use"),
+                            ],
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_fixed_tou(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Step 1c: Fixed TOU."""
+        if user_input is not None:
+            self._data.update(user_input)
+            return await self.async_step_energy()
+
+        return self.async_show_form(
+            step_id="fixed_tou",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_FIXED_TOU_PEAK_START, default="16:00:00"): TimeSelector(),
+                    vol.Required(CONF_FIXED_TOU_PEAK_END, default="20:00:00"): TimeSelector(),
+                    vol.Required(CONF_FIXED_TOU_PEAK_PRICE, default=40.0): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
+                    vol.Required(CONF_FIXED_TOU_OFFPEAK_START, default="00:00:00"): TimeSelector(),
+                    vol.Required(CONF_FIXED_TOU_OFFPEAK_END, default="06:00:00"): TimeSelector(),
+                    vol.Required(CONF_FIXED_TOU_OFFPEAK_PRICE, default=10.0): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
+                    vol.Required(CONF_FIXED_TOU_SHOULDER_PRICE, default=20.0): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
+                }
+            ),
+        )
+
     async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Step 2: Energy & Metrics (Cumulative)."""
         if user_input is not None:
             self._data.update(user_input)
             return await self.async_step_cost_tracking()
 
+        schema = {
+            vol.Required(CONF_LOAD_TODAY_ENTITY): EntitySelector(
+                EntitySelectorConfig(domain="sensor")
+            ),
+            vol.Required(CONF_IMPORT_TODAY_ENTITY): EntitySelector(
+                EntitySelectorConfig(domain="sensor")
+            ),
+            vol.Required(CONF_EXPORT_TODAY_ENTITY): EntitySelector(
+                EntitySelectorConfig(domain="sensor")
+            ),
+            vol.Required(CONF_LOAD_SENSITIVITY_HIGH_TEMP, default=0.2): NumberSelector(
+                NumberSelectorConfig(min=0, max=5, step=0.01, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(CONF_LOAD_SENSITIVITY_LOW_TEMP, default=0.3): NumberSelector(
+                NumberSelectorConfig(min=0, max=5, step=0.01, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(CONF_LOAD_HIGH_TEMP_THRESHOLD, default=25.0): NumberSelector(
+                NumberSelectorConfig(min=15, max=45, step=0.5, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(CONF_LOAD_LOW_TEMP_THRESHOLD, default=15.0): NumberSelector(
+                NumberSelectorConfig(min=0, max=25, step=0.5, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(CONF_LOAD_CACHE_TTL, default=DEFAULT_LOAD_CACHE_TTL): NumberSelector(
+                NumberSelectorConfig(min=5, max=1440, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="min")
+            ),
+            vol.Required(
+                CONF_BATTERY_CAPACITY, default=DEFAULT_BATTERY_CAPACITY
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=100, step=0.1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_BATTERY_CHARGE_RATE_MAX, default=DEFAULT_BATTERY_RATE_MAX
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_INVERTER_LIMIT_MAX, default=DEFAULT_INVERTER_LIMIT
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_RESERVE_SOC, default=DEFAULT_RESERVE_SOC
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=100, step=1.0, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_ROUND_TRIP_EFFICIENCY, default=DEFAULT_ROUND_TRIP_EFFICIENCY
+            ): NumberSelector(
+                NumberSelectorConfig(min=0.5, max=1.0, step=0.01, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_EXPORT_MARGIN, default=DEFAULT_EXPORT_MARGIN
+            ): NumberSelector(
+                NumberSelectorConfig(min=0.0, max=1.0, step=0.001, mode=NumberSelectorMode.BOX)
+            ),
+        }
+
+        if self._data.get(CONF_PRICING_MODE, PRICING_MODE_AMBER) == PRICING_MODE_AMBER:
+            schema.update({
+                vol.Required(CONF_IMPORT_PRICE_ENTITY): EntitySelector(
+                    EntitySelectorConfig(domain="sensor")
+                ),
+                vol.Required(CONF_EXPORT_PRICE_ENTITY): EntitySelector(
+                    EntitySelectorConfig(domain="sensor")
+                ),
+                vol.Optional(CONF_USE_AMBER_EXPRESS, default=DEFAULT_USE_AMBER_EXPRESS): BooleanSelector(),
+                vol.Optional(CONF_CURRENT_IMPORT_PRICE_ENTITY): EntitySelector(
+                    EntitySelectorConfig(domain="sensor")
+                ),
+                vol.Optional(CONF_CURRENT_EXPORT_PRICE_ENTITY): EntitySelector(
+                    EntitySelectorConfig(domain="sensor")
+                ),
+            })
+
+        schema.update({
+            vol.Required(CONF_WEATHER_ENTITY): EntitySelector(
+                EntitySelectorConfig(domain="weather")
+            ),
+            vol.Required(
+                CONF_SOLCAST_TODAY_ENTITY, default=DEFAULT_SOLCAST_TODAY
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Required(
+                CONF_SOLCAST_TOMORROW_ENTITY, default=DEFAULT_SOLCAST_TOMORROW
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+        })
+
         return self.async_show_form(
             step_id="energy",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_LOAD_TODAY_ENTITY): EntitySelector(
-                        EntitySelectorConfig(domain="sensor")
-                    ),
-                    vol.Required(CONF_IMPORT_TODAY_ENTITY): EntitySelector(
-                        EntitySelectorConfig(domain="sensor")
-                    ),
-                    vol.Required(CONF_EXPORT_TODAY_ENTITY): EntitySelector(
-                        EntitySelectorConfig(domain="sensor")
-                    ),
-                    vol.Required(CONF_LOAD_SENSITIVITY_HIGH_TEMP, default=0.2): NumberSelector(
-                        NumberSelectorConfig(min=0, max=5, step=0.01, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(CONF_LOAD_SENSITIVITY_LOW_TEMP, default=0.3): NumberSelector(
-                        NumberSelectorConfig(min=0, max=5, step=0.01, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(CONF_LOAD_HIGH_TEMP_THRESHOLD, default=25.0): NumberSelector(
-                        NumberSelectorConfig(min=15, max=45, step=0.5, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(CONF_LOAD_LOW_TEMP_THRESHOLD, default=15.0): NumberSelector(
-                        NumberSelectorConfig(min=0, max=25, step=0.5, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(CONF_LOAD_CACHE_TTL, default=DEFAULT_LOAD_CACHE_TTL): NumberSelector(
-                        NumberSelectorConfig(min=5, max=1440, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="min")
-                    ),
-                    vol.Required(
-                        CONF_BATTERY_CAPACITY, default=DEFAULT_BATTERY_CAPACITY
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=100, step=0.1, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_BATTERY_CHARGE_RATE_MAX, default=DEFAULT_BATTERY_RATE_MAX
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_INVERTER_LIMIT_MAX, default=DEFAULT_INVERTER_LIMIT
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_RESERVE_SOC, default=DEFAULT_RESERVE_SOC
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=100, step=1.0, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_ROUND_TRIP_EFFICIENCY, default=DEFAULT_ROUND_TRIP_EFFICIENCY
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0.5, max=1.0, step=0.01, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_EXPORT_MARGIN, default=DEFAULT_EXPORT_MARGIN
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0.0, max=1.0, step=0.001, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(CONF_IMPORT_PRICE_ENTITY): EntitySelector(
-                        EntitySelectorConfig(domain="sensor")
-                    ),
-                    vol.Required(CONF_EXPORT_PRICE_ENTITY): EntitySelector(
-                        EntitySelectorConfig(domain="sensor")
-                    ),
-                    vol.Optional(CONF_USE_AMBER_EXPRESS, default=DEFAULT_USE_AMBER_EXPRESS): BooleanSelector(),
-                    vol.Optional(CONF_CURRENT_IMPORT_PRICE_ENTITY): EntitySelector(
-                        EntitySelectorConfig(domain="sensor")
-                    ),
-                    vol.Optional(CONF_CURRENT_EXPORT_PRICE_ENTITY): EntitySelector(
-                        EntitySelectorConfig(domain="sensor")
-                    ),
-                    vol.Required(CONF_WEATHER_ENTITY): EntitySelector(
-                        EntitySelectorConfig(domain="weather")
-                    ),
-                    vol.Required(
-                        CONF_SOLCAST_TODAY_ENTITY, default=DEFAULT_SOLCAST_TODAY
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Required(
-                        CONF_SOLCAST_TOMORROW_ENTITY, default=DEFAULT_SOLCAST_TOMORROW
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                }
-            ),
+            data_schema=vol.Schema(schema),
         )
 
     async def async_step_cost_tracking(
@@ -392,7 +456,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
         """Manage the options."""
         return self.async_show_menu(
             step_id="init",
-            menu_options=["manual", "energy", "cost_tracking", "control"],
+            menu_options=["pricing_mode", "fixed_tou", "manual", "energy", "cost_tracking", "control"],
         )
 
     async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -433,6 +497,55 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
             ),
         )
 
+
+    async def async_step_pricing_mode(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Step 1b: Pricing Mode."""
+        if user_input is not None:
+            self._data.update(user_input)
+            self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
+            if user_input.get(CONF_PRICING_MODE) == PRICING_MODE_FIXED_TOU:
+                return await self.async_step_fixed_tou()
+            return await self.async_step_energy()
+
+        return self.async_show_form(
+            step_id="pricing_mode",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_PRICING_MODE, default=self._data.get(CONF_PRICING_MODE, PRICING_MODE_AMBER)): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                SelectOptionDict(value=PRICING_MODE_AMBER, label="Amber Dynamic"),
+                                SelectOptionDict(value=PRICING_MODE_FIXED_TOU, label="Fixed Time-of-Use"),
+                            ],
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_fixed_tou(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Step 1c: Fixed TOU."""
+        if user_input is not None:
+            self._data.update(user_input)
+            self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
+            return await self.async_step_energy()
+
+        return self.async_show_form(
+            step_id="fixed_tou",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_FIXED_TOU_PEAK_START, default=self._data.get(CONF_FIXED_TOU_PEAK_START, "16:00:00")): TimeSelector(),
+                    vol.Required(CONF_FIXED_TOU_PEAK_END, default=self._data.get(CONF_FIXED_TOU_PEAK_END, "20:00:00")): TimeSelector(),
+                    vol.Required(CONF_FIXED_TOU_PEAK_PRICE, default=self._data.get(CONF_FIXED_TOU_PEAK_PRICE, 40.0)): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
+                    vol.Required(CONF_FIXED_TOU_OFFPEAK_START, default=self._data.get(CONF_FIXED_TOU_OFFPEAK_START, "00:00:00")): TimeSelector(),
+                    vol.Required(CONF_FIXED_TOU_OFFPEAK_END, default=self._data.get(CONF_FIXED_TOU_OFFPEAK_END, "06:00:00")): TimeSelector(),
+                    vol.Required(CONF_FIXED_TOU_OFFPEAK_PRICE, default=self._data.get(CONF_FIXED_TOU_OFFPEAK_PRICE, 10.0)): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
+                    vol.Required(CONF_FIXED_TOU_SHOULDER_PRICE, default=self._data.get(CONF_FIXED_TOU_SHOULDER_PRICE, 20.0)): NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX)),
+                }
+            ),
+        )
+
     async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Update Energy & Metrics (Cumulative)."""
         if user_input is not None:
@@ -462,129 +575,136 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
             self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
             return self.async_create_entry(title="", data={})
 
+        schema = {
+            vol.Required(
+                CONF_LOAD_TODAY_ENTITY, default=self._data.get(CONF_LOAD_TODAY_ENTITY)
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Required(
+                CONF_IMPORT_TODAY_ENTITY, default=self._data.get(CONF_IMPORT_TODAY_ENTITY)
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Required(
+                CONF_EXPORT_TODAY_ENTITY, default=self._data.get(CONF_EXPORT_TODAY_ENTITY)
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Required(
+                CONF_LOAD_SENSITIVITY_HIGH_TEMP,
+                default=self._data.get(CONF_LOAD_SENSITIVITY_HIGH_TEMP, 0.2),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=5, step=0.01, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_LOAD_SENSITIVITY_LOW_TEMP,
+                default=self._data.get(CONF_LOAD_SENSITIVITY_LOW_TEMP, 0.3),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=5, step=0.01, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_LOAD_HIGH_TEMP_THRESHOLD,
+                default=self._data.get(CONF_LOAD_HIGH_TEMP_THRESHOLD, 25.0),
+            ): NumberSelector(
+                NumberSelectorConfig(min=15, max=45, step=0.5, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_LOAD_LOW_TEMP_THRESHOLD,
+                default=self._data.get(CONF_LOAD_LOW_TEMP_THRESHOLD, 15.0),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=25, step=0.5, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_LOAD_CACHE_TTL,
+                default=self._data.get(CONF_LOAD_CACHE_TTL, DEFAULT_LOAD_CACHE_TTL),
+            ): NumberSelector(
+                NumberSelectorConfig(min=5, max=1440, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="min")
+            ),
+            vol.Required(
+                CONF_BATTERY_CAPACITY,
+                default=self._data.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=100, step=0.1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_BATTERY_CHARGE_RATE_MAX,
+                default=self._data.get(
+                    CONF_BATTERY_CHARGE_RATE_MAX, DEFAULT_BATTERY_RATE_MAX
+                ),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_INVERTER_LIMIT_MAX,
+                default=self._data.get(CONF_INVERTER_LIMIT_MAX, DEFAULT_INVERTER_LIMIT),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_RESERVE_SOC,
+                default=self._data.get(CONF_RESERVE_SOC, DEFAULT_RESERVE_SOC),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=100, step=1.0, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_ROUND_TRIP_EFFICIENCY,
+                default=self._data.get(CONF_ROUND_TRIP_EFFICIENCY, DEFAULT_ROUND_TRIP_EFFICIENCY),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0.5, max=1.0, step=0.01, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Required(
+                CONF_EXPORT_MARGIN,
+                default=self._data.get(CONF_EXPORT_MARGIN, DEFAULT_EXPORT_MARGIN),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0.0, max=1.0, step=0.001, mode=NumberSelectorMode.BOX)
+            ),
+        }
+
+        if self._data.get(CONF_PRICING_MODE, PRICING_MODE_AMBER) == PRICING_MODE_AMBER:
+            schema.update({
+                vol.Required(
+                    CONF_IMPORT_PRICE_ENTITY, default=self._data.get(CONF_IMPORT_PRICE_ENTITY)
+                ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+                vol.Required(
+                    CONF_EXPORT_PRICE_ENTITY, default=self._data.get(CONF_EXPORT_PRICE_ENTITY)
+                ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+                vol.Optional(
+                    CONF_USE_AMBER_EXPRESS, default=self._data.get(CONF_USE_AMBER_EXPRESS, DEFAULT_USE_AMBER_EXPRESS)
+                ): BooleanSelector(),
+                vol.Optional(
+                    CONF_CURRENT_IMPORT_PRICE_ENTITY,
+                    description={"suggested_value": self._data.get(CONF_CURRENT_IMPORT_PRICE_ENTITY)},
+                ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+                vol.Optional(
+                    CONF_CURRENT_EXPORT_PRICE_ENTITY,
+                    description={"suggested_value": self._data.get(CONF_CURRENT_EXPORT_PRICE_ENTITY)},
+                ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            })
+
+        schema.update({
+            vol.Required(
+                CONF_WEATHER_ENTITY, default=self._data.get(CONF_WEATHER_ENTITY)
+            ): EntitySelector(EntitySelectorConfig(domain="weather")),
+            vol.Required(
+                CONF_SOLCAST_TODAY_ENTITY,
+                default=self._data.get(CONF_SOLCAST_TODAY_ENTITY, DEFAULT_SOLCAST_TODAY),
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Required(
+                CONF_SOLCAST_TOMORROW_ENTITY,
+                default=self._data.get(
+                    CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW
+                ),
+            ): EntitySelector(EntitySelectorConfig(domain="sensor")),
+            vol.Optional(
+                CONF_ACQ_COST_OVERRIDE,
+                default=self._data.get(CONF_ACQ_COST_OVERRIDE, False),
+            ): BooleanSelector(),
+            vol.Optional(
+                CONF_ACQ_COST_OVERRIDE_VALUE,
+                default=self._data.get(CONF_ACQ_COST_OVERRIDE_VALUE, 0.135),
+            ): NumberSelector(
+                NumberSelectorConfig(min=0, max=1, step=0.001, mode=NumberSelectorMode.BOX)
+            ),
+        })
+
         return self.async_show_form(
             step_id="energy",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_LOAD_TODAY_ENTITY, default=self._data.get(CONF_LOAD_TODAY_ENTITY)
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Required(
-                        CONF_IMPORT_TODAY_ENTITY, default=self._data.get(CONF_IMPORT_TODAY_ENTITY)
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Required(
-                        CONF_EXPORT_TODAY_ENTITY, default=self._data.get(CONF_EXPORT_TODAY_ENTITY)
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Required(
-                        CONF_LOAD_SENSITIVITY_HIGH_TEMP,
-                        default=self._data.get(CONF_LOAD_SENSITIVITY_HIGH_TEMP, 0.2),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=5, step=0.01, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_LOAD_SENSITIVITY_LOW_TEMP,
-                        default=self._data.get(CONF_LOAD_SENSITIVITY_LOW_TEMP, 0.3),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=5, step=0.01, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_LOAD_HIGH_TEMP_THRESHOLD,
-                        default=self._data.get(CONF_LOAD_HIGH_TEMP_THRESHOLD, 25.0),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=15, max=45, step=0.5, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_LOAD_LOW_TEMP_THRESHOLD,
-                        default=self._data.get(CONF_LOAD_LOW_TEMP_THRESHOLD, 15.0),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=25, step=0.5, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_LOAD_CACHE_TTL,
-                        default=self._data.get(CONF_LOAD_CACHE_TTL, DEFAULT_LOAD_CACHE_TTL),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=5, max=1440, step=5, mode=NumberSelectorMode.BOX, unit_of_measurement="min")
-                    ),
-                    vol.Required(
-                        CONF_BATTERY_CAPACITY,
-                        default=self._data.get(CONF_BATTERY_CAPACITY, DEFAULT_BATTERY_CAPACITY),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=100, step=0.1, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_BATTERY_CHARGE_RATE_MAX,
-                        default=self._data.get(
-                            CONF_BATTERY_CHARGE_RATE_MAX, DEFAULT_BATTERY_RATE_MAX
-                        ),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_INVERTER_LIMIT_MAX,
-                        default=self._data.get(CONF_INVERTER_LIMIT_MAX, DEFAULT_INVERTER_LIMIT),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=50, step=0.1, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_RESERVE_SOC,
-                        default=self._data.get(CONF_RESERVE_SOC, DEFAULT_RESERVE_SOC),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=100, step=1.0, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_ROUND_TRIP_EFFICIENCY,
-                        default=self._data.get(CONF_ROUND_TRIP_EFFICIENCY, DEFAULT_ROUND_TRIP_EFFICIENCY),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0.5, max=1.0, step=0.01, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_EXPORT_MARGIN,
-                        default=self._data.get(CONF_EXPORT_MARGIN, DEFAULT_EXPORT_MARGIN),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0.0, max=1.0, step=0.001, mode=NumberSelectorMode.BOX)
-                    ),
-                    vol.Required(
-                        CONF_IMPORT_PRICE_ENTITY, default=self._data.get(CONF_IMPORT_PRICE_ENTITY)
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Required(
-                        CONF_EXPORT_PRICE_ENTITY, default=self._data.get(CONF_EXPORT_PRICE_ENTITY)
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Optional(
-                        CONF_USE_AMBER_EXPRESS, default=self._data.get(CONF_USE_AMBER_EXPRESS, DEFAULT_USE_AMBER_EXPRESS)
-                    ): BooleanSelector(),
-                    vol.Optional(
-                        CONF_CURRENT_IMPORT_PRICE_ENTITY,
-                        description={"suggested_value": self._data.get(CONF_CURRENT_IMPORT_PRICE_ENTITY)},
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Optional(
-                        CONF_CURRENT_EXPORT_PRICE_ENTITY,
-                        description={"suggested_value": self._data.get(CONF_CURRENT_EXPORT_PRICE_ENTITY)},
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Required(
-                        CONF_WEATHER_ENTITY, default=self._data.get(CONF_WEATHER_ENTITY)
-                    ): EntitySelector(EntitySelectorConfig(domain="weather")),
-                    vol.Required(
-                        CONF_SOLCAST_TODAY_ENTITY,
-                        default=self._data.get(CONF_SOLCAST_TODAY_ENTITY, DEFAULT_SOLCAST_TODAY),
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Required(
-                        CONF_SOLCAST_TOMORROW_ENTITY,
-                        default=self._data.get(
-                            CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW
-                        ),
-                    ): EntitySelector(EntitySelectorConfig(domain="sensor")),
-                    vol.Optional(
-                        CONF_ACQ_COST_OVERRIDE,
-                        default=self._data.get(CONF_ACQ_COST_OVERRIDE, False),
-                    ): BooleanSelector(),
-                    vol.Optional(
-                        CONF_ACQ_COST_OVERRIDE_VALUE,
-                        default=self._data.get(CONF_ACQ_COST_OVERRIDE_VALUE, 0.135),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=0, max=1, step=0.001, mode=NumberSelectorMode.BOX)
-                    ),
-                }
-            ),
+            data_schema=vol.Schema(schema),
         )
 
     async def async_step_cost_tracking(
