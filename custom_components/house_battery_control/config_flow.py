@@ -633,7 +633,22 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
                 self.hass.config_entries.async_update_entry(self.config_entry, data=self._data)
                 return await self.async_step_energy()
 
+        default_imports = [
+            {"start": "00:00:00", "end": "01:00:00", "price": 47.014},
+            {"start": "01:00:00", "end": "06:00:00", "price": 30.558},
+            {"start": "06:00:00", "end": "10:00:00", "price": 47.014},
+            {"start": "10:00:00", "end": "15:00:00", "price": 21.604},
+            {"start": "15:00:00", "end": "00:00:00", "price": 47.014},
+        ]
+        
+        default_exports = [
+            {"start": "00:00:00", "end": "17:00:00", "price": 1.0},
+            {"start": "17:00:00", "end": "21:00:00", "price": 27.0},
+            {"start": "21:00:00", "end": "00:00:00", "price": 1.0},
+        ]
+
         current_data = user_input if user_input is not None else self._data
+        use_defaults = user_input is None and CONF_FIXED_TOU_IMPORT_START.format(1) not in self._data
 
         schema = {}
         for i in range(1, 11):
@@ -645,13 +660,16 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
             exp_end_key = CONF_FIXED_TOU_EXPORT_END.format(i)
             exp_price_key = CONF_FIXED_TOU_EXPORT_PRICE.format(i)
 
-            imp_start_val = current_data.get(imp_start_key)
-            imp_end_val = current_data.get(imp_end_key)
-            imp_price_val = current_data.get(imp_price_key)
+            imp_def = default_imports[i-1] if use_defaults and i <= len(default_imports) else {}
+            exp_def = default_exports[i-1] if use_defaults and i <= len(default_exports) else {}
+
+            imp_start_val = current_data.get(imp_start_key, imp_def.get("start"))
+            imp_end_val = current_data.get(imp_end_key, imp_def.get("end"))
+            imp_price_val = current_data.get(imp_price_key, imp_def.get("price"))
             
-            exp_start_val = current_data.get(exp_start_key)
-            exp_end_val = current_data.get(exp_end_key)
-            exp_price_val = current_data.get(exp_price_key)
+            exp_start_val = current_data.get(exp_start_key, exp_def.get("start"))
+            exp_end_val = current_data.get(exp_end_key, exp_def.get("end"))
+            exp_price_val = current_data.get(exp_price_key, exp_def.get("price"))
 
             schema[vol.Optional(imp_start_key, description={"suggested_value": imp_start_val})] = TimeSelector()
             schema[vol.Optional(imp_end_key, description={"suggested_value": imp_end_val})] = TimeSelector()
