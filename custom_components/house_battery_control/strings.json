@@ -75,6 +75,8 @@
                 "title": "House Battery Control Options",
                 "description": "Select a category to configure.",
                 "menu_options": {
+                    "pricing_mode": "Pricing Mode",
+                    "fixed_tou": "Fixed Time-of-Use Schedule",
                     "manual": "Telemetry (Power Sensors)",
                     "energy": "Energy & Metrics",
                     "cost_tracking": "Cost Tracking Details",

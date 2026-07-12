@@ -88,9 +88,10 @@
                 "description": "Select a category to configure.",
                 "menu_options": {
                     "pricing_mode": "Pricing Mode",
+                    "fixed_tou": "Fixed Time-of-Use Schedule",
                     "manual": "Telemetry (Power Sensors)",
                     "energy": "Energy & Metrics",
-                    "fixed_tou": "Fixed Time-of-Use Schedule",
+                    "cost_tracking": "Cost Tracking Details",
                     "control": "Control Services"
                 }
             },
