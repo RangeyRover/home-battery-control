@@ -622,17 +622,24 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             aligned_solar, load_forecast = align_forecasts(extended_rates_timeline, solar_forecast, load_forecast)
 
                 # Build FSM context and run decision logic
-            current_import_entity = self.config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY)
-            if current_import_entity:
-                current_price = self._get_sensor_value(current_import_entity)
-            else:
-                current_price = self.rates.get_import_price_at(dt_util.now())
+            from .const import PRICING_MODE_AMBER, PRICING_MODE_FIXED_TOU
+            pricing_mode = self.config.get(CONF_PRICING_MODE, PRICING_MODE_AMBER)
 
-            current_export_entity = self.config.get(CONF_CURRENT_EXPORT_PRICE_ENTITY)
-            if current_export_entity:
-                current_export_price = self._get_sensor_value(current_export_entity)
-            else:
+            if pricing_mode == PRICING_MODE_FIXED_TOU:
+                current_price = self.rates.get_import_price_at(dt_util.now())
                 current_export_price = self.rates.get_export_price_at(dt_util.now())
+            else:
+                current_import_entity = self.config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY)
+                if current_import_entity:
+                    current_price = self._get_sensor_value(current_import_entity)
+                else:
+                    current_price = self.rates.get_import_price_at(dt_util.now())
+
+                current_export_entity = self.config.get(CONF_CURRENT_EXPORT_PRICE_ENTITY)
+                if current_export_entity:
+                    current_export_price = self._get_sensor_value(current_export_entity)
+                else:
+                    current_export_price = self.rates.get_export_price_at(dt_util.now())
 
             fsm_context = FSMContext(
                 soc=soc,
