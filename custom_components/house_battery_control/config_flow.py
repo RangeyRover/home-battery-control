@@ -41,12 +41,12 @@ from .const import (
     CONF_EXPORT_MARGIN,
     CONF_EXPORT_PRICE_ENTITY,
     CONF_EXPORT_TODAY_ENTITY,
-    CONF_FIXED_TOU_IMPORT_START,
-    CONF_FIXED_TOU_IMPORT_END,
-    CONF_FIXED_TOU_IMPORT_PRICE,
-    CONF_FIXED_TOU_EXPORT_START,
     CONF_FIXED_TOU_EXPORT_END,
     CONF_FIXED_TOU_EXPORT_PRICE,
+    CONF_FIXED_TOU_EXPORT_START,
+    CONF_FIXED_TOU_IMPORT_END,
+    CONF_FIXED_TOU_IMPORT_PRICE,
+    CONF_FIXED_TOU_IMPORT_START,
     CONF_GRID_ENTITY,
     CONF_GRID_POWER_INVERT,
     CONF_GUARD_DAYTIME_DEADLINE,
@@ -123,11 +123,14 @@ def _parse_time_str(time_str: str) -> __import__('datetime').time:
 def validate_fixed_tou_periods(user_input: dict[str, Any]) -> str | None:
     """Validate that import and export periods cover exactly 24 hours with no gaps/overlaps."""
     from datetime import time
+
     from .const import (
-        CONF_FIXED_TOU_IMPORT_START, CONF_FIXED_TOU_IMPORT_END,
-        CONF_FIXED_TOU_EXPORT_START, CONF_FIXED_TOU_EXPORT_END
+        CONF_FIXED_TOU_EXPORT_END,
+        CONF_FIXED_TOU_EXPORT_START,
+        CONF_FIXED_TOU_IMPORT_END,
+        CONF_FIXED_TOU_IMPORT_START,
     )
-    
+
     for prefix_start, prefix_end in [
         (CONF_FIXED_TOU_IMPORT_START, CONF_FIXED_TOU_IMPORT_END),
         (CONF_FIXED_TOU_EXPORT_START, CONF_FIXED_TOU_EXPORT_END)
@@ -142,25 +145,25 @@ def validate_fixed_tou_periods(user_input: dict[str, Any]) -> str | None:
                 if end_t != time(0, 0) and start_t >= end_t:
                     return "period_crosses_midnight"
                 periods.append((start_t, end_t))
-                
+
         if not periods:
             return "missing_periods"
-            
+
         periods.sort(key=lambda p: p[0])
-        
+
         if periods[0][0] != time(0, 0):
             return "invalid_period_start"
-            
+
         if periods[-1][1] != time(0, 0):
             return "invalid_period_end"
-            
+
         for i in range(len(periods)):
             start, end = periods[i]
             if i > 0:
                 prev_end = periods[i-1][1]
                 if start != prev_end:
                     return "period_gap_or_overlap"
-                    
+
     return None
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -288,7 +291,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {"start": "10:00:00", "end": "15:00:00", "price": 21.604},
             {"start": "15:00:00", "end": "00:00:00", "price": 47.014},
         ]
-        
+
         default_exports = [
             {"start": "00:00:00", "end": "17:00:00", "price": 1.0},
             {"start": "17:00:00", "end": "21:00:00", "price": 27.0},
@@ -303,7 +306,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             imp_start_key = CONF_FIXED_TOU_IMPORT_START.format(i)
             imp_end_key = CONF_FIXED_TOU_IMPORT_END.format(i)
             imp_price_key = CONF_FIXED_TOU_IMPORT_PRICE.format(i)
-            
+
             exp_start_key = CONF_FIXED_TOU_EXPORT_START.format(i)
             exp_end_key = CONF_FIXED_TOU_EXPORT_END.format(i)
             exp_price_key = CONF_FIXED_TOU_EXPORT_PRICE.format(i)
@@ -314,7 +317,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             imp_start_val = current_data.get(imp_start_key, imp_def.get("start"))
             imp_end_val = current_data.get(imp_end_key, imp_def.get("end"))
             imp_price_val = current_data.get(imp_price_key, imp_def.get("price"))
-            
+
             exp_start_val = current_data.get(exp_start_key, exp_def.get("start"))
             exp_end_val = current_data.get(exp_end_key, exp_def.get("end"))
             exp_price_val = current_data.get(exp_price_key, exp_def.get("price"))
@@ -322,7 +325,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             schema[vol.Optional(imp_start_key, description={"suggested_value": imp_start_val})] = TimeSelector()
             schema[vol.Optional(imp_end_key, description={"suggested_value": imp_end_val})] = TimeSelector()
             schema[vol.Optional(imp_price_key, description={"suggested_value": imp_price_val})] = NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX))
-            
+
             schema[vol.Optional(exp_start_key, description={"suggested_value": exp_start_val})] = TimeSelector()
             schema[vol.Optional(exp_end_key, description={"suggested_value": exp_end_val})] = TimeSelector()
             schema[vol.Optional(exp_price_key, description={"suggested_value": exp_price_val})] = NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX))
@@ -640,7 +643,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
             {"start": "10:00:00", "end": "15:00:00", "price": 21.604},
             {"start": "15:00:00", "end": "00:00:00", "price": 47.014},
         ]
-        
+
         default_exports = [
             {"start": "00:00:00", "end": "17:00:00", "price": 1.0},
             {"start": "17:00:00", "end": "21:00:00", "price": 27.0},
@@ -655,7 +658,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
             imp_start_key = CONF_FIXED_TOU_IMPORT_START.format(i)
             imp_end_key = CONF_FIXED_TOU_IMPORT_END.format(i)
             imp_price_key = CONF_FIXED_TOU_IMPORT_PRICE.format(i)
-            
+
             exp_start_key = CONF_FIXED_TOU_EXPORT_START.format(i)
             exp_end_key = CONF_FIXED_TOU_EXPORT_END.format(i)
             exp_price_key = CONF_FIXED_TOU_EXPORT_PRICE.format(i)
@@ -666,7 +669,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
             imp_start_val = current_data.get(imp_start_key, imp_def.get("start"))
             imp_end_val = current_data.get(imp_end_key, imp_def.get("end"))
             imp_price_val = current_data.get(imp_price_key, imp_def.get("price"))
-            
+
             exp_start_val = current_data.get(exp_start_key, exp_def.get("start"))
             exp_end_val = current_data.get(exp_end_key, exp_def.get("end"))
             exp_price_val = current_data.get(exp_price_key, exp_def.get("price"))
@@ -674,7 +677,7 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
             schema[vol.Optional(imp_start_key, description={"suggested_value": imp_start_val})] = TimeSelector()
             schema[vol.Optional(imp_end_key, description={"suggested_value": imp_end_val})] = TimeSelector()
             schema[vol.Optional(imp_price_key, description={"suggested_value": imp_price_val})] = NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX))
-            
+
             schema[vol.Optional(exp_start_key, description={"suggested_value": exp_start_val})] = TimeSelector()
             schema[vol.Optional(exp_end_key, description={"suggested_value": exp_end_val})] = TimeSelector()
             schema[vol.Optional(exp_price_key, description={"suggested_value": exp_price_val})] = NumberSelector(NumberSelectorConfig(mode=NumberSelectorMode.BOX))

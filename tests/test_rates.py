@@ -315,13 +315,13 @@ def test_standard_amber_renewables_none(mock_hass):
 def test_rates_manager_fixed_tou_mode(mock_hass):
     """T007: Verify RatesManager delegates to FixedTOUGenerator when in Fixed TOU mode."""
     from custom_components.house_battery_control.const import (
-        PRICING_MODE_FIXED_TOU,
-        CONF_FIXED_TOU_IMPORT_START,
-        CONF_FIXED_TOU_IMPORT_END,
-        CONF_FIXED_TOU_IMPORT_PRICE,
-        CONF_FIXED_TOU_EXPORT_START,
         CONF_FIXED_TOU_EXPORT_END,
         CONF_FIXED_TOU_EXPORT_PRICE,
+        CONF_FIXED_TOU_EXPORT_START,
+        CONF_FIXED_TOU_IMPORT_END,
+        CONF_FIXED_TOU_IMPORT_PRICE,
+        CONF_FIXED_TOU_IMPORT_START,
+        PRICING_MODE_FIXED_TOU,
     )
     from custom_components.house_battery_control.rates import RatesManager
 

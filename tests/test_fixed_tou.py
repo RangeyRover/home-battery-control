@@ -1,14 +1,16 @@
 """Tests for Fixed TOU Generator."""
-from datetime import datetime, time
+from datetime import datetime
 from zoneinfo import ZoneInfo
+
 from custom_components.house_battery_control.const import (
-    CONF_FIXED_TOU_IMPORT_START,
-    CONF_FIXED_TOU_IMPORT_END,
-    CONF_FIXED_TOU_IMPORT_PRICE,
-    CONF_FIXED_TOU_EXPORT_START,
     CONF_FIXED_TOU_EXPORT_END,
     CONF_FIXED_TOU_EXPORT_PRICE,
+    CONF_FIXED_TOU_EXPORT_START,
+    CONF_FIXED_TOU_IMPORT_END,
+    CONF_FIXED_TOU_IMPORT_PRICE,
+    CONF_FIXED_TOU_IMPORT_START,
 )
+
 
 def test_fixed_tou_generator_structure():
     """T007: Verify the basic structure and dynamic price lookup of the output."""
@@ -18,27 +20,27 @@ def test_fixed_tou_generator_structure():
         CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
         CONF_FIXED_TOU_IMPORT_END.format(1): "06:00:00",
         CONF_FIXED_TOU_IMPORT_PRICE.format(1): 30.558,
-        
+
         CONF_FIXED_TOU_IMPORT_START.format(2): "06:00:00",
         CONF_FIXED_TOU_IMPORT_END.format(2): "10:00:00",
         CONF_FIXED_TOU_IMPORT_PRICE.format(2): 47.014,
-        
+
         CONF_FIXED_TOU_IMPORT_START.format(3): "10:00:00",
         CONF_FIXED_TOU_IMPORT_END.format(3): "15:00:00",
         CONF_FIXED_TOU_IMPORT_PRICE.format(3): 21.604,
-        
+
         CONF_FIXED_TOU_IMPORT_START.format(4): "15:00:00",
         CONF_FIXED_TOU_IMPORT_END.format(4): "00:00:00",
         CONF_FIXED_TOU_IMPORT_PRICE.format(4): 47.014,
-        
+
         CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
         CONF_FIXED_TOU_EXPORT_END.format(1): "17:00:00",
         CONF_FIXED_TOU_EXPORT_PRICE.format(1): 1.0,
-        
+
         CONF_FIXED_TOU_EXPORT_START.format(2): "17:00:00",
         CONF_FIXED_TOU_EXPORT_END.format(2): "21:00:00",
         CONF_FIXED_TOU_EXPORT_PRICE.format(2): 27.0,
-        
+
         CONF_FIXED_TOU_EXPORT_START.format(3): "21:00:00",
         CONF_FIXED_TOU_EXPORT_END.format(3): "00:00:00",
         CONF_FIXED_TOU_EXPORT_PRICE.format(3): 1.0,
@@ -78,11 +80,11 @@ def test_fixed_tou_generator_dst_boundary():
         CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
         CONF_FIXED_TOU_IMPORT_END.format(1): "12:00:00",
         CONF_FIXED_TOU_IMPORT_PRICE.format(1): 10.0,
-        
+
         CONF_FIXED_TOU_IMPORT_START.format(2): "12:00:00",
         CONF_FIXED_TOU_IMPORT_END.format(2): "00:00:00",
         CONF_FIXED_TOU_IMPORT_PRICE.format(2): 40.0,
-        
+
         CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
         CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
         CONF_FIXED_TOU_EXPORT_PRICE.format(1): 1.0,

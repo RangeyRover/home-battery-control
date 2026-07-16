@@ -16,12 +16,10 @@ from custom_components.house_battery_control.const import (
     CONF_BATTERY_SOC_ENTITY,
     CONF_EXPORT_PRICE_ENTITY,
     CONF_EXPORT_TODAY_ENTITY,
-    CONF_FIXED_TOU_IMPORT_START,
-    CONF_FIXED_TOU_IMPORT_END,
-    CONF_FIXED_TOU_IMPORT_PRICE,
-    CONF_FIXED_TOU_EXPORT_START,
     CONF_FIXED_TOU_EXPORT_END,
-    CONF_FIXED_TOU_EXPORT_PRICE,
+    CONF_FIXED_TOU_EXPORT_START,
+    CONF_FIXED_TOU_IMPORT_END,
+    CONF_FIXED_TOU_IMPORT_START,
     CONF_GRID_ENTITY,
     CONF_GRID_POWER_INVERT,
     CONF_IMPORT_PRICE_ENTITY,
@@ -271,7 +269,6 @@ async def test_config_flow_pricing_mode_fixed_tou():
     from custom_components.house_battery_control.const import (
         CONF_PRICING_MODE,
         PRICING_MODE_FIXED_TOU,
-        CONF_FIXED_TOU_IMPORT_PRICE,
     )
 
     class MockConfigEntry:
@@ -296,7 +293,7 @@ async def test_config_flow_pricing_mode_fixed_tou():
 def test_validate_fixed_tou_periods_valid():
     """T003: [US1] Validation passes for valid 24h continuous periods."""
     from custom_components.house_battery_control.config_flow import validate_fixed_tou_periods
-    
+
     user_input = {
         CONF_FIXED_TOU_IMPORT_START.format(1): "00:00:00",
         CONF_FIXED_TOU_IMPORT_END.format(1): "06:00:00",
@@ -304,11 +301,11 @@ def test_validate_fixed_tou_periods_valid():
         CONF_FIXED_TOU_IMPORT_END.format(2): "16:00:00",
         CONF_FIXED_TOU_IMPORT_START.format(3): "16:00:00",
         CONF_FIXED_TOU_IMPORT_END.format(3): "00:00:00",
-        
+
         CONF_FIXED_TOU_EXPORT_START.format(1): "00:00:00",
         CONF_FIXED_TOU_EXPORT_END.format(1): "00:00:00",
     }
-    
+
     assert validate_fixed_tou_periods(user_input) is None
 
 def test_validate_fixed_tou_periods_missing():

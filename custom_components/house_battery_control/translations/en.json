@@ -11,6 +11,12 @@
                     "solar_entity": "Solar Production Power",
                     "grid_entity": "Grid Power",
                     "grid_power_invert": "Invert Grid Power (positive = export)"
+                },
+                "data_description": {
+                    "battery_soc_entity": "Usually in %",
+                    "battery_power_entity": "Power sensor (W or kW). Instantaneous rate of transfer.",
+                    "solar_entity": "Power sensor (W or kW). Instantaneous rate of transfer.",
+                    "grid_entity": "Power sensor (W or kW). Instantaneous rate of transfer."
                 }
             },
             "energy": {
@@ -20,10 +26,10 @@
                     "load_today_entity": "Load Today (kWh)",
                     "import_today_entity": "Grid Import Today (kWh)",
                     "export_today_entity": "Grid Export Today (kWh)",
-                    "load_high_temp_sensitivity": "Load sensitivity — high temp (kW/°C)",
-                    "load_low_temp_sensitivity": "Load sensitivity — low temp (kW/°C)",
-                    "load_high_temp_threshold": "High temperature threshold (°C)",
-                    "load_low_temp_threshold": "Low temperature threshold (°C)",
+                    "load_high_temp_sensitivity": "Load sensitivity \u00e2\u20ac\u201d high temp (kW/\u00c2\u00b0C)",
+                    "load_low_temp_sensitivity": "Load sensitivity \u00e2\u20ac\u201d low temp (kW/\u00c2\u00b0C)",
+                    "load_high_temp_threshold": "High temperature threshold (\u00c2\u00b0C)",
+                    "load_low_temp_threshold": "Low temperature threshold (\u00c2\u00b0C)",
                     "battery_capacity": "Battery Capacity (kWh)",
                     "battery_rate_max": "Max Charge/Discharge Rate (kW)",
                     "inverter_limit": "Inverter Limit (kW)",
@@ -36,6 +42,13 @@
                     "weather_entity": "Weather Entity",
                     "solcast_today_entity": "Solcast Forecast Today (sensor)",
                     "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)"
+                },
+                "data_description": {
+                    "load_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "import_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "export_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "solcast_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "solcast_tomorrow_entity": "Energy sensor (Wh or kWh). Accumulated amount over time."
                 }
             },
             "control": {
@@ -105,6 +118,12 @@
                     "solar_entity": "Solar Production Power",
                     "grid_entity": "Grid Power",
                     "grid_power_invert": "Invert Grid Power (positive = export)"
+                },
+                "data_description": {
+                    "battery_soc_entity": "Usually in %",
+                    "battery_power_entity": "Power sensor (W or kW). Instantaneous rate of transfer.",
+                    "solar_entity": "Power sensor (W or kW). Instantaneous rate of transfer.",
+                    "grid_entity": "Power sensor (W or kW). Instantaneous rate of transfer."
                 }
             },
             "energy": {
@@ -114,10 +133,10 @@
                     "load_today_entity": "Load Today (kWh)",
                     "import_today_entity": "Grid Import Today (kWh)",
                     "export_today_entity": "Grid Export Today (kWh)",
-                    "load_high_temp_sensitivity": "Load sensitivity — high temp (kW/°C)",
-                    "load_low_temp_sensitivity": "Load sensitivity — low temp (kW/°C)",
-                    "load_high_temp_threshold": "High temperature threshold (°C)",
-                    "load_low_temp_threshold": "Low temperature threshold (°C)",
+                    "load_high_temp_sensitivity": "Load sensitivity \u00e2\u20ac\u201d high temp (kW/\u00c2\u00b0C)",
+                    "load_low_temp_sensitivity": "Load sensitivity \u00e2\u20ac\u201d low temp (kW/\u00c2\u00b0C)",
+                    "load_high_temp_threshold": "High temperature threshold (\u00c2\u00b0C)",
+                    "load_low_temp_threshold": "Low temperature threshold (\u00c2\u00b0C)",
                     "battery_capacity": "Battery Capacity (kWh)",
                     "battery_rate_max": "Max Charge/Discharge Rate (kW)",
                     "inverter_limit": "Inverter Limit (kW)",
@@ -130,6 +149,13 @@
                     "weather_entity": "Weather Entity",
                     "solcast_today_entity": "Solcast Forecast Today (sensor)",
                     "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)"
+                },
+                "data_description": {
+                    "load_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "import_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "export_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "solcast_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "solcast_tomorrow_entity": "Energy sensor (Wh or kWh). Accumulated amount over time."
                 }
             },
             "control": {

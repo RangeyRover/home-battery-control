@@ -59,7 +59,11 @@ def _get_sensor_value(hass, entity_id: str) -> float:
     if state is None or state.state in ("unavailable", "unknown"):
         return 0.0
     try:
-        return float(state.state)
+        val = float(state.state)
+        unit = state.attributes.get("unit_of_measurement")
+        if unit in ("W", "Wh"):
+            val = val / 1000.0
+        return val
     except (ValueError, TypeError):
         return 0.0
 
@@ -97,6 +101,43 @@ def test_get_sensor_value_non_numeric():
     """Non-numeric state string should return 0.0."""
     hass = _make_mock_hass_with_state("not_a_number")
     assert _get_sensor_value(hass, "sensor.test") == 0.0
+
+
+def test_get_sensor_value_watts_to_kw():
+    """Sensor with unit_of_measurement W should be divided by 1000."""
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    hass = MagicMock()
+    hass.states.get.return_value = SimpleNamespace(state="3500", attributes={"unit_of_measurement": "W"})
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.hass = hass
+
+    assert coordinator._get_sensor_value("sensor.test") == 3.5
+
+
+def test_get_sensor_value_watthours_to_kwh():
+    """Sensor with unit_of_measurement Wh should be divided by 1000."""
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    hass = MagicMock()
+    hass.states.get.return_value = SimpleNamespace(state="4200", attributes={"unit_of_measurement": "Wh"})
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.hass = hass
+
+    assert coordinator._get_sensor_value("sensor.test") == 4.2
+
+
+def test_get_sensor_value_default_unit():
+    """Sensor with no unit or already kW/kWh should remain unchanged."""
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+    hass = MagicMock()
+    # Missing unit
+    hass.states.get.return_value = SimpleNamespace(state="3.5", attributes={})
+    coordinator = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coordinator.hass = hass
+    assert coordinator._get_sensor_value("sensor.test") == 3.5
+
+    # kW unit
+    hass.states.get.return_value = SimpleNamespace(state="3.5", attributes={"unit_of_measurement": "kW"})
+    assert coordinator._get_sensor_value("sensor.test") == 3.5
 
 
 # --- Inversion logic tests ---

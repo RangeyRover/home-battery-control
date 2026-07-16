@@ -239,7 +239,11 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug(f"Sensor {entity_id} is unavailable")
             return 0.0
         try:
-            return float(state.state)
+            val = float(state.state)
+            unit = state.attributes.get("unit_of_measurement")
+            if unit in ("W", "Wh"):
+                val = val / 1000.0
+            return val
         except (ValueError, TypeError):
             _LOGGER.error(f"Could not convert {entity_id} state '{state.state}' to float")
             return 0.0

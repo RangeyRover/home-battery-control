@@ -3,12 +3,12 @@ from datetime import datetime, time, timedelta
 from typing import Any, List
 
 from .const import (
-    CONF_FIXED_TOU_IMPORT_START,
-    CONF_FIXED_TOU_IMPORT_END,
-    CONF_FIXED_TOU_IMPORT_PRICE,
-    CONF_FIXED_TOU_EXPORT_START,
     CONF_FIXED_TOU_EXPORT_END,
     CONF_FIXED_TOU_EXPORT_PRICE,
+    CONF_FIXED_TOU_EXPORT_START,
+    CONF_FIXED_TOU_IMPORT_END,
+    CONF_FIXED_TOU_IMPORT_PRICE,
+    CONF_FIXED_TOU_IMPORT_START,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,11 +20,11 @@ class FixedTOUGenerator:
     def __init__(self, config_data: dict[str, Any]):
         """Initialize the FixedTOUGenerator with configuration data."""
         self._config = config_data
-        
+
         # Pre-parse periods for O(1) lookups during generation
         self._import_periods = self._parse_periods(
-            CONF_FIXED_TOU_IMPORT_START, 
-            CONF_FIXED_TOU_IMPORT_END, 
+            CONF_FIXED_TOU_IMPORT_START,
+            CONF_FIXED_TOU_IMPORT_END,
             CONF_FIXED_TOU_IMPORT_PRICE
         )
         if not self._import_periods:
@@ -37,8 +37,8 @@ class FixedTOUGenerator:
             ]
 
         self._export_periods = self._parse_periods(
-            CONF_FIXED_TOU_EXPORT_START, 
-            CONF_FIXED_TOU_EXPORT_END, 
+            CONF_FIXED_TOU_EXPORT_START,
+            CONF_FIXED_TOU_EXPORT_END,
             CONF_FIXED_TOU_EXPORT_PRICE
         )
         if not self._export_periods:
@@ -54,7 +54,7 @@ class FixedTOUGenerator:
             start_str = self._config.get(start_prefix.format(i))
             end_str = self._config.get(end_prefix.format(i))
             price_val = self._config.get(price_prefix.format(i))
-            
+
             if start_str and end_str and price_val is not None:
                 periods.append({
                     "start": self._parse_time(start_str),
@@ -117,10 +117,10 @@ class FixedTOUGenerator:
         Handles midnight wrap-around if start > end."""
         if start == time(0, 0) and end == time(0, 0):
             return True
-            
+
         # end time(0,0) actually means midnight of the next day, which is equivalent to 24:00
         # For comparisons where start is anything else and end is 00:00, we should treat x < end as True if end is next day midnight
-        # But time(0,0) is less than any other time, so start <= end is False. 
+        # But time(0,0) is less than any other time, so start <= end is False.
         # Wait, if end == time(0,0) and start != time(0,0), it goes to the else block (start <= x or x < end)
         # x < time(0,0) is False. So it's just start <= x. This is correct for times before midnight!
 
