@@ -167,14 +167,22 @@ class RatesManager:
         return parsed
 
     def _parse_amber_express_entity(self, entity_id: str, label: str) -> list:
-        """Parse rate intervals specifically from an Amber Express sensor's 'forecasts' array."""
+        """Parse rate intervals specifically from an Amber Express sensor's forecast attributes."""
         state = self._hass.states.get(entity_id)
         if not state:
             _LOGGER.warning(f"Amber Express {label} price entity {entity_id} not found")
             return []
 
-        # Amber Express explicitly embeds its 24h timeline inside the 'forecasts' attribute array
-        raw_data = state.attributes.get("forecasts", [])
+        # Amber Express forecast data can be under several attribute keys depending on integration version/type
+        raw_data = (
+            state.attributes.get("detailedForecast")
+            or state.attributes.get("detailed_forecast")
+            or state.attributes.get("forecasts")
+            or state.attributes.get("forecast")
+            or state.attributes.get("future_prices")
+            or state.attributes.get("variable_intervals")
+            or []
+        )
 
         if not raw_data:
             _LOGGER.warning(f"No forecasts array in Amber Express entity {entity_id}")
@@ -183,10 +191,21 @@ class RatesManager:
         parsed = []
         for interval in raw_data:
             try:
-                start_ts = dt_util.parse_datetime(interval.get("start_time", ""))
-                end_ts = dt_util.parse_datetime(interval.get("end_time", ""))
+                start_str = interval.get("start_time") or interval.get("periodStart", "")
+                end_str = interval.get("end_time") or interval.get("periodEnd", "")
 
-                if not start_ts or not end_ts:
+                start_ts = dt_util.parse_datetime(start_str) if start_str else None
+                if not start_ts:
+                    continue
+
+                if end_str:
+                    end_ts = dt_util.parse_datetime(end_str)
+                elif "duration" in interval and interval["duration"]:
+                    end_ts = start_ts + timedelta(minutes=float(interval["duration"]))
+                else:
+                    end_ts = start_ts + timedelta(minutes=5)
+
+                if not end_ts:
                     continue
 
                 # Ensure timezone-aware (spec 4: TZ safety)
@@ -196,7 +215,8 @@ class RatesManager:
                 renewables = float(interval.get("renewables", 100.0))
                 advanced = interval.get("advanced_price_predicted", {})
 
-                predicted_price = float(advanced.get("predicted", interval.get("per_kwh", 0.0)))
+                fallback_price = float(interval.get("per_kwh") or interval.get("perKwh") or interval.get("value") or 0.0)
+                predicted_price = float(advanced.get("predicted", fallback_price))
                 high_price = float(advanced.get("high", predicted_price))
 
                 if renewables >= 35.0:
@@ -224,7 +244,7 @@ class RatesManager:
                             "end": next_ts,
                             "price": price,
                             "renewables": renewables,
-                            "type": "FORECAST", # Amber Express is purely forecast arrays
+                            "type": "FORECAST",
                         }
                     )
                     current_ts = next_ts

@@ -346,3 +346,83 @@ def test_rates_manager_fixed_tou_mode(mock_hass):
     assert len(rates) == 576
     assert rates[0]['import_price'] == 40.0
     assert rates[0]['export_price'] == 15.0
+
+
+def test_amber_express_detailed_forecast_camel_case(mock_hass):
+    """US1: Parse detailedForecast (camelCase) attribute in Amber Express entities."""
+    prices = [
+        {
+            "start_time": "2026-07-25T06:45:01+00:00",
+            "end_time": "2026-07-25T06:50:00+00:00",
+            "per_kwh": 0.05,
+            "renewables": 60.0,
+            "advanced_price_predicted": {
+                "predicted": 0.05,
+                "high": 0.08,
+                "low": 0.03,
+            },
+        }
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(prices, key="detailedForecast"),
+        "sensor.amber_export": _make_amber_state([], key="detailedForecast"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=True)
+    manager.update()
+
+    rates = manager.get_rates()
+    assert len(rates) == 1
+    assert rates[0]["import_price"] == 0.05
+    assert rates[0]["renewables"] == 60.0
+
+
+def test_amber_express_detailed_forecast_snake_case(mock_hass):
+    """US1: Parse detailed_forecast (snake_case) attribute in Amber Express entities."""
+    prices = [
+        {
+            "start_time": "2026-07-25T06:45:01+00:00",
+            "end_time": "2026-07-25T06:50:00+00:00",
+            "per_kwh": 0.06,
+            "renewables": 80.0,
+        }
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(prices, key="detailed_forecast"),
+        "sensor.amber_export": _make_amber_state([], key="detailed_forecast"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=True)
+    manager.update()
+
+    rates = manager.get_rates()
+    assert len(rates) == 1
+    assert rates[0]["import_price"] == 0.06
+
+
+def test_amber_express_missing_end_time_calculates_from_duration(mock_hass):
+    """US1: If end_time is missing, calculate end_time from start_time + duration."""
+    prices = [
+        {
+            "start_time": "2026-07-25T06:45:00+00:00",
+            "duration": 5,
+            "per_kwh": 0.07,
+            "renewables": 50.0,
+        }
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(prices, key="detailedForecast"),
+        "sensor.amber_export": _make_amber_state([], key="detailedForecast"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=True)
+    manager.update()
+
+    rates = manager.get_rates()
+    assert len(rates) == 1
+    assert rates[0]["import_price"] == 0.07
+    assert rates[0]["end"] == datetime(2026, 7, 25, 6, 50, tzinfo=timezone.utc)
+
