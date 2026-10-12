@@ -1,0 +1,534 @@
+Failed to find real location of C:\Users\markn\AppData\Local\Programs\Python\Python313\python.exe
+FFFFFFFFFF.FFFF.F.                                                       [100%]
+================================== FAILURES ===================================
+________ test_no_battery_export_with_full_battery_and_solar[-0.2--0.4] ________
+
+buy = -0.4, sell = -0.2
+
+    @pytest.mark.parametrize('buy', [-.4, 0, .3])
+    @pytest.mark.parametrize('sell', [-.2, 0])
+    def test_no_battery_export_with_full_battery_and_solar(buy, sell):
+        _, _, rows = run([buy]*24, [sell]*24, [.125]*24, [.4]*24,
+                         capacity=27, soc=1, acquisition_cost=-.25)
+        assert rows
+>       assert all(r['state'] != 'DISCHARGE_GRID' for r in rows)
+E       assert False
+E        +  where False = all(<generator object test_no_battery_export_with_full_battery_and_solar.<locals>.<genexpr> at 0x0000021A7E7ACBA0>)
+
+tests\test_negative_tariffs.py:54: AssertionError
+_________ test_no_battery_export_with_full_battery_and_solar[-0.2-0] __________
+
+buy = 0, sell = -0.2
+
+    @pytest.mark.parametrize('buy', [-.4, 0, .3])
+    @pytest.mark.parametrize('sell', [-.2, 0])
+    def test_no_battery_export_with_full_battery_and_solar(buy, sell):
+        _, _, rows = run([buy]*24, [sell]*24, [.125]*24, [.4]*24,
+                         capacity=27, soc=1, acquisition_cost=-.25)
+        assert rows
+        assert all(r['state'] != 'DISCHARGE_GRID' for r in rows)
+>       check_balance(rows, 27, 27)
+
+tests\test_negative_tariffs.py:55:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+rows = [{'acquisition_cost': -0.19607843137254904, 'cumulative_cost': 0.0, 'export_price': -0.2, 'import_price': 0, ...}, {'a...ost': -0.19289591400130837, 'cumulative_cost': 0.18499999999999917, 'export_price': -0.2, 'import_price': 0, ...}, ...]
+initial = 27, capacity = 27, eta = 1
+
+    def check_balance(rows, initial, capacity, eta=1):
+        stored = initial
+        cash = 0
+        for row in rows:
+>           imp, exp = row['grid_import_kwh'], row['grid_export_kwh']
+E           KeyError: 'grid_import_kwh'
+
+tests\test_negative_tariffs.py:33: KeyError
+________ test_no_battery_export_with_full_battery_and_solar[-0.2-0.3] _________
+
+buy = 0.3, sell = -0.2
+
+    @pytest.mark.parametrize('buy', [-.4, 0, .3])
+    @pytest.mark.parametrize('sell', [-.2, 0])
+    def test_no_battery_export_with_full_battery_and_solar(buy, sell):
+        _, _, rows = run([buy]*24, [sell]*24, [.125]*24, [.4]*24,
+                         capacity=27, soc=1, acquisition_cost=-.25)
+        assert rows
+        assert all(r['state'] != 'DISCHARGE_GRID' for r in rows)
+>       check_balance(rows, 27, 27)
+
+tests\test_negative_tariffs.py:55:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+rows = [{'acquisition_cost': -0.19607843137254904, 'cumulative_cost': 0.0, 'export_price': -0.2, 'import_price': 0.3, ...}, {...t': -0.19289591400130837, 'cumulative_cost': 0.18499999999999917, 'export_price': -0.2, 'import_price': 0.3, ...}, ...]
+initial = 27, capacity = 27, eta = 1
+
+    def check_balance(rows, initial, capacity, eta=1):
+        stored = initial
+        cash = 0
+        for row in rows:
+>           imp, exp = row['grid_import_kwh'], row['grid_export_kwh']
+E           KeyError: 'grid_import_kwh'
+
+tests\test_negative_tariffs.py:33: KeyError
+_________ test_no_battery_export_with_full_battery_and_solar[0--0.4] __________
+
+buy = -0.4, sell = 0
+
+    @pytest.mark.parametrize('buy', [-.4, 0, .3])
+    @pytest.mark.parametrize('sell', [-.2, 0])
+    def test_no_battery_export_with_full_battery_and_solar(buy, sell):
+        _, _, rows = run([buy]*24, [sell]*24, [.125]*24, [.4]*24,
+                         capacity=27, soc=1, acquisition_cost=-.25)
+        assert rows
+>       assert all(r['state'] != 'DISCHARGE_GRID' for r in rows)
+E       assert False
+E        +  where False = all(<generator object test_no_battery_export_with_full_battery_and_solar.<locals>.<genexpr> at 0x0000021A7E7F5560>)
+
+tests\test_negative_tariffs.py:54: AssertionError
+___________ test_no_battery_export_with_full_battery_and_solar[0-0] ___________
+
+buy = 0, sell = 0
+
+    @pytest.mark.parametrize('buy', [-.4, 0, .3])
+    @pytest.mark.parametrize('sell', [-.2, 0])
+    def test_no_battery_export_with_full_battery_and_solar(buy, sell):
+        _, _, rows = run([buy]*24, [sell]*24, [.125]*24, [.4]*24,
+                         capacity=27, soc=1, acquisition_cost=-.25)
+        assert rows
+>       assert all(r['state'] != 'DISCHARGE_GRID' for r in rows)
+E       assert False
+E        +  where False = all(<generator object test_no_battery_export_with_full_battery_and_solar.<locals>.<genexpr> at 0x0000021A7E7F76B0>)
+
+tests\test_negative_tariffs.py:54: AssertionError
+__________ test_no_battery_export_with_full_battery_and_solar[0-0.3] __________
+
+buy = 0.3, sell = 0
+
+    @pytest.mark.parametrize('buy', [-.4, 0, .3])
+    @pytest.mark.parametrize('sell', [-.2, 0])
+    def test_no_battery_export_with_full_battery_and_solar(buy, sell):
+        _, _, rows = run([buy]*24, [sell]*24, [.125]*24, [.4]*24,
+                         capacity=27, soc=1, acquisition_cost=-.25)
+        assert rows
+        assert all(r['state'] != 'DISCHARGE_GRID' for r in rows)
+>       check_balance(rows, 27, 27)
+
+tests\test_negative_tariffs.py:55:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+rows = [{'acquisition_cost': -0.25, 'cumulative_cost': 0.0, 'export_price': 0, 'import_price': 0.3, ...}, {'acquisition_cost'...ice': 0.3, ...}, {'acquisition_cost': -0.25, 'cumulative_cost': 0.0, 'export_price': 0, 'import_price': 0.3, ...}, ...]
+initial = 27, capacity = 27, eta = 1
+
+    def check_balance(rows, initial, capacity, eta=1):
+        stored = initial
+        cash = 0
+        for row in rows:
+>           imp, exp = row['grid_import_kwh'], row['grid_export_kwh']
+E           KeyError: 'grid_import_kwh'
+
+tests\test_negative_tariffs.py:33: KeyError
+_________________ test_negative_import_has_a_real_destination _________________
+
+    def test_negative_import_has_a_real_destination():
+        _, _, rows = run([-.15], [-.2], [.125], soc=1)
+        assert rows
+>       check_balance(rows, 1, 1)
+
+tests\test_negative_tariffs.py:61:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+rows = [{'acquisition_cost': 0.0, 'cumulative_cost': 0.0, 'export_price': -0.2, 'import_price': -0.15, ...}]
+initial = 1, capacity = 1, eta = 1
+
+    def check_balance(rows, initial, capacity, eta=1):
+        stored = initial
+        cash = 0
+        for row in rows:
+>           imp, exp = row['grid_import_kwh'], row['grid_export_kwh']
+E           KeyError: 'grid_import_kwh'
+
+tests\test_negative_tariffs.py:33: KeyError
+____________ test_paid_charge_includes_later_solar_spill[-0.1-0-0] ____________
+
+buy = -0.1, expected_charge = 0, expected_cash = 0
+
+    @pytest.mark.parametrize('buy,expected_charge,expected_cash', [(-.1,0,0),(-.4,1,-.1)])
+    def test_paid_charge_includes_later_solar_spill(buy, expected_charge, expected_cash):
+        target, _, rows = run([buy,.2], [-.3,-.3], pv=[0,1])
+        assert rows
+>       assert target == pytest.approx(expected_charge)
+E       assert 1.0 == 0 � 1.0e-12
+E
+E         comparison failed
+E         Obtained: 1.0
+E         Expected: 0 � 1.0e-12
+
+tests\test_negative_tariffs.py:69: AssertionError
+__________ test_paid_charge_includes_later_solar_spill[-0.4-1--0.1] ___________
+
+buy = -0.4, expected_charge = 1, expected_cash = -0.1
+
+    @pytest.mark.parametrize('buy,expected_charge,expected_cash', [(-.1,0,0),(-.4,1,-.1)])
+    def test_paid_charge_includes_later_solar_spill(buy, expected_charge, expected_cash):
+        target, _, rows = run([buy,.2], [-.3,-.3], pv=[0,1])
+        assert rows
+>       assert target == pytest.approx(expected_charge)
+E       assert 0.0 == 1 � 1.0e-06
+E
+E         comparison failed
+E         Obtained: 0.0
+E         Expected: 1 � 1.0e-06
+
+tests\test_negative_tariffs.py:69: AssertionError
+__________________ test_efficiency_and_combined_power_limit ___________________
+
+    def test_efficiency_and_combined_power_limit():
+        _, _, rows = run([-.4,.5,.5],[-.2,.2,.2],load=[0,.5,.5],eta=.9)
+        assert rows
+>       check_balance(rows, 0, 1, .9)
+
+tests\test_negative_tariffs.py:77:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+rows = [{'acquisition_cost': -0.39999999999999997, 'cumulative_cost': -0.04444444444444443, 'export_price': -0.2, 'import_pri...on_cost': -0.39999999999999997, 'cumulative_cost': 0.05055555555555557, 'export_price': 0.2, 'import_price': 0.5, ...}]
+initial = 0, capacity = 1, eta = 0.9
+
+    def check_balance(rows, initial, capacity, eta=1):
+        stored = initial
+        cash = 0
+        for row in rows:
+>           imp, exp = row['grid_import_kwh'], row['grid_export_kwh']
+E           KeyError: 'grid_import_kwh'
+
+tests\test_negative_tariffs.py:33: KeyError
+_______________________ test_first_target_and_row_agree _______________________
+
+    def test_first_target_and_row_agree():
+        target, _, rows = run([-.4,.2],[-.2,-.2],pv=[0,.5])
+        assert rows and target*100 == pytest.approx(rows[0]['target_soc'])
+>       check_balance(rows, 0, 1)
+
+tests\test_negative_tariffs.py:90:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+rows = [{'acquisition_cost': -0.4, 'cumulative_cost': -0.2, 'export_price': -0.2, 'import_price': -0.4, ...}, {'acquisition_cost': -0.2, 'cumulative_cost': 0.0, 'export_price': -0.2, 'import_price': 0.2, ...}]
+initial = 0, capacity = 1, eta = 1
+
+    def check_balance(rows, initial, capacity, eta=1):
+        stored = initial
+        cash = 0
+        for row in rows:
+>           imp, exp = row['grid_import_kwh'], row['grid_export_kwh']
+E           KeyError: 'grid_import_kwh'
+
+tests\test_negative_tariffs.py:33: KeyError
+___________________ test_invalid_input_returns_no_plan[nan] ___________________
+
+bad = nan
+
+    @pytest.mark.parametrize('bad', [float('nan'), float('inf')])
+    def test_invalid_input_returns_no_plan(bad):
+>       _, _, rows = run([bad], [.2])
+
+tests\test_negative_tariffs.py:95:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_negative_tariffs.py:24: in run
+    return solver.LinearBatteryController().propose_state_of_charge(
+custom_components\house_battery_control\fsm\lin_fsm.py:261: in propose_state_of_charge
+    res = linprog(obj, A_ub=a_ub, b_ub=b_ub, A_eq=a_eq, b_eq=b_eq,
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\scipy\optimize\_linprog.py:649: in linprog
+    lp, solver_options = _parse_linprog(lp, options, meth)
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\scipy\optimize\_linprog_util.py:1026: in _parse_linprog
+    lp = _clean_inputs(lp._replace(A_ub=A_ub, A_eq=A_eq))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+lp = _LPProblem(c=array([   nan,  0.2  ,  0.2  ,  0.2  ,  0.   ,  0.   , -0.001]), A_ub=array([[-1.,  1.,  1.,  1.,  0.,  0... bounds=[(0.0, None), (0.0, 1.0), (-0.0, 0.0), (-1.0, 0.0), (0.0, 0.0), (0.0, 1), (0.0, 1)], x0=None, integrality=None)
+
+    def _clean_inputs(lp):
+        """
+        Given user inputs for a linear programming problem, return the
+        objective vector, upper bound constraints, equality constraints,
+        and simple bounds in a preferred format.
+
+        Parameters
+        ----------
+        lp : A `scipy.optimize._linprog_util._LPProblem` consisting of the following fields:
+
+            c : 1D array
+                The coefficients of the linear objective function to be minimized.
+            A_ub : 2D array, optional
+                The inequality constraint matrix. Each row of ``A_ub`` specifies the
+                coefficients of a linear inequality constraint on ``x``.
+            b_ub : 1D array, optional
+                The inequality constraint vector. Each element represents an
+                upper bound on the corresponding value of ``A_ub @ x``.
+            A_eq : 2D array, optional
+                The equality constraint matrix. Each row of ``A_eq`` specifies the
+                coefficients of a linear equality constraint on ``x``.
+            b_eq : 1D array, optional
+                The equality constraint vector. Each element of ``A_eq @ x`` must equal
+                the corresponding element of ``b_eq``.
+            bounds : various valid formats, optional
+                The bounds of ``x``, as ``min`` and ``max`` pairs.
+                If bounds are specified for all N variables separately, valid formats are:
+                * a 2D array (2 x N or N x 2);
+                * a sequence of N sequences, each with 2 values.
+                If all variables have the same bounds, a single pair of values can
+                be specified. Valid formats are:
+                * a sequence with 2 scalar values;
+                * a sequence with a single element containing 2 scalar values.
+                If all variables have a lower bound of 0 and no upper bound, the bounds
+                parameter can be omitted (or given as None).
+            x0 : 1D array, optional
+                Guess values of the decision variables, which will be refined by
+                the optimization algorithm. This argument is currently used only by the
+                'revised simplex' method, and can only be used if `x0` represents a
+                basic feasible solution.
+
+        Returns
+        -------
+        lp : A `scipy.optimize._linprog_util._LPProblem` consisting of the following fields:
+
+            c : 1D array
+                The coefficients of the linear objective function to be minimized.
+            A_ub : 2D array, optional
+                The inequality constraint matrix. Each row of ``A_ub`` specifies the
+                coefficients of a linear inequality constraint on ``x``.
+            b_ub : 1D array, optional
+                The inequality constraint vector. Each element represents an
+                upper bound on the corresponding value of ``A_ub @ x``.
+            A_eq : 2D array, optional
+                The equality constraint matrix. Each row of ``A_eq`` specifies the
+                coefficients of a linear equality constraint on ``x``.
+            b_eq : 1D array, optional
+                The equality constraint vector. Each element of ``A_eq @ x`` must equal
+                the corresponding element of ``b_eq``.
+            bounds : 2D array
+                The bounds of ``x``, as ``min`` and ``max`` pairs, one for each of the N
+                elements of ``x``. The N x 2 array contains lower bounds in the first
+                column and upper bounds in the 2nd. Unbounded variables have lower
+                bound -np.inf and/or upper bound np.inf.
+            x0 : 1D array, optional
+                Guess values of the decision variables, which will be refined by
+                the optimization algorithm. This argument is currently used only by the
+                'revised simplex' method, and can only be used if `x0` represents a
+                basic feasible solution.
+
+        """
+        c, A_ub, b_ub, A_eq, b_eq, bounds, x0, integrality = lp
+
+        if c is None:
+            raise TypeError
+
+        try:
+            c = np.array(c, dtype=np.float64, copy=True).squeeze()
+        except ValueError as e:
+            raise TypeError(
+                "Invalid input for linprog: c must be a 1-D array of numerical "
+                "coefficients") from e
+        else:
+            # If c is a single value, convert it to a 1-D array.
+            if c.size == 1:
+                c = c.reshape(-1)
+
+            n_x = len(c)
+            if n_x == 0 or len(c.shape) != 1:
+                raise ValueError(
+                    "Invalid input for linprog: c must be a 1-D array and must "
+                    "not have more than one non-singleton dimension")
+            if not np.isfinite(c).all():
+>               raise ValueError(
+                    "Invalid input for linprog: c must not contain values "
+                    "inf, nan, or None")
+E               ValueError: Invalid input for linprog: c must not contain values inf, nan, or None
+
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\scipy\optimize\_linprog_util.py:306: ValueError
+___________________ test_invalid_input_returns_no_plan[inf] ___________________
+
+bad = inf
+
+    @pytest.mark.parametrize('bad', [float('nan'), float('inf')])
+    def test_invalid_input_returns_no_plan(bad):
+>       _, _, rows = run([bad], [.2])
+
+tests\test_negative_tariffs.py:95:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_negative_tariffs.py:24: in run
+    return solver.LinearBatteryController().propose_state_of_charge(
+custom_components\house_battery_control\fsm\lin_fsm.py:261: in propose_state_of_charge
+    res = linprog(obj, A_ub=a_ub, b_ub=b_ub, A_eq=a_eq, b_eq=b_eq,
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\scipy\optimize\_linprog.py:649: in linprog
+    lp, solver_options = _parse_linprog(lp, options, meth)
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\scipy\optimize\_linprog_util.py:1026: in _parse_linprog
+    lp = _clean_inputs(lp._replace(A_ub=A_ub, A_eq=A_eq))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+lp = _LPProblem(c=array([ inf,  inf,  0.2,  0.2,  0. ,  0. , -inf]), A_ub=array([[-1.,  1.,  1.,  1.,  0.,  0.,  0.],
+     ... bounds=[(0.0, None), (0.0, 1.0), (-0.0, 0.0), (-1.0, 0.0), (0.0, 0.0), (0.0, 1), (0.0, 1)], x0=None, integrality=None)
+
+    def _clean_inputs(lp):
+        """
+        Given user inputs for a linear programming problem, return the
+        objective vector, upper bound constraints, equality constraints,
+        and simple bounds in a preferred format.
+
+        Parameters
+        ----------
+        lp : A `scipy.optimize._linprog_util._LPProblem` consisting of the following fields:
+
+            c : 1D array
+                The coefficients of the linear objective function to be minimized.
+            A_ub : 2D array, optional
+                The inequality constraint matrix. Each row of ``A_ub`` specifies the
+                coefficients of a linear inequality constraint on ``x``.
+            b_ub : 1D array, optional
+                The inequality constraint vector. Each element represents an
+                upper bound on the corresponding value of ``A_ub @ x``.
+            A_eq : 2D array, optional
+                The equality constraint matrix. Each row of ``A_eq`` specifies the
+                coefficients of a linear equality constraint on ``x``.
+            b_eq : 1D array, optional
+                The equality constraint vector. Each element of ``A_eq @ x`` must equal
+                the corresponding element of ``b_eq``.
+            bounds : various valid formats, optional
+                The bounds of ``x``, as ``min`` and ``max`` pairs.
+                If bounds are specified for all N variables separately, valid formats are:
+                * a 2D array (2 x N or N x 2);
+                * a sequence of N sequences, each with 2 values.
+                If all variables have the same bounds, a single pair of values can
+                be specified. Valid formats are:
+                * a sequence with 2 scalar values;
+                * a sequence with a single element containing 2 scalar values.
+                If all variables have a lower bound of 0 and no upper bound, the bounds
+                parameter can be omitted (or given as None).
+            x0 : 1D array, optional
+                Guess values of the decision variables, which will be refined by
+                the optimization algorithm. This argument is currently used only by the
+                'revised simplex' method, and can only be used if `x0` represents a
+                basic feasible solution.
+
+        Returns
+        -------
+        lp : A `scipy.optimize._linprog_util._LPProblem` consisting of the following fields:
+
+            c : 1D array
+                The coefficients of the linear objective function to be minimized.
+            A_ub : 2D array, optional
+                The inequality constraint matrix. Each row of ``A_ub`` specifies the
+                coefficients of a linear inequality constraint on ``x``.
+            b_ub : 1D array, optional
+                The inequality constraint vector. Each element represents an
+                upper bound on the corresponding value of ``A_ub @ x``.
+            A_eq : 2D array, optional
+                The equality constraint matrix. Each row of ``A_eq`` specifies the
+                coefficients of a linear equality constraint on ``x``.
+            b_eq : 1D array, optional
+                The equality constraint vector. Each element of ``A_eq @ x`` must equal
+                the corresponding element of ``b_eq``.
+            bounds : 2D array
+                The bounds of ``x``, as ``min`` and ``max`` pairs, one for each of the N
+                elements of ``x``. The N x 2 array contains lower bounds in the first
+                column and upper bounds in the 2nd. Unbounded variables have lower
+                bound -np.inf and/or upper bound np.inf.
+            x0 : 1D array, optional
+                Guess values of the decision variables, which will be refined by
+                the optimization algorithm. This argument is currently used only by the
+                'revised simplex' method, and can only be used if `x0` represents a
+                basic feasible solution.
+
+        """
+        c, A_ub, b_ub, A_eq, b_eq, bounds, x0, integrality = lp
+
+        if c is None:
+            raise TypeError
+
+        try:
+            c = np.array(c, dtype=np.float64, copy=True).squeeze()
+        except ValueError as e:
+            raise TypeError(
+                "Invalid input for linprog: c must be a 1-D array of numerical "
+                "coefficients") from e
+        else:
+            # If c is a single value, convert it to a 1-D array.
+            if c.size == 1:
+                c = c.reshape(-1)
+
+            n_x = len(c)
+            if n_x == 0 or len(c.shape) != 1:
+                raise ValueError(
+                    "Invalid input for linprog: c must be a 1-D array and must "
+                    "not have more than one non-singleton dimension")
+            if not np.isfinite(c).all():
+>               raise ValueError(
+                    "Invalid input for linprog: c must not contain values "
+                    "inf, nan, or None")
+E               ValueError: Invalid input for linprog: c must not contain values inf, nan, or None
+
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\scipy\optimize\_linprog_util.py:306: ValueError
+______________ test_invalid_successful_solver_result_is_rejected ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021A7E66E3F0>
+
+    def test_invalid_successful_solver_result_is_rejected(monkeypatch):
+        import numpy as np
+        def invalid(c, **kwargs):
+            return types.SimpleNamespace(success=True, x=np.zeros(len(c)), fun=0)
+        monkeypatch.setattr(solver, 'linprog', invalid)
+        _, _, rows = run([.3], [.1], soc=1)
+>       assert rows == []
+E       AssertionError: assert [{'acquisitio...e': 0.3, ...}] == []
+E
+E         Left contains one more item: {'acquisition_cost': 0.0, 'cumulative_cost': 0.0, 'export_price': 0.1, 'import_price': 0.3, ...}
+E         Use -v to get more diff
+
+tests\test_negative_tariffs.py:105: AssertionError
+________________ test_reserve_and_no_import_remain_constraints ________________
+
+    def test_reserve_and_no_import_remain_constraints():
+        _, _, rows = run([.3,.3],[.2,.2],load=[.2,.2],soc=1,
+                         reserve_soc=50, no_import_steps={0,1})
+        assert rows
+>       check_balance(rows, 1, 1)
+
+tests\test_negative_tariffs.py:119:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+rows = [{'acquisition_cost': 0.0, 'cumulative_cost': 0.0, 'export_price': 0.2, 'import_price': 0.3, ...}, {'acquisition_cost': 0.0, 'cumulative_cost': -0.020000000000000018, 'export_price': 0.2, 'import_price': 0.3, ...}]
+initial = 1, capacity = 1, eta = 1
+
+    def check_balance(rows, initial, capacity, eta=1):
+        stored = initial
+        cash = 0
+        for row in rows:
+>           imp, exp = row['grid_import_kwh'], row['grid_export_kwh']
+E           KeyError: 'grid_import_kwh'
+
+tests\test_negative_tariffs.py:33: KeyError
+============================== warnings summary ===============================
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396
+  C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396: PytestConfigWarning: Unknown config option: asyncio_mode
+
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_negative_tariffs.py::test_no_battery_export_with_full_battery_and_solar[-0.2--0.4]
+FAILED tests/test_negative_tariffs.py::test_no_battery_export_with_full_battery_and_solar[-0.2-0]
+FAILED tests/test_negative_tariffs.py::test_no_battery_export_with_full_battery_and_solar[-0.2-0.3]
+FAILED tests/test_negative_tariffs.py::test_no_battery_export_with_full_battery_and_solar[0--0.4]
+FAILED tests/test_negative_tariffs.py::test_no_battery_export_with_full_battery_and_solar[0-0]
+FAILED tests/test_negative_tariffs.py::test_no_battery_export_with_full_battery_and_solar[0-0.3]
+FAILED tests/test_negative_tariffs.py::test_negative_import_has_a_real_destination
+FAILED tests/test_negative_tariffs.py::test_paid_charge_includes_later_solar_spill[-0.1-0-0]
+FAILED tests/test_negative_tariffs.py::test_paid_charge_includes_later_solar_spill[-0.4-1--0.1]
+FAILED tests/test_negative_tariffs.py::test_efficiency_and_combined_power_limit
+FAILED tests/test_negative_tariffs.py::test_first_target_and_row_agree - KeyE...
+FAILED tests/test_negative_tariffs.py::test_invalid_input_returns_no_plan[nan]
+FAILED tests/test_negative_tariffs.py::test_invalid_input_returns_no_plan[inf]
+FAILED tests/test_negative_tariffs.py::test_invalid_successful_solver_result_is_rejected
+FAILED tests/test_negative_tariffs.py::test_reserve_and_no_import_remain_constraints
+15 failed, 3 passed, 1 warning in 3.74s
+Exception ignored in: <function Console.__del__ at 0x0000021A4E65B240>
+Traceback (most recent call last):
+  File "C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\pyreadline3\console\console.py", line 255, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008

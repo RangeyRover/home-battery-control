@@ -1,0 +1,36 @@
+Failed to find real location of C:\Users\markn\AppData\Local\Programs\Python\Python313\python.exe
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_day_horizon_completes_with_negative_midday_tariffs ___________
+
+    def test_day_horizon_completes_with_negative_midday_tariffs():
+        n = 288
+        buy = [-.25 if 90 <= i < 180 else .3 for i in range(n)]
+        sell = [-.2 if 80 <= i < 200 else .08 for i in range(n)]
+        pv = [max(0, 4 * math.sin(math.pi * (i-72)/144))/12
+              if 72 <= i <= 216 else 0 for i in range(n)]
+        battery = legacy.FakeBattery(27, .5, 6.3, 10)
+        _, _, rows = solver.LinearBatteryController().propose_state_of_charge(
+            battery, buy, sell, [.125]*n, pv, acquisition_cost=.1)
+>       assert len(rows) == n, 'A representative day must solve within the controller budget'
+E       AssertionError: A representative day must solve within the controller budget
+E       assert 0 == 288
+E        +  where 0 = len([])
+
+tests\test_negative_tariffs.py:229: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  _hbc_calculation_tests.fsm.lin_fsm:lin_fsm.py:292 Physical solver rejected: Time limit reached. (HiGHS Status 13: Time limit reached)
+============================== warnings summary ===============================
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396
+  C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396: PytestConfigWarning: Unknown config option: asyncio_mode
+
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_negative_tariffs.py::test_day_horizon_completes_with_negative_midday_tariffs
+1 failed, 26 deselected, 1 warning in 18.29s
+Exception ignored in: <function Console.__del__ at 0x0000025B086DB240>
+Traceback (most recent call last):
+  File "C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\pyreadline3\console\console.py", line 255, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008

@@ -1,0 +1,15 @@
+Failed to find real location of C:\Users\markn\AppData\Local\Programs\Python\Python313\python.exe
+.......................................xx............................... [ 98%]
+.                                                                        [100%]
+============================== warnings summary ===============================
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396
+  C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396: PytestConfigWarning: Unknown config option: asyncio_mode
+
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+71 passed, 2 xfailed, 1 warning in 23.97s
+Exception ignored in: <function Console.__del__ at 0x0000025D1772A980>
+Traceback (most recent call last):
+  File "C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\pyreadline3\console\console.py", line 255, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008

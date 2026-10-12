@@ -1,0 +1,106 @@
+{
+  "source": "C:\\Users\\markn\\Downloads\\history(2).csv",
+  "sha256": "64e7a23295e34347247c1bae7e8a079ec1f6d49fcab99654e87bcbd13fa48dbe",
+  "source_rows": 953,
+  "price_rows": {
+    "sensor.4_rosella_general_forecast": 457,
+    "sensor.4_rosella_feed_in_price": 348
+  },
+  "method": "Backward-as-of prices at 5-minute boundaries; no future interpolation. Retrospective price-path replay, not forecasts known at the time. Import series is forecast; units retained. Physical inputs synthetic.",
+  "sample_start_adelaide": "2026-10-11T00:05:00+10:30",
+  "sample_end_adelaide": "2026-10-11T23:55:00+10:30",
+  "sample_count": 287,
+  "nonpositive_export_samples": 164,
+  "negative_import_samples": 72,
+  "assumptions": {
+    "capacity_kwh": 27,
+    "charge_kw": 6.3,
+    "discharge_kw": 10,
+    "one_way_efficiency": 0.95,
+    "load_kw": 1.5,
+    "acquisition_cost": -0.25,
+    "export_margin": 0
+  },
+  "scenarios": [
+    {
+      "solar": "none",
+      "initial_soc": 10.0,
+      "seconds": 0.092,
+      "rows": 287,
+      "complete": true,
+      "forbidden_battery_exports": 0,
+      "nonpositive_solar_export_kwh": 0.0,
+      "negative_price_grid_charge_kwh": 30.360110803324062,
+      "positive_price_battery_export_kwh": 0.7083333333333334,
+      "projected_meter_cost": -3.655371029492153
+    },
+    {
+      "solar": "none",
+      "initial_soc": 50.0,
+      "seconds": 0.088,
+      "rows": 287,
+      "complete": true,
+      "forbidden_battery_exports": 0,
+      "nonpositive_solar_export_kwh": 0.0,
+      "negative_price_grid_charge_kwh": 30.360110803324066,
+      "positive_price_battery_export_kwh": 1.5333333333333232,
+      "projected_meter_cost": -6.538917381285777
+    },
+    {
+      "solar": "none",
+      "initial_soc": 100,
+      "seconds": 0.088,
+      "rows": 287,
+      "complete": true,
+      "forbidden_battery_exports": 0,
+      "nonpositive_solar_export_kwh": 0.0,
+      "negative_price_grid_charge_kwh": 30.360110803324066,
+      "positive_price_battery_export_kwh": 13.358333333333322,
+      "projected_meter_cost": -8.741968525023085
+    },
+    {
+      "solar": "daylight_4.8kw_peak",
+      "initial_soc": 10.0,
+      "seconds": 0.026,
+      "rows": 287,
+      "complete": true,
+      "forbidden_battery_exports": 0,
+      "nonpositive_solar_export_kwh": 1.5619401745874897,
+      "negative_price_grid_charge_kwh": 9.507530340154728,
+      "positive_price_battery_export_kwh": 0.7083333333333334,
+      "projected_meter_cost": -0.09855271235543203
+    },
+    {
+      "solar": "daylight_4.8kw_peak",
+      "initial_soc": 50.0,
+      "seconds": 0.028,
+      "rows": 287,
+      "complete": true,
+      "forbidden_battery_exports": 0,
+      "nonpositive_solar_export_kwh": 1.5619401745874897,
+      "negative_price_grid_charge_kwh": 9.507530340154728,
+      "positive_price_battery_export_kwh": 3.6920243182232277,
+      "projected_meter_cost": -2.799684621558993
+    },
+    {
+      "solar": "daylight_4.8kw_peak",
+      "initial_soc": 100,
+      "seconds": 0.026,
+      "rows": 287,
+      "complete": true,
+      "forbidden_battery_exports": 0,
+      "nonpositive_solar_export_kwh": 1.5619401745874897,
+      "negative_price_grid_charge_kwh": 9.507530340154728,
+      "positive_price_battery_export_kwh": 16.51702431822323,
+      "projected_meter_cost": -4.8981756672389976
+    }
+  ],
+  "price_change_checks": {
+    "events": 802,
+    "complete": 802,
+    "nonpositive_export_events": 455,
+    "empty_plans": 0,
+    "forbidden_battery_exports": 0
+  },
+  "pass": true
+}

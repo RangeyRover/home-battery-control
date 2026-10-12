@@ -141,3 +141,7 @@ ruff check custom_components/ tests/ # Linting
 - **Linting**: `ruff` with default rules
 - **Formatting**: Standard Python conventions (no black/yapf enforced)
 - **Naming**: `CONF_*` for config keys, `DEFAULT_*` for defaults, `STATE_*` for FSM states
+
+## Feature 063 calculation boundary
+
+Negative-tariff corrections are made in place in `fsm/lin_fsm.py`. Existing controller/FSM signatures, imports and mode controls remain unchanged. Offline solver and captured replay tests are the verification boundary; no new solver module or Home Assistant control change is introduced.

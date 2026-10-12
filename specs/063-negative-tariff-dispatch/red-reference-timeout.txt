@@ -1,0 +1,42 @@
+Failed to find real location of C:\Users\markn\AppData\Local\Programs\Python\Python313\python.exe
+..................F....                                                  [100%]
+================================== FAILURES ===================================
+___________ test_reference_timeout_cannot_be_overridden_by_deadline ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F757E83E30>
+
+    def test_reference_timeout_cannot_be_overridden_by_deadline(monkeypatch):
+        original = solver.linprog
+        calls = 0
+        def timeout_on_reference(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return original(*args, **kwargs)
+            return types.SimpleNamespace(success=False, status=1, message='time limit')
+        monkeypatch.setattr(solver, 'linprog', timeout_on_reference)
+        _, _, rows = run([-.4,.2],[-.3,-.3],guard_deadline_steps=[2])
+        assert calls >= 2
+>       assert rows == []
+E       AssertionError: assert [{'acquisitio...': -0.4, ...}] == []
+E
+E         Left contains 2 more items, first extra item: {'acquisition_cost': -0.4, 'battery_export_kwh': 0.0, 'charge_kwh': 1.0, 'charge_reason': 'Reserve/deadline constraint', ...}
+E         Use -v to get more diff
+
+tests\test_negative_tariffs.py:149: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  _hbc_calculation_tests.fsm.lin_fsm:lin_fsm.py:284 Physical solver rejected: time limit
+============================== warnings summary ===============================
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396
+  C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396: PytestConfigWarning: Unknown config option: asyncio_mode
+
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_negative_tariffs.py::test_reference_timeout_cannot_be_overridden_by_deadline
+1 failed, 22 passed, 1 warning in 3.52s
+Exception ignored in: <function Console.__del__ at 0x000001F72764F240>
+Traceback (most recent call last):
+  File "C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\pyreadline3\console\console.py", line 255, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008

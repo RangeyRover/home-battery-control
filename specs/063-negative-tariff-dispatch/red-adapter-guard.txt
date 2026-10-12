@@ -1,0 +1,38 @@
+Failed to find real location of C:\Users\markn\AppData\Local\Programs\Python\Python313\python.exe
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_adapter_independently_rejects_negative_export_recommendation ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C2689F6780>
+
+    def test_adapter_independently_rejects_negative_export_recommendation(monkeypatch):
+        base = importlib.import_module(f"{PACKAGE}.fsm.base")
+        context = base.FSMContext(soc=50, solar_production=0, load_power=0,
+            grid_voltage=240, current_price=-.4, forecast_solar=[], forecast_load=[],
+            forecast_price=[], config={},
+            solver_inputs=base.SolverInputs([-.4],[-.3],[0],[0]))
+        fsm = solver.LinearBatteryStateMachine()
+        monkeypatch.setattr(fsm.controller, "propose_state_of_charge",
+            lambda **kw: (.4,-1,[{"state":"DISCHARGE_GRID"}]))
+        result = fsm.calculate_next_state(context)
+>       assert result.state == "SELF_CONSUMPTION"
+E       AssertionError: assert 'DISCHARGE_GRID' == 'SELF_CONSUMPTION'
+E
+E         - SELF_CONSUMPTION
+E         + DISCHARGE_GRID
+
+tests\test_negative_tariffs.py:259: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396
+  C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396: PytestConfigWarning: Unknown config option: asyncio_mode
+
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_negative_tariffs.py::test_adapter_independently_rejects_negative_export_recommendation
+1 failed, 28 deselected, 1 warning in 3.33s
+Exception ignored in: <function Console.__del__ at 0x000002C238A1B240>
+Traceback (most recent call last):
+  File "C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\pyreadline3\console\console.py", line 254, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008

@@ -14,9 +14,11 @@ import logging
 import math
 import statistics
 from datetime import time
+from time import monotonic
 
 import numpy as np
 from scipy.optimize import linprog
+from scipy.sparse import lil_matrix, vstack
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -92,16 +94,10 @@ class FakeBattery:
 #  LinearBatteryController — core LP solver (SciPy translation of GLOP source)
 # ---------------------------------------------------------------------------
 class LinearBatteryController:
-    """
-    Translates the original GLOP competition LP formulation into SciPy's linprog.
+    """Physical battery optimisation with signed tariffs and exact balances.
 
-    Variable layout (1D vector x):
-        g[0..N-1]   grid import          bounds: [0, ∞)
-        c[0..N-1]   battery charge       bounds: [0, charge_limit_kwh]
-        dh[0..N-1]  discharge to home    bounds: [-max_home_kwh, 0]
-        dg[0..N-1]  discharge to grid    bounds: [-max_grid_kwh, 0]
-        s[0..N-1]   forced solar export  bounds: [0, ∞)   (Feature 032)
-        b[0..N]     battery state        bounds: [safe_lb, capacity]
+    Existing public interface; HiGHS integer direction constraints exclude
+    simultaneous charge/discharge and import/export under negative tariffs.
     """
 
     def __init__(self):
@@ -121,240 +117,232 @@ class LinearBatteryController:
         export_margin: float = 0.0,
         guard_deadline_steps: list[int] | None = None,
     ):
-        number_step = len(price_buy)
-        self.step = number_step
+        # Keep the public controller contract; all energies below are kWh/5 min.
+        n = len(price_buy)
+        self.step = n
+        fallback = (battery.current_charge, 0.0, [])
+        tol = 1e-6
+        started = monotonic()
+        arrays = (price_buy, price_sell, load_forecast, pv_forecast)
+        params = (battery.capacity, battery.current_charge,
+                  battery.charging_power_limit, battery.discharging_power_limit,
+                  battery.charging_efficiency, battery.discharging_efficiency,
+                  acquisition_cost, cumulative_cost, reserve_soc, export_margin)
+        if (not n or any(len(a) != n for a in arrays)
+                or not all(np.isfinite(a).all() for a in arrays)
+                or not all(math.isfinite(v) for v in params)
+                or battery.capacity <= 0 or not 0 <= battery.current_charge <= 1
+                or min(battery.charging_power_limit, battery.discharging_power_limit) < 0
+                or not 0 < battery.charging_efficiency <= 1
+                or not 0 < battery.discharging_efficiency <= 1
+                or not 0 <= reserve_soc <= 100 or export_margin < 0
+                or min(load_forecast) < 0 or min(pv_forecast) < 0):
+            _LOGGER.warning("Invalid solver inputs; no forced action")
+            return fallback
 
-        # --- Physical parameters ---
         capacity = battery.capacity
-        eta_in = battery.charging_efficiency
-        eta_out = 1.0 / battery.discharging_efficiency
         current = capacity * battery.current_charge
-        charge_limit = battery.charging_power_limit * (5.0 / 60.0)   # kW → kWh per step
-        dis_limit = battery.discharging_power_limit * (5.0 / 60.0)
+        eta_in = battery.charging_efficiency
+        eta_out = 1 / battery.discharging_efficiency
+        charge_limit = battery.charging_power_limit / 12
+        dis_limit = battery.discharging_power_limit / 12
+        energy = np.asarray(load_forecast) - np.asarray(pv_forecast)
+        # Preserve signed discharge variables, adding two direction indicators.
+        # g=site import, c=charge, dh/dg=negative home/grid discharge,
+        # s=solar export, b=stored energy, z=charge mode, w=import mode.
+        g, c, dh, dg, s, b, z, w = 0, n, 2*n, 3*n, 4*n, 5*n, 6*n+1, 7*n+1
+        size = 8*n+1
+        obj = np.zeros(size)
+        bounds = [(0.0, 0.0)] * size
+        integrality = np.zeros(size)
+        blocked = no_import_steps or set()
+        for i in range(n):
+            surplus = max(0.0, -energy[i])
+            deficit = max(0.0, energy[i])
+            obj[g+i] = price_buy[i]
+            obj[dg+i] = price_sell[i] - export_margin
+            obj[s+i] = -price_sell[i]
+            bounds[g+i] = (0, 0 if i in blocked else deficit+charge_limit)
+            bounds[c+i] = (0, charge_limit)
+            bounds[dh+i] = (-min(deficit, dis_limit), 0)
+            bounds[dg+i] = (-dis_limit, 0) if price_sell[i] > max(0, export_margin) else (0, 0)
+            bounds[s+i] = (0, surplus)
+            bounds[z+i] = bounds[w+i] = (0, 1)
 
-        # --- Net energy requirement per step ---
-        energy = [load_forecast[i] - pv_forecast[i] for i in range(number_step)]
+        # Preserve existing terminal inventory policy, but no positive floor.
+        terminal_value = max(0.0, acquisition_cost,
+                             (statistics.median(price_buy)+acquisition_cost)/2)
+        obj[b+n] = -terminal_value
+        reserve = capacity * reserve_soc / 100
+        for i in range(n+1):
+            reachable = current + i*charge_limit*eta_in
+            bounds[b+i] = (min(reserve, reachable), capacity)
+        for deadline in guard_deadline_steps or []:
+            if 0 < deadline <= n:
+                lower, upper = bounds[b+deadline]
+                reachable = min(capacity, current+deadline*charge_limit*eta_in)
+                bounds[b+deadline] = (max(lower, reachable-SOLVER_TOLERANCE_KWH), upper)
 
-        # --- Variable offsets ---
-        g_off = 0
-        c_off = number_step
-        dh_off = 2 * number_step
-        dg_off = 3 * number_step
-        s_off = 4 * number_step       # Feature 032: forced solar export (spill)
-        b_off = 5 * number_step
-        num_vars = 5 * number_step + (number_step + 1)
+        eq = lil_matrix((2*n+1, size))
+        rhs = np.zeros(2*n+1)
+        eq[0, b] = 1
+        rhs[0] = current
+        ub = lil_matrix((4*n, size))
+        upper = np.zeros(4*n)
+        for i in range(n):
+            # Battery export appears on BOTH sides of the site balance and
+            # cancels here; meter export is s-dg, never fictitious import slack.
+            eq[1+i, g+i] = 1
+            eq[1+i, c+i] = -1
+            eq[1+i, dh+i] = -1
+            eq[1+i, s+i] = -1
+            rhs[1+i] = energy[i]
+            eq[1+n+i, b+i] = 1
+            eq[1+n+i, b+i+1] = -1
+            eq[1+n+i, c+i] = eta_in
+            eq[1+n+i, dh+i] = eq[1+n+i, dg+i] = eta_out
+            # Battery direction and shared discharge limit.
+            ub[4*i, c+i], ub[4*i, z+i] = 1, -charge_limit
+            ub[4*i+1, dh+i] = ub[4*i+1, dg+i] = -1
+            ub[4*i+1, z+i] = dis_limit
+            upper[4*i+1] = dis_limit
+            # Site cannot import and export in the same model interval.
+            ub[4*i+2, g+i] = 1
+            ub[4*i+2, w+i] = -(max(0, energy[i])+charge_limit)
+            export_limit = max(0, -energy[i])+dis_limit
+            ub[4*i+3, s+i], ub[4*i+3, dg+i] = 1, -1
+            ub[4*i+3, w+i] = export_limit
+            upper[4*i+3] = export_limit
+        eq, ub = eq.tocsr(), ub.tocsr()
 
-        # --- Objective function (§7 of system requirements) ---
-        obj = np.zeros(num_vars)
+        def valid(x, local_bounds, matrix, limits, integer_modes):
+            # Independent of solver status: never publish a broken trajectory.
+            if x is None or len(x) != size or not np.isfinite(x).all():
+                return False
+            lo, hi = np.asarray(local_bounds).T
+            return (np.all(x >= lo-tol) and np.all(x <= hi+tol)
+                    and np.max(np.abs(eq @ x-rhs)) <= tol
+                    and np.all(matrix @ x <= limits+tol)
+                    and np.all(np.abs(x[integer_modes] - np.rint(x[integer_modes])) <= tol))
 
-        _blocked = no_import_steps or set()
-        bounds = [None] * num_vars  # Pre-allocate for indexed assignment
+        def extract(x):
+            inventory = current
+            average_cost = acquisition_cost
+            cash = cumulative_cost
+            rows, violations = [], []
+            for i in range(n):
+                charge = max(0.0, x[c+i])
+                home = max(0.0, -x[dh+i])
+                export = max(0.0, -x[dg+i])
+                imported = max(0.0, x[g+i])
+                solar_export = max(0.0, x[s+i])
+                grid_charge = max(0.0, charge-max(0.0, -energy[i]))
+                # Inventory is stored kWh, not an SoC fraction. Solar has no
+                # acquisition cash expenditure; losses affect stored energy.
+                if charge > tol:
+                    average_cost = (inventory*average_cost + grid_charge*price_buy[i]) / (inventory+charge*eta_in)
+                inventory = max(0.0, x[b+i+1])
+                if export > tol and price_sell[i]-export_margin < average_cost-tol:
+                    violations.append(i)
+                exported = solar_export+export
+                cash += imported*price_buy[i]-exported*price_sell[i]
+                state = ("DISCHARGE_GRID" if export > .005 else
+                         "CHARGE_GRID" if grid_charge > .005 else "SELF_CONSUMPTION")
+                rows.append({
+                    "target_soc": inventory/capacity*100, "state": state,
+                    "net_grid": (imported-exported)*12,
+                    "load": load_forecast[i]*12, "pv": pv_forecast[i]*12,
+                    "import_price": price_buy[i], "export_price": price_sell[i],
+                    "acquisition_cost": average_cost, "cumulative_cost": cash,
+                    "grid_import_kwh": imported, "grid_export_kwh": exported,
+                    "charge_kwh": charge, "discharge_kwh": home+export,
+                    "battery_export_kwh": export, "solar_export_kwh": solar_export,
+                    "grid_charge_kwh": grid_charge,
+                })
+            return rows, violations
 
-        for i in range(number_step):
-            # Grid import (g): raw price, no-import periods, negative price cap
-            obj[g_off + i] = price_buy[i]
-            if i in _blocked:
-                bounds[g_off + i] = (0.0, 0.0)
-            elif price_buy[i] < 0:
-                bounds[g_off + i] = (0.0, load_forecast[i] + charge_limit)
+        solve_infeasible = False
+
+        def solve(no_first_grid_charge=False):
+            nonlocal solve_infeasible
+            solve_infeasible = False
+            local_bounds = list(bounds)
+            integer_modes = integrality.copy()
+            matrix, limits = ub, upper
+            if no_first_grid_charge:
+                constraint = lil_matrix((1, size))
+                constraint[0, g] = 1
+                matrix = vstack([ub, constraint.tocsr()], format="csr")
+                limits = np.append(upper, max(0.0, energy[0]))
+            # Preserve the acquisition gate through re-solving, never by
+            # changing solved charge/discharge or patching future SoC values.
+            # Add integer directions only when a relaxation actually uses
+            # opposing flows. A physically valid optimum of the relaxation is
+            # also an optimum of the full model; no heuristic flow clipping.
+            for _ in range(3*n+1):
+                remaining = 15.0-(monotonic()-started)
+                if remaining <= 0:
+                    return None
+                result = linprog(obj, A_ub=matrix, b_ub=limits,
+                                 A_eq=eq, b_eq=rhs, bounds=local_bounds,
+                                 integrality=integer_modes, method="highs",
+                                 options={"time_limit": remaining, "mip_rel_gap": 0.001})
+                if not result.success or not valid(result.x, local_bounds, matrix, limits, integer_modes.astype(bool)):
+                    solve_infeasible = not result.success and getattr(result, "status", None) == 2
+                    _LOGGER.warning("Physical solver rejected: %s", getattr(result, "message", "invalid trajectory"))
+                    return None
+                x = result.x
+                conflicting_battery = (x[c:c+n] > tol) & (-(x[dh:dh+n]+x[dg:dg+n]) > tol)
+                conflicting_grid = (x[g:g+n] > tol) & ((x[s:s+n]-x[dg:dg+n]) > tol)
+                if conflicting_battery.any() or conflicting_grid.any():
+                    additions = np.zeros(size)
+                    additions[z:z+n] = conflicting_battery
+                    additions[w:w+n] = conflicting_grid
+                    if not np.any(additions > integer_modes):
+                        return None
+                    integer_modes = np.maximum(integer_modes, additions)
+                    continue
+                rows, violations = extract(result.x)
+                if not violations:
+                    return result, rows
+                for i in violations:
+                    local_bounds[dg+i] = (0, 0)
+            return None
+
+        chosen = solve()
+        if chosen is None:
+            return fallback
+        result, sequence = chosen
+        # Negative-price charging must beat the same future with current grid
+        # charging disabled, including later solar spill and terminal inventory.
+        if price_buy[0] < 0 and sequence[0]["grid_charge_kwh"] > tol:
+            reference = solve(no_first_grid_charge=True)
+            if reference is None:
+                # A reserve/deadline may mandate charging. Do not claim an
+                # economic benefit when the comparison is infeasible.
+                if not solve_infeasible or (not guard_deadline_steps and current >= reserve-tol):
+                    return fallback
+                sequence[0]["charge_reason"] = "Reserve/deadline constraint"
             else:
-                bounds[g_off + i] = (0.0, None)
+                ref_result, ref_rows = reference
+                # A MIP can finish within its optimality gap. Only admit paid
+                # charging if its feasible cost beats the reference LOWER
+                # bound, not merely the cost of a possibly suboptimal reference.
+                reference_bound = getattr(ref_result, "mip_dual_bound", None)
+                if reference_bound is None:
+                    reference_bound = float(obj @ ref_result.x)
+                saving = float(reference_bound - obj @ result.x)
+                if not math.isfinite(saving):
+                    return fallback
+                cash_saving = ref_rows[-1]["cumulative_cost"]-sequence[-1]["cumulative_cost"]
+                if saving <= tol:
+                    result, sequence = reference
+                sequence[0]["charge_comparison_saving"] = max(0.0, saving)
+                sequence[0]["charge_comparison_cash_saving"] = cash_saving if saving > tol else 0.0
+        # Report real meter cash, not the optimisation objective/terminal credit.
+        projected_cost = sequence[-1]["cumulative_cost"]-cumulative_cost
+        return sequence[0]["target_soc"]/100, projected_cost, sequence
 
-            # Charge (c): opportunity cost + tiebreaker — §7.2
-            obj[c_off + i] = max(0.001, price_sell[i]) + max(0.0, price_buy[i]) / 1000.0
-            bounds[c_off + i] = (0.0, charge_limit)
-
-            # Discharge to home (dh): opportunity cost = max(ε, sell_price)
-            sell_opp = max(0.001, price_sell[i])
-            obj[dh_off + i] = sell_opp
-            max_home = max(0.0, energy[i])
-            bounds[dh_off + i] = (-max_home, 0.0)
-
-            # Discharge to grid (dg): opportunity cost = max(ε, sell_price - export_margin)
-            sell_opp_grid = max(0.001, price_sell[i] - export_margin)
-            obj[dg_off + i] = sell_opp_grid
-            max_grid = max(0.0, dis_limit - max_home)
-            bounds[dg_off + i] = (-max_grid, 0.0)
-
-            # Forced solar export / spill (s) — Feature 032 FR-007
-            # Costed mathematically to penalize negative-export-price solar periods.
-            # Feature 035: Negative export prices (e.g. -0.05) must translate to a
-            # positive penalty (+0.05) to avoid mathematically rewarding the LP for spilling.
-            # Positive export prices naturally cost 0 here (opportunity cost handled by c).
-            obj[s_off + i] = max(0.0, -price_sell[i])
-            max_spill = max(0.0, pv_forecast[i] - load_forecast[i])
-            bounds[s_off + i] = (0.0, max_spill)
-
-        # Battery state bounds with dynamic feasibility gradient — §8
-        # Terminal valuation — §9: computed from raw acquisition_cost
-        median_buy = statistics.median(price_buy) if price_buy else acquisition_cost
-        blended = (median_buy + acquisition_cost) / 2.0
-        terminal_valuation = max(acquisition_cost, blended)
-
-        reserve_kwh = capacity * (reserve_soc / 100.0)
-        for i in range(number_step + 1):
-            if i == number_step:
-                # Terminal valuation — §9 (prevents full discharge)
-                obj[b_off + i] = -max(0.001, terminal_valuation)
-            else:
-                obj[b_off + i] = 0.0
-            physically_accessible = current + i * charge_limit * eta_in
-            safe_lb = min(reserve_kwh, physically_accessible)
-            if physically_accessible < reserve_kwh:
-                safe_lb = max(0.0, safe_lb - SOLVER_TOLERANCE_KWH)
-            bounds[b_off + i] = (safe_lb, capacity)
-
-        # Apply guard deadlines (Phase 4)
-        # Use a soft lower bound rather than hard equality to avoid LP infeasibility.
-        # The guard wants SoC=100% by the deadline, but if the battery physically
-        # cannot reach capacity by that step, a hard (capacity, capacity) constraint
-        # makes the LP infeasible and the solver returns an empty plan.
-        if guard_deadline_steps:
-            for deadline_idx in guard_deadline_steps:
-                if 0 < deadline_idx < (number_step + 1):
-                    # Calculate the maximum physically achievable SoC at this step
-                    max_reachable = min(capacity, current + deadline_idx * charge_limit * eta_in)
-                    # Raise the lower bound to push toward full charge, with numerical tolerance
-                    current_lb, current_ub = bounds[b_off + deadline_idx]
-                    new_lb = max(current_lb, max_reachable - SOLVER_TOLERANCE_KWH)
-                    bounds[b_off + deadline_idx] = (new_lb, current_ub)
-
-        # --- Inequality constraints ---
-        # Row 0..N-1: grid balance  g[i] - c[i] - dh[i] - dg[i] >= energy[i]
-        #   Rewrite: -g[i] + c[i] + dh[i] + dg[i] <= -energy[i]
-        # Row N..2N-1: spill floor  s[i] >= -energy[i] - c[i]   (Feature 032)
-        #   Rewrite: -s[i] - c[i] <= energy[i]
-        n_ub = 2 * number_step
-        a_ub = np.zeros((n_ub, num_vars))
-        b_ub = np.zeros(n_ub)
-        for i in range(number_step):
-            # Grid balance row
-            a_ub[i, g_off + i] = -1.0
-            a_ub[i, c_off + i] = 1.0
-            a_ub[i, dh_off + i] = 1.0
-            a_ub[i, dg_off + i] = 1.0
-            b_ub[i] = -energy[i]
-
-            # Spill floor row — FR-008
-            a_ub[number_step + i, s_off + i] = -1.0
-            a_ub[number_step + i, c_off + i] = -1.0
-            b_ub[number_step + i] = energy[i]
-
-        # --- Equality constraints: battery dynamics ---
-        # b[0] = current
-        # b[i+1] = b[i] + c[i]*eta_in + dh[i]*eta_out + dg[i]*eta_out
-        a_eq = np.zeros((number_step + 1, num_vars))
-        b_eq = np.zeros(number_step + 1)
-
-        a_eq[0, b_off] = 1.0
-        b_eq[0] = current
-
-        for i in range(number_step):
-            a_eq[i + 1, c_off + i] = eta_in
-            a_eq[i + 1, dh_off + i] = eta_out
-            a_eq[i + 1, dg_off + i] = eta_out
-            a_eq[i + 1, b_off + i] = 1.0
-            a_eq[i + 1, b_off + i + 1] = -1.0
-            b_eq[i + 1] = 0.0
-
-        # --- Solve ---
-        res = linprog(obj, A_ub=a_ub, b_ub=b_ub, A_eq=a_eq, b_eq=b_eq,
-                      bounds=bounds, method="highs")
-
-        if not res.success:
-            _LOGGER.warning("LP solver failed: %s", res.message)
-            return battery.current_charge, 0.0, []
-
-        # --- Extract first-step outputs ---
-        b_1 = res.x[b_off + 1]
-        objective_value = res.fun
-
-        # --- Build 288-step future plan sequence ---
-        running_capacity = battery.current_charge
-        running_cost = acquisition_cost
-        running_cum_cost = cumulative_cost
-        soc_correction = 0.0  # BUG-025B: accumulate energy retained by gate
-        sequence = []
-
-        for i in range(number_step):
-            step_b = min(res.x[b_off + i + 1] + soc_correction, capacity)
-            step_c = res.x[c_off + i]
-            step_g = res.x[g_off + i]
-            step_dh = abs(res.x[dh_off + i])
-            step_dg = abs(res.x[dg_off + i])
-
-            # --- SoC-cap plan guard — FR-001/FR-002 (Feature 032) ---
-            # Clamp charge to available battery headroom so the plan never
-            # shows phantom CHARGE_GRID at 100 % SoC.
-            headroom = capacity - step_b          # kWh left before full
-            if headroom <= 0:
-                # FR-001: battery full — zero out charge & matching grid import
-                charge_reduction = step_c
-                step_c = 0.0
-                step_g = max(0.0, step_g - charge_reduction)
-            else:
-                max_charge = headroom / eta_in     # pre-efficiency clamp (Q1)
-                if step_c > max_charge:
-                    # FR-002: nearly full — clamp to headroom
-                    charge_reduction = step_c - max_charge
-                    step_c = max_charge
-                    step_g = max(0.0, step_g - charge_reduction)
-
-            # --- Acquisition cost tracking — §12 (uses raw unclamped prices) ---
-            if step_c > 0.001:
-                charge_from_grid = min(step_c, step_g)
-                charge_cost = charge_from_grid * price_buy[i]
-                current_value = running_capacity * running_cost
-                new_value = current_value + charge_cost
-                new_capacity = running_capacity + step_c
-                if new_capacity > 0:
-                    running_cost = new_value / new_capacity
-            running_capacity = step_b
-
-            # --- Net grid flow — §11.2 (energy balance, inherently handles degeneracy) ---
-            net_grid_kwh = load_forecast[i] - pv_forecast[i] + step_c - step_dh - step_dg
-            net_grid_kw = net_grid_kwh * (60.0 / 5.0)
-
-            # --- State classification — §11.3 (solver variables, same approach as §10.2) ---
-            if step_dg > 0.005:
-                state = "DISCHARGE_GRID"
-            elif step_c > 0.005 and step_g > 0.005:
-                state = "CHARGE_GRID"
-            else:
-                state = "SELF_CONSUMPTION"
-
-            # --- Acquisition cost gate — FR-001: row-by-row check ---
-            # Applies export_margin so that effective sell (after margin) must exceed acq cost
-            if state == "DISCHARGE_GRID" and price_sell[i] - export_margin < running_cost:
-                # FR-002: Battery retains energy — adjust state for subsequent steps
-                soc_correction += step_dg  # BUG-025B: carry forward to future steps
-                running_capacity = running_capacity + step_dg
-                step_b = min(running_capacity, capacity)  # BUG-025B: correct SoC forecast
-                step_dg = 0.0
-                state = "SELF_CONSUMPTION"
-                # FR-005: Recalculate net grid without export
-                net_grid_kwh = load_forecast[i] - pv_forecast[i] + step_c - step_dh - step_dg
-                net_grid_kw = net_grid_kwh * (60.0 / 5.0)
-
-            # --- Cumulative cost tracking — §3.4 (raw prices, net grid flow) ---
-            if net_grid_kwh > 0:
-                running_cum_cost += net_grid_kwh * price_buy[i]
-            else:
-                running_cum_cost += net_grid_kwh * price_sell[i]
-
-            sequence.append({
-                "target_soc": (step_b / capacity) * 100.0,
-                "state": state,
-                "net_grid": net_grid_kw,
-                "load": load_forecast[i] * (60.0 / 5.0),
-                "pv": pv_forecast[i] * (60.0 / 5.0),
-                "import_price": price_buy[i],
-                "export_price": price_sell[i],
-                "acquisition_cost": running_cost,
-                "cumulative_cost": running_cum_cost,
-            })
-
-        return b_1 / capacity, objective_value, sequence
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +421,19 @@ class LinearBatteryStateMachine(BatteryStateMachine):
             return FSMResult(state="ERROR", limit_kw=0.0, reason="Solver returned None")
 
         target_soc_frac = float(target_soc_frac)
+
+        # Defence at the existing calculation boundary. Row zero is the live
+        # price supplied by the input builder. Never forward a contradictory
+        # recommendation, even if a solver implementation returns one.
+        if sequence and sequence[0]["state"] == "DISCHARGE_GRID":
+            sell_now = price_sell[0]
+            margin = float(context.config.get("export_margin", 0.0))
+            if not math.isfinite(sell_now) or sell_now <= max(0.0, margin):
+                return FSMResult(
+                    state="SELF_CONSUMPTION", limit_kw=0.0,
+                    reason="Battery export blocked by nonpositive effective tariff",
+                    target_soc=current_soc * 100.0, future_plan=[],
+                )
 
         # --- FR-001 (026): Single state source from sequence[0] ---
         if sequence:

@@ -1,0 +1,38 @@
+Failed to find real location of C:\Users\markn\AppData\Local\Programs\Python\Python313\python.exe
+F                                                                        [100%]
+================================== FAILURES ===================================
+________ test_uncertain_reference_bound_cannot_claim_charging_savings _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001BA8E2F2780>
+
+    def test_uncertain_reference_bound_cannot_claim_charging_savings(monkeypatch):
+        original = solver.linprog
+        calls = 0
+        def uncertain_reference(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            result = original(*args, **kwargs)
+            if calls >= 2:
+                result.mip_dual_bound = -100.0
+            return result
+        monkeypatch.setattr(solver, "linprog", uncertain_reference)
+        _, _, rows = run([-.4,.2],[-.3,-.3],pv=[0,1])
+        assert calls >= 2
+>       assert rows[0]["grid_charge_kwh"] <= 1e-6
+E       assert 1.0 <= 1e-06
+
+tests\test_negative_tariffs.py:246: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396
+  C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\_pytest\config\__init__.py:1396: PytestConfigWarning: Unknown config option: asyncio_mode
+
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_negative_tariffs.py::test_uncertain_reference_bound_cannot_claim_charging_savings
+1 failed, 27 deselected, 1 warning in 3.46s
+Exception ignored in: <function Console.__del__ at 0x000001BADE2AB240>
+Traceback (most recent call last):
+  File "C:\Users\markn\AppData\Local\Programs\Python\Python313\Lib\site-packages\pyreadline3\console\console.py", line 255, in __del__
+OSError: [WinError -1073741816] Windows Error 0xc0000008
