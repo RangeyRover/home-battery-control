@@ -30,5 +30,7 @@ User requested release preparation and confirmed a beta release on 2026-10-19. T
 - [x] Confirm previous published version (v1.9.0-beta.15).
 - [x] Run offline calculation regression checks.
 - [x] Update manifest and HACS metadata; prepare release notes.
-- [ ] Commit only release metadata and this record.
-- [ ] Publish v1.9.0-beta.16 as a GitHub prerelease and verify metadata.
+- [x] Commit only release metadata and this record (791acd1).
+- [x] Publish v1.9.0-beta.16 as a GitHub prerelease and verify metadata.
+
+Published and verified: https://github.com/RangeyRover/home-battery-control/releases/tag/v1.9.0-beta.16. Tag resolves to 791acd18a0491c8e87e5094b4f85ae830bdcb263; GitHub confirms prerelease=true and draft=false. Compared with beta.15, runtime differences are limited to lin_fsm.py and the two version metadata files.
