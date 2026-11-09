@@ -1,7 +1,8 @@
 """Logic for the Low Renewables Guard feature.
 
 This guard overrides normal FSM logic to force charging to 100% when
-renewables are extremely low (Amber Express < 30%) or Solcast forecast is poor.
+renewables are extremely low (Amber Express < 30%) or Solcast forecast is poor,
+or pre-charging to 80% by 16:00 when Amber forecasts a price spike within 12 hours.
 """
 
 import logging
@@ -14,13 +15,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class RenewablesGuard:
-    """Evaluates low-renewables conditions and manages hysteresis state."""
+    """Evaluates low-renewables and spike conditions and manages hysteresis state."""
 
     def __init__(self):
         """Initialize the guard."""
         self.is_active: bool = False
         self.renewables_avg: float | None = None
         self.trigger_reasons: list[str] = []
+        self.spike_triggered: bool = False
+        self.low_energy_triggered: bool = False
+        self.target_soc: float = 100.0
 
     def evaluate(
         self,
@@ -33,7 +37,7 @@ class RenewablesGuard:
         solcast_today: float = 100.0,
     ) -> bool:
         """
-        Evaluate if the low renewables guard should be active.
+        Evaluate if the low renewables / spike guard should be active.
 
         Args:
             rates: Parsed Amber Express rates (must include 'renewables' field)
@@ -61,9 +65,9 @@ class RenewablesGuard:
 
         amber_triggered = False
         if self.renewables_avg is not None:
-            # Apply +10% hysteresis if already active
+            # Apply +10% hysteresis if already active via low energy
             eff_threshold = (
-                renewables_threshold + 10.0 if self.is_active else renewables_threshold
+                renewables_threshold + 10.0 if self.low_energy_triggered else renewables_threshold
             )
             if self.renewables_avg <= eff_threshold:
                 amber_triggered = True
@@ -85,16 +89,28 @@ class RenewablesGuard:
             solcast_today_triggered = True
             self.trigger_reasons.append(f"Solcast Today ({solcast_today:.1f} <= {solcast_target_kwh:.1f} kWh)")
 
-        # 4. Apply Trigger Mode logic
+        # 4. Evaluate 12-hour Amber spike forecast (Feature 063 US5)
+        self.spike_triggered = any(bool(r.get("spike")) for r in rates[:144])
+        if self.spike_triggered:
+            self.trigger_reasons.append("Amber Spike Forecast")
+
+        # 5. Apply Trigger Mode logic for low-energy conditions + spike override
         if trigger_mode.upper() == "AND":
-            self.is_active = amber_triggered and solcast_tomorrow_triggered and solcast_today_triggered
+            self.low_energy_triggered = (
+                amber_triggered and solcast_tomorrow_triggered and solcast_today_triggered
+            )
         else:
             # OR mode
-            self.is_active = amber_triggered or solcast_tomorrow_triggered or solcast_today_triggered
+            self.low_energy_triggered = (
+                amber_triggered or solcast_tomorrow_triggered or solcast_today_triggered
+            )
+
+        self.is_active = self.low_energy_triggered or self.spike_triggered
+        self.target_soc = 80.0 if (self.spike_triggered and not self.low_energy_triggered) else 100.0
 
         if self.is_active:
             _LOGGER.info(
-                f"Renewables Guard ACTIVE. Reasons: {', '.join(self.trigger_reasons)}"
+                f"Renewables Guard ACTIVE (target_soc={self.target_soc:.0f}%). Reasons: {', '.join(self.trigger_reasons)}"
             )
 
         return self.is_active

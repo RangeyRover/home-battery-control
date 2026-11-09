@@ -40,3 +40,46 @@ Trajectory validator checks finite values, bounds, binaries, conservation, effic
 Acquisition accounting starts from B[0]=capacity*soc_fraction. Track stored energy and inventory value consistently; grid charge cost is gc*buy. Any solar inventory accounting is explicitly defined separately from real meter cash. Zero stored energy must not divide by zero. Do not change SoC to satisfy accounting policy.
 
 The test fixture records price source timestamps and assumptions. Runtime forecast provenance is not changed within the calculation-only scope; a padded array is not proof of fresh coverage.
+
+
+---
+
+## US4 & US5 entities (2026-10-12 / 2026-11-09)
+
+### SolverStats (per calculation)
+
+| Field | Type | Meaning / validation |
+|---|---|---|
+| `solve_seconds` | float >= 0, 3 dp | Wall time from entry of `propose_state_of_charge` to return (monotonic clock) |
+| `budget_seconds` | float in [1, 60] | Effective budget after clamping |
+| `passes` | int >= 0 | Number of `linprog` calls made (0 for invalid inputs) |
+| `integer_used` | bool | Any pass ran with integer direction variables |
+| `reference_solve` | bool | Negative-price comparison solve was started |
+| `outcome` | `"optimal"` \| `"timeout"` \| `"no_plan"` | `optimal`: valid trajectory returned within budget; `timeout`: budget reached (`remaining <= 0` or solver time limit); `no_plan`: invalid inputs or infeasible trajectory |
+| `detail` | str <= 120 chars | Human-readable reason, e.g. `"Solver time budget reached"` |
+| `horizon_steps` | int | Number of 5-minute steps solved |
+
+Invariants: `outcome in ("timeout", "no_plan")` <=> empty plan. `outcome == "optimal"` <=> non-empty validated plan. Stats are produced on every return path.
+
+### RateInterval spike flag & RenewablesGuard
+
+- `RateInterval.spike: bool` — `True` when `spike_status in ("potential_spike", "spike")` or `descriptor == "spike"`.
+- `RenewablesGuard.spike_triggered: bool` — `True` when any interval in `rates[:144]` has `spike == True`.
+- `RenewablesGuard.target_soc: float` — `80.0` when active only via `spike_triggered`; `100.0` when low-renewables/Solcast triggered.
+- `LinearBatteryController.guard_target_soc: float` — default `100.0`; caps `reachable` at `capacity * (guard_target_soc / 100.0)` for `guard_deadline_steps`.
+
+### Coordinator-level additions
+
+- `solver_stats`: last SolverStats (dict) in coordinator `data`, debug snapshot (`solver_snapshot.result.solver_stats`) and telemetry payload.
+- `solve_seconds_max_24h`: max `solve_seconds` over a deque of `(utc_time, solve_seconds)` pruned to 24 h (in-memory; resets on restart).
+
+### Config
+
+- `solver_time_budget` (float, default 30.0, min 1.0, max 60.0, step 1) — passed to the FSM via `fsm_context.config["solver_time_budget"]`; adapter clamps to [1, 60].
+- `DEFAULT_GUARD_DAYTIME_DEADLINE = "16:00"`.
+
+### Dashboard status colour rule
+
+- Green: `optimal` and `solve_seconds < min(5 s, 0.5 * budget)`.
+- Amber: `optimal` otherwise (slower than a few seconds — a performance warning, plan still optimal).
+- Red: `timeout` or `no_plan` (also raises a constraints-bar badge).

@@ -376,3 +376,31 @@ def test_validate_fixed_tou_periods_midnight_cross():
     }
     assert validate_fixed_tou_periods(user_input) == "period_crosses_midnight"
 
+
+
+
+def test_solver_time_budget_constants_and_translations():
+    """T024/US4/US5: Verify CONF_SOLVER_TIME_BUDGET defaults (30.0s), DEFAULT_GUARD_DAYTIME_DEADLINE ('16:00'), and translation keys."""
+    import json
+    from pathlib import Path
+
+    from custom_components.house_battery_control.const import (
+        CONF_SOLVER_TIME_BUDGET,
+        DEFAULT_GUARD_DAYTIME_DEADLINE,
+        DEFAULT_SOLVER_TIME_BUDGET,
+    )
+
+    assert CONF_SOLVER_TIME_BUDGET == "solver_time_budget"
+    assert DEFAULT_SOLVER_TIME_BUDGET == 30.0
+    assert DEFAULT_GUARD_DAYTIME_DEADLINE == "16:00"
+
+    base = Path(__file__).parent.parent / "custom_components" / "house_battery_control"
+    for rel in ("strings.json", "translations/en.json"):
+        data = json.loads((base / rel).read_text(encoding="utf-8"))
+        for section in ("config", "options"):
+            energy_data = data[section]["step"]["energy"]["data"]
+            assert "solver_time_budget" in energy_data
+            assert "reserve_soc" in energy_data
+            assert "round_trip_efficiency" in energy_data
+            assert "export_margin" in energy_data
+        assert data["entity"]["sensor"]["hbc_solve_time"]["name"] == "Solver Duration"

@@ -15,6 +15,7 @@ class RateInterval(TypedDict):
     export_price: float  # c/kWh
     renewables: float | None  # renewables % (Amber Express)
     type: str  # ACTUAL or FORECAST
+    spike: bool
 
 
 class RatesManager:
@@ -61,6 +62,7 @@ class RatesManager:
                     "export_price": r["export_price"],
                     "renewables": None,
                     "type": r["type"],
+                    "spike": False,
                 }
             self._rates = sorted(merged.values(), key=lambda x: x["start"])
             _LOGGER.debug(f"Loaded {len(self._rates)} fixed TOU intervals")
@@ -84,11 +86,15 @@ class RatesManager:
                 "export_price": 0.0,
                 "renewables": r.get("renewables"),
                 "type": r["type"],
+                "spike": bool(r.get("spike", False)),
             }
         for r in export_rates:
             key = r["start"]
             if key in merged:
                 merged[key]["export_price"] = r["price"]
+                merged[key]["spike"] = bool(
+                    merged[key].get("spike", False) or r.get("spike", False)
+                )
             else:
                 merged[key] = {
                     "start": r["start"],
@@ -97,6 +103,7 @@ class RatesManager:
                     "export_price": r["price"],
                     "renewables": r.get("renewables"),
                     "type": r["type"],
+                    "spike": bool(r.get("spike", False)),
                 }
 
         self._rates = sorted(merged.values(), key=lambda x: x["start"])
@@ -138,6 +145,10 @@ class RatesManager:
                 end_ts = dt_util.as_utc(end_ts)
 
                 price = float(interval.get("per_kwh") or interval.get("perKwh", 0))
+                is_spike = bool(
+                    interval.get("spike_status") in ("potential_spike", "spike")
+                    or interval.get("descriptor") == "spike"
+                )
 
                 # Phase 8: Force chunking all intervals into 5-minute ticks
                 chunk_duration = timedelta(minutes=5)
@@ -155,6 +166,7 @@ class RatesManager:
                             "price": price,
                             "renewables": None,
                             "type": interval.get("type") or interval.get("periodType", "UNKNOWN"),
+                            "spike": is_spike,
                         }
                     )
                     current_ts = next_ts
@@ -229,6 +241,11 @@ class RatesManager:
                     ratio_high = 1.0 - ratio_predicted
                     price = (ratio_predicted * predicted_price) + (ratio_high * high_price)
 
+                is_spike = bool(
+                    interval.get("spike_status") in ("potential_spike", "spike")
+                    or interval.get("descriptor") == "spike"
+                )
+
                 # Phase 8: Force chunking all intervals into 5-minute ticks
                 chunk_duration = timedelta(minutes=5)
                 current_ts = start_ts
@@ -245,6 +262,7 @@ class RatesManager:
                             "price": price,
                             "renewables": renewables,
                             "type": "FORECAST",
+                            "spike": is_spike,
                         }
                     )
                     current_ts = next_ts

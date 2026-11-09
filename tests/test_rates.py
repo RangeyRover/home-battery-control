@@ -426,3 +426,78 @@ def test_amber_express_missing_end_time_calculates_from_duration(mock_hass):
     assert rates[0]["import_price"] == 0.07
     assert rates[0]["end"] == datetime(2026, 7, 25, 6, 50, tzinfo=timezone.utc)
 
+
+
+def test_amber_express_spike_status_and_descriptor_parsed(mock_hass):
+    """T021/US5: Amber Express intervals preserve spike=True when spike_status in ('spike', 'potential_spike') or descriptor == 'spike'."""
+    prices = [
+        {
+            "start_time": "2026-11-09T08:00:00+00:00",
+            "end_time": "2026-11-09T08:05:00+00:00",
+            "per_kwh": 0.25,
+            "renewables": 50.0,
+            "spike_status": "none",
+            "descriptor": "neutral",
+        },
+        {
+            "start_time": "2026-11-09T08:05:00+00:00",
+            "end_time": "2026-11-09T08:10:00+00:00",
+            "per_kwh": 0.59,
+            "renewables": 45.0,
+            "spike_status": "spike",
+            "descriptor": "spike",
+        },
+        {
+            "start_time": "2026-11-09T08:10:00+00:00",
+            "end_time": "2026-11-09T08:15:00+00:00",
+            "per_kwh": 0.45,
+            "renewables": 45.0,
+            "spike_status": "potential_spike",
+            "descriptor": "high",
+        },
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(prices, key="forecasts"),
+        "sensor.amber_export": _make_amber_state([], key="forecasts"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=True)
+    manager.update()
+
+    rates = manager.get_rates()
+    assert len(rates) == 3
+    assert rates[0]["spike"] is False
+    assert rates[1]["spike"] is True
+    assert rates[2]["spike"] is True
+
+
+def test_standard_amber_spike_status_parsed(mock_hass):
+    """T021/US5: Standard Amber intervals preserve spike=True when spike_status or descriptor indicates spike."""
+    prices = [
+        {
+            "start_time": "2026-11-09T08:00:00+00:00",
+            "end_time": "2026-11-09T08:05:00+00:00",
+            "per_kwh": 12.52,
+            "spike_status": "spike",
+        },
+        {
+            "start_time": "2026-11-09T08:05:00+00:00",
+            "end_time": "2026-11-09T08:10:00+00:00",
+            "per_kwh": 0.30,
+            "spike_status": "none",
+        },
+    ]
+
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(prices, key="forecasts"),
+        "sensor.amber_export": _make_amber_state([], key="forecasts"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=False)
+    manager.update()
+
+    rates = manager.get_rates()
+    assert len(rates) == 2
+    assert rates[0]["spike"] is True
+    assert rates[1]["spike"] is False

@@ -56,3 +56,27 @@ py -m pytest tests/test_negative_tariffs.py -q -o addopts=
 ```
 
 The local Python launcher prints a path warning and pyreadline emits a shutdown error after the pytest summary. Pytest completed with the above passing outcomes; these environment messages also appeared before source edits. No claim of HA/deployment verification is made.
+
+
+## US4 & US5 (Solver Time Budget, Dashboard Telemetry & Amber Spike Pre-Charge)
+
+### Baseline (`T018`)
+- Command: `pytest tests/ -q`
+- Result: `332 passed, 2 xfailed in 26.99s` (zero production edits).
+
+### RED Gate (`T019`–`T026`)
+- Command: `pytest tests/test_solver_budget.py tests/test_rates.py tests/test_renewables_guard.py tests/test_coordinator.py tests/test_sensor.py tests/test_config_flow.py tests/test_init.py -q`
+- Result: `21 failed, 114 passed` (all 21 new tests across US4 and US5 failed before any production code was modified).
+
+### GREEN & Full Verification (`T035`–`T036`)
+- Focused US4/US5 test run:
+  `pytest tests/test_solver_budget.py tests/test_rates.py tests/test_renewables_guard.py tests/test_coordinator.py tests/test_sensor.py tests/test_config_flow.py tests/test_init.py -q`
+  Result: `135 passed in 5.05s`
+- Full Python test suite:
+  `pytest tests/ -q`
+  Result: `353 passed, 2 xfailed in 41.31s`
+- Static analysis & JS lint:
+  `ruff check custom_components/ tests/` -> `All checks passed!`
+  `npm run lint:js` -> `0 warnings, 0 errors`
+- Non-destructive `lin_fsm.py` verification:
+  `git diff -w custom_components/house_battery_control/fsm/lin_fsm.py` verified: zero changes to LP/MIP objective, constraints, flow direction variables, or control flow; only `time_budget_s = 30.0`, `guard_target_soc = 100.0`, read-only `last_solve_stats`, `target_cap` in the guard deadline loop, and `FSMResult.solver_stats` pass-through.

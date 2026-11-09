@@ -81,5 +81,31 @@ describe('HBCDashboard', () => {
     }
   });
 
+  it('renders Solver card and timeout constraint badge', async () => {
+    const el = await fixture('<hbc-dashboard></hbc-dashboard>');
+    el.data = {
+      solver_stats: {
+        solve_seconds: 12.34,
+        budget_seconds: 30.0,
+        passes: 1,
+        integer_used: true,
+        reference_solve: false,
+        outcome: 'timeout',
+        detail: 'Solver time budget (30.0s) exceeded before pass 1',
+        horizon_steps: 288,
+      },
+      solve_seconds_max_24h: 15.0,
+    };
+    await el.updateComplete;
 
+    const text = el.shadowRoot.textContent;
+    expect(text).to.include('Solver');
+    expect(text).to.include('12.34s');
+    expect(text).to.include('30s');
+    expect(text).to.include('TIMEOUT');
+
+    const bar = el.shadowRoot.querySelector('.constraints-bar');
+    expect(bar).to.exist;
+    expect(bar.textContent).to.include('Solver Timeout');
+  });
 });

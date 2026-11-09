@@ -101,7 +101,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config={
                 "_panel_custom": {
                     "name": "hbc-panel-lite",
-                    "module_url": "/hbc/frontend/hbc-panel-lite.js?v=56",
+                    "module_url": "/hbc/frontend/hbc-panel-lite.js?v=57",
                 }
             },
         )
@@ -117,7 +117,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config={
                 "_panel_custom": {
                     "name": "hbc-panel",
-                    "module_url": "/hbc/frontend/hbc-panel.js?v=56",
+                    "module_url": "/hbc/frontend/hbc-panel.js?v=57",
                 }
             },
         )

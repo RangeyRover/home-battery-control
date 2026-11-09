@@ -78,6 +78,7 @@ from .const import (
     CONF_SOLAR_ENTITY,
     CONF_SOLCAST_TODAY_ENTITY,
     CONF_SOLCAST_TOMORROW_ENTITY,
+    CONF_SOLVER_TIME_BUDGET,
     CONF_TRACKER_EXPORT_PRICE,
     CONF_TRACKER_IMPORT_PRICE,
     CONF_USE_AMBER_EXPRESS,
@@ -98,6 +99,7 @@ from .const import (
     DEFAULT_ROUND_TRIP_EFFICIENCY,
     DEFAULT_SOLCAST_TODAY,
     DEFAULT_SOLCAST_TOMORROW,
+    DEFAULT_SOLVER_TIME_BUDGET,
     DEFAULT_USE_AMBER_EXPRESS,
     DOMAIN,
     PRICING_MODE_AMBER,
@@ -396,6 +398,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_EXPORT_MARGIN, default=DEFAULT_EXPORT_MARGIN
             ): NumberSelector(
                 NumberSelectorConfig(min=0.0, max=1.0, step=0.001, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Optional(
+                CONF_SOLVER_TIME_BUDGET, default=DEFAULT_SOLVER_TIME_BUDGET
+            ): NumberSelector(
+                NumberSelectorConfig(min=1.0, max=60.0, step=1.0, mode=NumberSelectorMode.BOX, unit_of_measurement="s")
             ),
         }
 
@@ -794,6 +801,12 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
                 default=self._data.get(CONF_EXPORT_MARGIN, DEFAULT_EXPORT_MARGIN),
             ): NumberSelector(
                 NumberSelectorConfig(min=0.0, max=1.0, step=0.001, mode=NumberSelectorMode.BOX)
+            ),
+            vol.Optional(
+                CONF_SOLVER_TIME_BUDGET,
+                default=self._data.get(CONF_SOLVER_TIME_BUDGET, DEFAULT_SOLVER_TIME_BUDGET),
+            ): NumberSelector(
+                NumberSelectorConfig(min=1.0, max=60.0, step=1.0, mode=NumberSelectorMode.BOX, unit_of_measurement="s")
             ),
         }
 

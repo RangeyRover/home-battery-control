@@ -286,3 +286,66 @@ def test_guard_or_mode_today_only():
     assert active is True
     assert any("Solcast Today" in r for r in guard.trigger_reasons)
     assert not any("Solcast Tomorrow" in r for r in guard.trigger_reasons)
+
+
+def test_guard_spike_forecast_triggers_in_and_mode_with_80pct_target():
+    """T021/US5: A spike in rates[:144] activates guard even in AND mode when renewables and solar are high, setting target_soc=80.0."""
+    guard = RenewablesGuard()
+    rates = [{"renewables": 88.0, "spike": False} for _ in range(144)]
+    rates[70] = {"renewables": 88.0, "spike": True}
+
+    active = guard.evaluate(
+        rates,
+        solcast_tomorrow=35.0,
+        solcast_today=35.0,
+        trigger_mode="AND",
+        renewables_threshold=30.0,
+        solcast_threshold=50.0,
+        peak_solar=40.0,
+    )
+    assert active is True
+    assert guard.spike_triggered is True
+    assert guard.low_energy_triggered is False
+    assert guard.target_soc == 80.0
+    assert any("Amber Spike Forecast" in r for r in guard.trigger_reasons)
+
+
+def test_guard_spike_forecast_plus_low_energy_uses_100pct_target():
+    """T021/US5: When both spike and low-energy trigger, target_soc remains 100.0."""
+    guard = RenewablesGuard()
+    rates = [{"renewables": 10.0, "spike": False} for _ in range(144)]
+    rates[40] = {"renewables": 10.0, "spike": True}
+
+    active = guard.evaluate(
+        rates,
+        solcast_tomorrow=10.0,
+        solcast_today=10.0,
+        trigger_mode="AND",
+        renewables_threshold=30.0,
+        solcast_threshold=50.0,
+        peak_solar=40.0,
+    )
+    assert active is True
+    assert guard.spike_triggered is True
+    assert guard.low_energy_triggered is True
+    assert guard.target_soc == 100.0
+
+
+def test_guard_spike_beyond_12h_window_ignored():
+    """T021/US5: A spike beyond the 144-step (12h) window does not trigger guard."""
+    guard = RenewablesGuard()
+    rates = [{"renewables": 80.0, "spike": False} for _ in range(200)]
+    rates[150] = {"renewables": 80.0, "spike": True}
+
+    active = guard.evaluate(
+        rates,
+        solcast_tomorrow=35.0,
+        solcast_today=35.0,
+        trigger_mode="OR",
+        renewables_threshold=30.0,
+        solcast_threshold=50.0,
+        peak_solar=40.0,
+    )
+    assert active is False
+    assert guard.spike_triggered is False
+

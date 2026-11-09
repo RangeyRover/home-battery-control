@@ -50,6 +50,7 @@ from .const import (
     CONF_SOLAR_ENTITY,
     CONF_SOLCAST_TODAY_ENTITY,
     CONF_SOLCAST_TOMORROW_ENTITY,
+    CONF_SOLVER_TIME_BUDGET,
     CONF_USE_AMBER_EXPRESS,
     CONF_WEATHER_ENTITY,
     DEFAULT_EXPORT_MARGIN,
@@ -64,6 +65,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SOLCAST_TODAY,
     DEFAULT_SOLCAST_TOMORROW,
+    DEFAULT_SOLVER_TIME_BUDGET,
     DOMAIN,
     PRICING_MODE_AMBER,
 )
@@ -121,6 +123,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
         self._solver_snapshot: dict | None = None
         self._state_transitions: deque = deque(maxlen=10)
         self._previous_state: str | None = None
+        self._solve_durations_24h: deque[float] = deque(maxlen=288)
 
         # Initialize Managers
         use_amber_express = config.get(CONF_USE_AMBER_EXPRESS, False)
@@ -374,7 +377,25 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             "acquisition_cost": self.data.get("acquisition_cost", 0.0),
             "cumulative_cost": self.data.get("cumulative_cost", 0.0),
             "current_price": self.data.get("current_price", 0.0),
+            "last_update": self.data.get("last_update"),
+            "solver_stats": self.data.get("solver_stats"),
+            "solve_seconds_max_24h": self.data.get("solve_seconds_max_24h"),
+            "observation_mode": self.data.get("observation_mode", False),
+            "no_import_periods": self.data.get("no_import_periods", ""),
+            "renewables_guard_active": self.data.get("renewables_guard_active", False),
+            "renewables_avg": self.data.get("renewables_avg"),
+            "guard_triggers": self.data.get("guard_triggers", []),
         }
+
+    def _resolve_deadlines_to_steps(
+        self, deadlines: list[str], rates_timeline: list[dict[str, Any]]
+    ) -> list[int]:
+        """Resolve HH:MM deadlines into solver step indices."""
+        return self.renewables_guard.resolve_deadline_steps(
+            rates=rates_timeline,
+            deadlines=deadlines,
+            base_time=rates_timeline[0]["start"],
+        )
 
     def _build_solver_inputs(
         self,
@@ -514,14 +535,21 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                     solcast_today=solcast_today,
                 )
                 if guard_active and rates_timeline:
-                    deadlines = [
-                        self.config.get(CONF_GUARD_OVERNIGHT_DEADLINE, DEFAULT_GUARD_OVERNIGHT_DEADLINE),
-                        self.config.get(CONF_GUARD_DAYTIME_DEADLINE, DEFAULT_GUARD_DAYTIME_DEADLINE),
-                    ]
-                    guard_deadline_steps = self.renewables_guard.resolve_deadline_steps(
-                        rates=rates_timeline,
-                        deadlines=deadlines,
-                        base_time=rates_timeline[0]["start"],
+                    spike_only = bool(
+                        getattr(self.renewables_guard, "spike_triggered", False)
+                        and not getattr(self.renewables_guard, "low_energy_triggered", True)
+                    )
+                    if spike_only:
+                        deadlines = [
+                            self.config.get(CONF_GUARD_DAYTIME_DEADLINE, DEFAULT_GUARD_DAYTIME_DEADLINE),
+                        ]
+                    else:
+                        deadlines = [
+                            self.config.get(CONF_GUARD_OVERNIGHT_DEADLINE, DEFAULT_GUARD_OVERNIGHT_DEADLINE),
+                            self.config.get(CONF_GUARD_DAYTIME_DEADLINE, DEFAULT_GUARD_DAYTIME_DEADLINE),
+                        ]
+                    guard_deadline_steps = self._resolve_deadlines_to_steps(
+                        deadlines, rates_timeline
                     )
                     if not guard_deadline_steps:
                         guard_deadline_steps = None
@@ -662,6 +690,8 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                     "no_import_periods": self.config.get(CONF_NO_IMPORT_PERIODS, ""),
                     "export_margin": float(self.config.get(CONF_EXPORT_MARGIN, DEFAULT_EXPORT_MARGIN)),
                     "round_trip_efficiency": float(self.config.get(CONF_ROUND_TRIP_EFFICIENCY, DEFAULT_ROUND_TRIP_EFFICIENCY)),
+                    "solver_time_budget": float(self.config.get(CONF_SOLVER_TIME_BUDGET, DEFAULT_SOLVER_TIME_BUDGET)),
+                    "guard_target_soc": float(getattr(self.renewables_guard, "target_soc", 100.0)),
                 },
                 acquisition_cost=self.acquisition_cost,
                 cumulative_cost=self.cumulative_cost,
@@ -679,6 +709,28 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             fsm_result = await self.hass.async_add_executor_job(
                 self.fsm.calculate_next_state, fsm_context
             )
+
+            if not hasattr(self, "_solve_durations_24h"):
+                self._solve_durations_24h = deque(maxlen=288)
+            solver_stats = getattr(fsm_result, "solver_stats", None)
+            solve_seconds_max_24h = None
+            if isinstance(solver_stats, dict):
+                solve_sec = float(solver_stats.get("solve_seconds", 0.0))
+                budget_sec = float(solver_stats.get("budget_seconds", DEFAULT_SOLVER_TIME_BUDGET))
+                outcome = solver_stats.get("outcome", "optimal")
+                self._solve_durations_24h.append(solve_sec)
+                solve_seconds_max_24h = round(max(self._solve_durations_24h), 4)
+                if solve_sec >= 0.8 * budget_sec or outcome != "optimal":
+                    _LOGGER.warning(
+                        "HBC LP solver diagnostic: outcome=%s solve_seconds=%.3fs budget=%.1fs passes=%s detail=%s",
+                        outcome,
+                        solve_sec,
+                        budget_sec,
+                        solver_stats.get("passes"),
+                        solver_stats.get("detail", ""),
+                    )
+            elif self._solve_durations_24h:
+                solve_seconds_max_24h = round(max(self._solve_durations_24h), 4)
 
             # --- Feature 027: Capture solver snapshot for debug replay ---
             si = fsm_context.solver_inputs
@@ -704,6 +756,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                     "state": fsm_result.state,
                     "limit_kw": fsm_result.limit_kw,
                     "target_soc": getattr(fsm_result, "target_soc", None),
+                    "solver_stats": solver_stats,
                 },
             }
             self._solver_snapshot = snapshot
@@ -818,6 +871,9 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "renewables_guard_active": self.renewables_guard.is_active,
                 "renewables_avg": self.renewables_guard.renewables_avg,
                 "guard_triggers": list(self.renewables_guard.trigger_reasons),
+                # Feature 063 US4: Solver Telemetry
+                "solver_stats": solver_stats,
+                "solve_seconds_max_24h": solve_seconds_max_24h,
             }
         except Exception as err:
             raise UpdateFailed(f"Error in HBC update cycle: {err}")

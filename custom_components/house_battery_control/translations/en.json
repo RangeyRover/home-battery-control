@@ -26,14 +26,18 @@
                     "load_today_entity": "Load Today (kWh)",
                     "import_today_entity": "Grid Import Today (kWh)",
                     "export_today_entity": "Grid Export Today (kWh)",
-                    "load_high_temp_sensitivity": "Load sensitivity \u00e2\u20ac\u201d high temp (kW/\u00c2\u00b0C)",
-                    "load_low_temp_sensitivity": "Load sensitivity \u00e2\u20ac\u201d low temp (kW/\u00c2\u00b0C)",
-                    "load_high_temp_threshold": "High temperature threshold (\u00c2\u00b0C)",
-                    "load_low_temp_threshold": "Low temperature threshold (\u00c2\u00b0C)",
+                    "load_high_temp_sensitivity": "Load sensitivity \u2014 high temp (kW/\u00b0C)",
+                    "load_low_temp_sensitivity": "Load sensitivity \u2014 low temp (kW/\u00b0C)",
+                    "load_high_temp_threshold": "High temperature threshold (\u00b0C)",
+                    "load_low_temp_threshold": "Low temperature threshold (\u00b0C)",
+                    "load_cache_ttl_minutes": "Load History Cache TTL (minutes)",
                     "battery_capacity": "Battery Capacity (kWh)",
                     "battery_rate_max": "Max Charge/Discharge Rate (kW)",
                     "inverter_limit": "Inverter Limit (kW)",
                     "reserve_soc": "Reserve SoC (%)",
+                    "round_trip_efficiency": "Round-Trip Efficiency (0.50\u20131.00)",
+                    "export_margin": "Export Price Margin ($/kWh)",
+                    "solver_time_budget": "LP Solver Time Budget (seconds)",
                     "import_price_entity": "Import Price Forecast Entity (e.g. Amber General)",
                     "export_price_entity": "Export Price Forecast Entity (e.g. Amber Feed-in)",
                     "use_amber_express": "Use Amber Express advanced pricing (if detailed sensors configured)",
@@ -41,14 +45,26 @@
                     "current_export_price_entity": "Export Price Entity (e.g. Amber Express Feed-in Price Detailed) [Optional - Only if Amber Express used]",
                     "weather_entity": "Weather Entity",
                     "solcast_today_entity": "Solcast Forecast Today (sensor)",
-                    "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)"
+                    "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)",
+                    "acq_cost_override": "Override Acquisition Cost (one-shot)",
+                    "acq_cost_override_value": "Acquisition Cost Override Value ($/kWh)"
                 },
                 "data_description": {
                     "load_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
                     "import_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
                     "export_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
                     "solcast_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
-                    "solcast_tomorrow_entity": "Energy sensor (Wh or kWh). Accumulated amount over time."
+                    "solcast_tomorrow_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "export_margin": "Minimum profit margin above acquisition cost required to discharge to the grid ($/kWh).",
+                    "solver_time_budget": "Maximum wall-clock time allowed per 5-minute LP/MIP optimization cycle (1\u201360 s, default 30 s)."
+                }
+            },
+            "cost_tracking": {
+                "title": "Cost Tracking Details (Optional)",
+                "description": "OPTIONAL: Extract continuous realtime cumulative costs natively from the grid volume via your retailer. WARNING: These sensors MUST be native Amber Express settled-price entities. Generic predictive pricing models will not map mathematically to past periods.",
+                "data": {
+                    "tracker_import_price": "Amber Express Grid Import Settled Price ($/kWh)",
+                    "tracker_export_price": "Amber Express Grid Export Settled Price ($/kWh)"
                 }
             },
             "control": {
@@ -133,14 +149,18 @@
                     "load_today_entity": "Load Today (kWh)",
                     "import_today_entity": "Grid Import Today (kWh)",
                     "export_today_entity": "Grid Export Today (kWh)",
-                    "load_high_temp_sensitivity": "Load sensitivity \u00e2\u20ac\u201d high temp (kW/\u00c2\u00b0C)",
-                    "load_low_temp_sensitivity": "Load sensitivity \u00e2\u20ac\u201d low temp (kW/\u00c2\u00b0C)",
-                    "load_high_temp_threshold": "High temperature threshold (\u00c2\u00b0C)",
-                    "load_low_temp_threshold": "Low temperature threshold (\u00c2\u00b0C)",
+                    "load_high_temp_sensitivity": "Load sensitivity \u2014 high temp (kW/\u00b0C)",
+                    "load_low_temp_sensitivity": "Load sensitivity \u2014 low temp (kW/\u00b0C)",
+                    "load_high_temp_threshold": "High temperature threshold (\u00b0C)",
+                    "load_low_temp_threshold": "Low temperature threshold (\u00b0C)",
+                    "load_cache_ttl_minutes": "Load History Cache TTL (minutes)",
                     "battery_capacity": "Battery Capacity (kWh)",
                     "battery_rate_max": "Max Charge/Discharge Rate (kW)",
                     "inverter_limit": "Inverter Limit (kW)",
                     "reserve_soc": "Reserve SoC (%)",
+                    "round_trip_efficiency": "Round-Trip Efficiency (0.50\u20131.00)",
+                    "export_margin": "Export Price Margin ($/kWh)",
+                    "solver_time_budget": "LP Solver Time Budget (seconds)",
                     "import_price_entity": "Import Price Forecast Entity (e.g. Amber General)",
                     "export_price_entity": "Export Price Forecast Entity (e.g. Amber Feed-in)",
                     "use_amber_express": "Use Amber Express advanced pricing (if detailed sensors configured)",
@@ -148,14 +168,26 @@
                     "current_export_price_entity": "Export Price Entity (e.g. Amber Express Feed-in Price Detailed) [Optional - Only if Amber Express used]",
                     "weather_entity": "Weather Entity",
                     "solcast_today_entity": "Solcast Forecast Today (sensor)",
-                    "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)"
+                    "solcast_tomorrow_entity": "Solcast Forecast Tomorrow (sensor)",
+                    "acq_cost_override": "Override Acquisition Cost (one-shot)",
+                    "acq_cost_override_value": "Acquisition Cost Override Value ($/kWh)"
                 },
                 "data_description": {
                     "load_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
                     "import_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
                     "export_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
                     "solcast_today_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
-                    "solcast_tomorrow_entity": "Energy sensor (Wh or kWh). Accumulated amount over time."
+                    "solcast_tomorrow_entity": "Energy sensor (Wh or kWh). Accumulated amount over time.",
+                    "export_margin": "Minimum profit margin above acquisition cost required to discharge to the grid ($/kWh).",
+                    "solver_time_budget": "Maximum wall-clock time allowed per 5-minute LP/MIP optimization cycle (1\u201360 s, default 30 s)."
+                }
+            },
+            "cost_tracking": {
+                "title": "Cost Tracking Details (Optional)",
+                "description": "OPTIONAL: Extract continuous realtime cumulative costs natively from the grid volume via your retailer. WARNING: These sensors MUST be native Amber Express settled-price entities. Generic predictive pricing models will not map mathematically to past periods.",
+                "data": {
+                    "tracker_import_price": "Amber Express Grid Import Settled Price ($/kWh)",
+                    "tracker_export_price": "Amber Express Grid Export Settled Price ($/kWh)"
                 }
             },
             "control": {
@@ -196,6 +228,13 @@
                     "fixed_tou_offpeak_price": "Off-Peak Price (c/kWh)",
                     "fixed_tou_shoulder_price": "Shoulder Price (c/kWh)"
                 }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "hbc_solve_time": {
+                "name": "Solver Duration"
             }
         }
     }

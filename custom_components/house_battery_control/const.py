@@ -72,9 +72,10 @@ CONF_ACQ_COST_OVERRIDE_VALUE = "acq_cost_override_value"
 # No-Import Periods (demand charge windows)
 CONF_NO_IMPORT_PERIODS = "no_import_periods"
 
-# Config Keys for Feature 054
+# Config Keys for Feature 054 & Feature 063 US4
 CONF_ROUND_TRIP_EFFICIENCY = "round_trip_efficiency"
 CONF_EXPORT_MARGIN = "export_margin"
+CONF_SOLVER_TIME_BUDGET = "solver_time_budget"
 
 # Config Keys for Feature 055 (Low Renewables Guard)
 CONF_GUARD_RENEWABLES_THRESHOLD = "guard_renewables_threshold"
@@ -96,6 +97,7 @@ DEFAULT_PANEL_ADMIN_ONLY = True
 DEFAULT_CURRENCY = "c/kWh"
 DEFAULT_ROUND_TRIP_EFFICIENCY = 0.90
 DEFAULT_EXPORT_MARGIN = 0.0
+DEFAULT_SOLVER_TIME_BUDGET = 30.0
 DEFAULT_SCAN_INTERVAL = 300
 # 5 minutes
 DEFAULT_LOAD_CACHE_TTL = 360  # 6 hours in minutes
@@ -103,10 +105,10 @@ DEFAULT_USE_AMBER_EXPRESS = False
 DEFAULT_SOLCAST_TODAY = "sensor.solcast_pv_forecast_today"
 DEFAULT_SOLCAST_TOMORROW = "sensor.solcast_pv_forecast_tomorrow"
 
-# Feature 055 Defaults
+# Feature 055 & Feature 063 US5 Defaults
 DEFAULT_GUARD_RENEWABLES_THRESHOLD = 30.0
 DEFAULT_GUARD_OVERNIGHT_DEADLINE = "05:00"
-DEFAULT_GUARD_DAYTIME_DEADLINE = "15:00"
+DEFAULT_GUARD_DAYTIME_DEADLINE = "16:00"
 DEFAULT_GUARD_PEAK_SOLAR = 40.0
 DEFAULT_GUARD_TRIGGER_MODE = "OR"
 DEFAULT_GUARD_LOW_SOLAR_THRESHOLD = 50.0

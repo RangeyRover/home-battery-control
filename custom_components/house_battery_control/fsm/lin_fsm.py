@@ -102,6 +102,9 @@ class LinearBatteryController:
 
     def __init__(self):
         self.step = 288  # Default, overridden dynamically by calculate_next_state
+        self.time_budget_s: float = 30.0
+        self.guard_target_soc: float = 100.0
+        self.last_solve_stats: dict | None = None
 
     def propose_state_of_charge(
         self,
@@ -123,6 +126,25 @@ class LinearBatteryController:
         fallback = (battery.current_charge, 0.0, [])
         tol = 1e-6
         started = monotonic()
+        budget_s = max(1.0, min(60.0, float(getattr(self, "time_budget_s", 30.0))))
+        passes = 0
+        integer_used = False
+        reference_solve = False
+        timed_out = False
+        failure_detail = ""
+
+        def record_stats(outcome: str, detail: str = "") -> None:
+            self.last_solve_stats = {
+                "solve_seconds": round(monotonic() - started, 4),
+                "budget_seconds": round(budget_s, 2),
+                "passes": passes,
+                "integer_used": integer_used,
+                "reference_solve": reference_solve,
+                "outcome": outcome,
+                "detail": detail,
+                "horizon_steps": n,
+            }
+
         arrays = (price_buy, price_sell, load_forecast, pv_forecast)
         params = (battery.capacity, battery.current_charge,
                   battery.charging_power_limit, battery.discharging_power_limit,
@@ -138,6 +160,7 @@ class LinearBatteryController:
                 or not 0 <= reserve_soc <= 100 or export_margin < 0
                 or min(load_forecast) < 0 or min(pv_forecast) < 0):
             _LOGGER.warning("Invalid solver inputs; no forced action")
+            record_stats("no_plan", "Invalid solver inputs; no forced action")
             return fallback
 
         capacity = battery.capacity
@@ -177,10 +200,11 @@ class LinearBatteryController:
         for i in range(n+1):
             reachable = current + i*charge_limit*eta_in
             bounds[b+i] = (min(reserve, reachable), capacity)
+        target_cap = capacity * max(0.0, min(100.0, float(getattr(self, "guard_target_soc", 100.0)))) / 100.0
         for deadline in guard_deadline_steps or []:
             if 0 < deadline <= n:
                 lower, upper = bounds[b+deadline]
-                reachable = min(capacity, current+deadline*charge_limit*eta_in)
+                reachable = min(target_cap, current+deadline*charge_limit*eta_in)
                 bounds[b+deadline] = (max(lower, reachable-SOLVER_TOLERANCE_KWH), upper)
 
         eq = lil_matrix((2*n+1, size))
@@ -264,7 +288,7 @@ class LinearBatteryController:
         solve_infeasible = False
 
         def solve(no_first_grid_charge=False):
-            nonlocal solve_infeasible
+            nonlocal solve_infeasible, passes, integer_used, timed_out, failure_detail
             solve_infeasible = False
             local_bounds = list(bounds)
             integer_modes = integrality.copy()
@@ -280,15 +304,23 @@ class LinearBatteryController:
             # opposing flows. A physically valid optimum of the relaxation is
             # also an optimum of the full model; no heuristic flow clipping.
             for _ in range(3*n+1):
-                remaining = 15.0-(monotonic()-started)
+                remaining = budget_s-(monotonic()-started)
                 if remaining <= 0:
+                    timed_out = True
+                    failure_detail = f"Solver time budget ({budget_s:.1f}s) exceeded before pass {passes + 1}"
                     return None
+                passes += 1
+                if np.any(integer_modes > 0):
+                    integer_used = True
                 result = linprog(obj, A_ub=matrix, b_ub=limits,
                                  A_eq=eq, b_eq=rhs, bounds=local_bounds,
                                  integrality=integer_modes, method="highs",
                                  options={"time_limit": remaining, "mip_rel_gap": 0.001})
                 if not result.success or not valid(result.x, local_bounds, matrix, limits, integer_modes.astype(bool)):
                     solve_infeasible = not result.success and getattr(result, "status", None) == 2
+                    if getattr(result, "status", None) == 1 or (monotonic()-started) >= budget_s:
+                        timed_out = True
+                    failure_detail = str(getattr(result, "message", "invalid trajectory"))
                     _LOGGER.warning("Physical solver rejected: %s", getattr(result, "message", "invalid trajectory"))
                     return None
                 x = result.x
@@ -299,6 +331,7 @@ class LinearBatteryController:
                     additions[z:z+n] = conflicting_battery
                     additions[w:w+n] = conflicting_grid
                     if not np.any(additions > integer_modes):
+                        failure_detail = "Conflicting flows persisted with integer modes"
                         return None
                     integer_modes = np.maximum(integer_modes, additions)
                     continue
@@ -307,20 +340,24 @@ class LinearBatteryController:
                     return result, rows
                 for i in violations:
                     local_bounds[dg+i] = (0, 0)
+            failure_detail = "Maximum solver passes exceeded"
             return None
 
         chosen = solve()
         if chosen is None:
+            record_stats("timeout" if timed_out else "no_plan", failure_detail or "Solver returned no feasible plan")
             return fallback
         result, sequence = chosen
         # Negative-price charging must beat the same future with current grid
         # charging disabled, including later solar spill and terminal inventory.
         if price_buy[0] < 0 and sequence[0]["grid_charge_kwh"] > tol:
+            reference_solve = True
             reference = solve(no_first_grid_charge=True)
             if reference is None:
                 # A reserve/deadline may mandate charging. Do not claim an
                 # economic benefit when the comparison is infeasible.
                 if not solve_infeasible or (not guard_deadline_steps and current >= reserve-tol):
+                    record_stats("timeout" if timed_out else "no_plan", failure_detail or "Reference solve failed")
                     return fallback
                 sequence[0]["charge_reason"] = "Reserve/deadline constraint"
             else:
@@ -333,6 +370,7 @@ class LinearBatteryController:
                     reference_bound = float(obj @ ref_result.x)
                 saving = float(reference_bound - obj @ result.x)
                 if not math.isfinite(saving):
+                    record_stats("no_plan", "Non-finite reference comparison saving")
                     return fallback
                 cash_saving = ref_rows[-1]["cumulative_cost"]-sequence[-1]["cumulative_cost"]
                 if saving <= tol:
@@ -341,8 +379,8 @@ class LinearBatteryController:
                 sequence[0]["charge_comparison_cash_saving"] = cash_saving if saving > tol else 0.0
         # Report real meter cash, not the optimisation objective/terminal credit.
         projected_cost = sequence[-1]["cumulative_cost"]-cumulative_cost
+        record_stats("optimal", "")
         return sequence[0]["target_soc"]/100, projected_cost, sequence
-
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +407,10 @@ class LinearBatteryStateMachine(BatteryStateMachine):
         # Force dynamic step horizon based on populated inputs
         number_step = len(context.solver_inputs.price_buy)
         self.controller.step = number_step
+
+        raw_budget = float(context.config.get("solver_time_budget", 30.0))
+        self.controller.time_budget_s = max(1.0, min(60.0, raw_budget))
+        self.controller.guard_target_soc = float(context.config.get("guard_target_soc", 100.0))
 
         # --- Read pre-built arrays from solver_inputs (Feature 024) ---
         si = context.solver_inputs
@@ -415,10 +457,20 @@ class LinearBatteryStateMachine(BatteryStateMachine):
             )
         except Exception as e:
             _LOGGER.error("LP Solver failed: %s", e)
-            return FSMResult(state="ERROR", limit_kw=0.0, reason=f"Solver Error: {e}")
+            return FSMResult(
+                state="ERROR",
+                limit_kw=0.0,
+                reason=f"Solver Error: {e}",
+                solver_stats=self.controller.last_solve_stats,
+            )
 
         if target_soc_frac is None:
-            return FSMResult(state="ERROR", limit_kw=0.0, reason="Solver returned None")
+            return FSMResult(
+                state="ERROR",
+                limit_kw=0.0,
+                reason="Solver returned None",
+                solver_stats=self.controller.last_solve_stats,
+            )
 
         target_soc_frac = float(target_soc_frac)
 
@@ -433,6 +485,7 @@ class LinearBatteryStateMachine(BatteryStateMachine):
                     state="SELF_CONSUMPTION", limit_kw=0.0,
                     reason="Battery export blocked by nonpositive effective tariff",
                     target_soc=current_soc * 100.0, future_plan=[],
+                    solver_stats=self.controller.last_solve_stats,
                 )
 
         # --- FR-001 (026): Single state source from sequence[0] ---
@@ -467,4 +520,5 @@ class LinearBatteryStateMachine(BatteryStateMachine):
             target_soc=target_soc_frac * 100.0,
             projected_cost=projected_cost,
             future_plan=sequence,
+            solver_stats=self.controller.last_solve_stats,
         )

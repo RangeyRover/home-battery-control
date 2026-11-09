@@ -41,7 +41,7 @@ export class HBCDashboard extends LitElement {
           analog_days: json.synthetic_analog_days || [],
           pricing_curve: json.synthetic_pricing_curve || [],
           export_curve: json.synthetic_export_curve || [],
-          load_curve: json.synthetic_load_curve || []
+          load_curve: json.synthetic_load_curve || [],
         };
       }
     } catch (e) {
@@ -62,7 +62,7 @@ export class HBCDashboard extends LitElement {
     let sumPVKw = 0;
     let sumLoadKw = 0;
 
-    plan.forEach(r => {
+    plan.forEach((r) => {
       sumImport += parseNum(r["Import Rate"]);
       sumExport += parseNum(r["Export Rate"]);
       sumPVKw += parseNum(r["PV Forecast"]);
@@ -75,7 +75,7 @@ export class HBCDashboard extends LitElement {
       avgExport: (sumExport / count).toFixed(2),
       // kW to kWh over 5-minute intervals (divide by 12)
       totalPV: (sumPVKw / 12).toFixed(1),
-      totalLoad: (sumLoadKw / 12).toFixed(1)
+      totalLoad: (sumLoadKw / 12).toFixed(1),
     };
   }
 
@@ -89,6 +89,41 @@ export class HBCDashboard extends LitElement {
     } catch {
       return raw;
     }
+  }
+
+  _renderSolverStat(solverStats, max24h) {
+    if (!solverStats || solverStats.solve_seconds === undefined || solverStats.solve_seconds === null) {
+      return html`
+        <div class="stat">
+          <div class="stat-value">—</div>
+          <div class="stat-label">Solver</div>
+        </div>
+      `;
+    }
+    const solveSec = Number(solverStats.solve_seconds);
+    const budgetSec = Number(solverStats.budget_seconds || 30);
+    const passes = solverStats.passes !== undefined ? solverStats.passes : 1;
+    const outcome = String(solverStats.outcome || "optimal");
+    const greenCeiling = Math.min(5.0, 0.5 * budgetSec);
+
+    let colorClass = "solver-green";
+    if (outcome !== "optimal" || solveSec >= 0.8 * budgetSec) {
+      colorClass = "solver-red";
+    } else if (solveSec >= greenCeiling) {
+      colorClass = "solver-amber";
+    }
+
+    const chipLabel = outcome.toUpperCase();
+    const maxStr = max24h !== undefined && max24h !== null ? `${Number(max24h).toFixed(2)}s` : "—";
+
+    return html`
+      <div class="stat">
+        <div class="stat-value ${colorClass}">${solveSec.toFixed(2)}s <span class="solver-budget">/ ${budgetSec.toFixed(0)}s</span></div>
+        <div class="stat-label">
+          Solver · <span class="solver-chip ${colorClass}">${chipLabel}</span> · ${passes}p · 24h max ${maxStr}
+        </div>
+      </div>
+    `;
   }
 
   render() {
@@ -110,6 +145,9 @@ export class HBCDashboard extends LitElement {
     const guardActive = d.renewables_guard_active || false;
     const renewablesAvg = d.renewables_avg !== undefined && d.renewables_avg !== null ? d.renewables_avg.toFixed(1) : null;
     const guardTriggers = d.guard_triggers || [];
+    const solverStats = d.solver_stats || null;
+    const solveMax24h = d.solve_seconds_max_24h;
+    const solverDegraded = Boolean(solverStats && solverStats.outcome && solverStats.outcome !== "optimal");
     const summaryStats = this._calculateSummaryStats();
 
     return html`
@@ -165,13 +203,15 @@ export class HBCDashboard extends LitElement {
             <div class="state-badge">${state}</div>
             <div class="stat-label">${reason}</div>
           </div>
+          ${this._renderSolverStat(solverStats, solveMax24h)}
         </div>
       </div>
-      ${(noImportPeriods || observationMode || guardActive) ? html`
+      ${(noImportPeriods || observationMode || guardActive || solverDegraded) ? html`
       <div class="constraints-bar">
         ${observationMode ? html`<span class="constraint-badge observation">👁 Observation Mode</span>` : ''}
         ${noImportPeriods ? html`<span class="constraint-badge no-import">🚫 No-Import: ${noImportPeriods}</span>` : ''}
         ${guardActive ? html`<span class="constraint-badge renewables">⚡ Low Renewables: ${renewablesAvg}% — ${guardTriggers.join(', ')}</span>` : ''}
+        ${solverDegraded ? html`<span class="constraint-badge solver-alert">⏱ Solver ${solverStats.outcome === 'timeout' ? 'Timeout' : 'No Plan'}: ${solverStats.detail || 'Safe self-consumption'}</span>` : ''}
       </div>
       ` : ''}
       <div class="card">
@@ -200,7 +240,7 @@ export class HBCDashboard extends LitElement {
         </div>
       </div>
       <div class="meta" style="text-align: center; padding: 8px 0; opacity: 0.6; font-size: 0.85em;">
-        Plan last ran: ${this._formatLastUpdate()}
+        Plan last ran: ${this._formatLastUpdate()}${solverStats && solverStats.solve_seconds !== undefined ? ` (solve: ${Number(solverStats.solve_seconds).toFixed(2)}s / ${Number(solverStats.budget_seconds || 30).toFixed(0)}s, ${solverStats.outcome || 'optimal'})` : ''}
       </div>
 
       <div class="card outlook-tab">
@@ -217,7 +257,7 @@ export class HBCDashboard extends LitElement {
     if (!outlook || !outlook.analog_days || outlook.analog_days.length === 0) {
       return html`<p style="color: #8888aa; text-align: center;">Awaiting synthetic generation...</p>`;
     }
-    
+
     const renderChartWithScale = (title, curve, colorTitle, colorBarDefault) => {
       if (!curve || curve.length === 0) {
         return html`
@@ -258,7 +298,7 @@ export class HBCDashboard extends LitElement {
         <div style="flex: 1;">
           <h3 style="color: #00d4ff; margin-bottom: 8px; font-size: 14px;">Selected Analog Days</h3>
           <ul style="list-style: none; padding: 0; margin: 0; color: #e0e0e0; font-size: 14px;">
-            ${outlook.analog_days.map(day => html`<li style="padding: 4px 0; border-bottom: 1px solid #2a2a5e;">${day.date ? new Date(day.date).toLocaleDateString() : day} (Yield: ${day.pv_yield ? day.pv_yield.toFixed(1) : '?'} kWh)</li>`)}
+            ${outlook.analog_days.map((day) => html`<li style="padding: 4px 0; border-bottom: 1px solid #2a2a5e;">${day.date ? new Date(day.date).toLocaleDateString() : day} (Yield: ${day.pv_yield ? day.pv_yield.toFixed(1) : '?'} kWh)</li>`)}
           </ul>
         </div>
         <div style="flex: 2; display: flex; flex-direction: column; gap: 10px;">
@@ -274,18 +314,16 @@ export class HBCDashboard extends LitElement {
     const max = Math.max(...curve, 1);
     const min = Math.min(...curve, 0);
     const range = max - min;
-    
+
     return curve.map((val, i) => {
-      // Normalize to 0-100% height
       const heightPct = range === 0 ? 50 : ((val - min) / range) * 100;
-      const displayHeight = Math.max(heightPct, 5); // min 5% height
+      const displayHeight = Math.max(heightPct, 5);
       const isNegative = val < 0;
       let color = isNegative ? "#00ff88" : "#ff4444";
       if (defaultColor && !isNegative) {
-          color = defaultColor;
+        color = defaultColor;
       }
-      
-      // We sample or downsample if the array is large. If it's 576 items, we just draw them thin.
+
       return html`
         <div style="flex: 1; min-width: 1px; height: ${displayHeight}%; background: ${color}; opacity: 0.8;" title="Index: ${i}, Price: ${val.toFixed(1)}"></div>
       `;
@@ -313,7 +351,7 @@ export class HBCDashboard extends LitElement {
         font-weight: 500;
         user-select: none;
       }
-      
+
       /* Power Flow Grid */
       .flow-grid {
         display: grid;
@@ -366,6 +404,36 @@ export class HBCDashboard extends LitElement {
         font-weight: 700;
         color: #00d4ff;
       }
+      .stat-value.solver-green {
+        color: #00ff88;
+      }
+      .stat-value.solver-amber {
+        color: #ffaa00;
+      }
+      .stat-value.solver-red {
+        color: #ff4444;
+      }
+      .solver-budget {
+        font-size: 13px;
+        font-weight: 500;
+        color: #8888aa;
+      }
+      .solver-chip {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #0f0f23;
+        background: #00ff88;
+      }
+      .solver-chip.solver-amber {
+        background: #ffaa00;
+      }
+      .solver-chip.solver-red {
+        background: #ff4444;
+        color: #fff;
+      }
       .stat-label {
         font-size: 12px;
         color: #8888aa;
@@ -405,6 +473,10 @@ export class HBCDashboard extends LitElement {
       }
       .constraint-badge.renewables {
         background: linear-gradient(135deg, #ffa726, #ef6c00);
+        color: #fff;
+      }
+      .constraint-badge.solver-alert {
+        background: linear-gradient(135deg, #ff4444, #b71c1c);
         color: #fff;
       }
       .meta {

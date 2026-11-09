@@ -82,3 +82,47 @@ class TestHBCSyntheticRatesDiagnosticSensor:
         assert sensor.extra_state_attributes.get("analog_days") is None
 
 
+
+
+class TestHBCSolveTimeSensor:
+    """T023/US4: Tests for HBCSolveTimeSensor."""
+
+    def test_solve_time_sensor_returns_value_and_attributes(self, mock_coordinator):
+        from custom_components.house_battery_control.sensor import HBCSolveTimeSensor
+        from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+        from homeassistant.const import EntityCategory, UnitOfTime
+
+        mock_coordinator.data = {
+            "solver_stats": {
+                "solve_seconds": 0.412,
+                "budget_seconds": 30.0,
+                "passes": 2,
+                "integer_used": True,
+                "reference_solve": True,
+                "outcome": "optimal",
+                "detail": "",
+                "horizon_steps": 288,
+            },
+            "solve_seconds_max_24h": 1.234,
+        }
+        sensor = HBCSolveTimeSensor(mock_coordinator)
+        assert sensor.unique_id == "test_entry_id_hbc_solve_time"
+        assert sensor.native_value == 0.412
+        assert sensor.device_class == SensorDeviceClass.DURATION
+        assert sensor.native_unit_of_measurement == UnitOfTime.SECONDS
+        assert sensor.state_class == SensorStateClass.MEASUREMENT
+        assert sensor.entity_category == EntityCategory.DIAGNOSTIC
+
+        attrs = sensor.extra_state_attributes
+        assert attrs["budget_seconds"] == 30.0
+        assert attrs["passes"] == 2
+        assert attrs["outcome"] == "optimal"
+        assert attrs["solve_seconds_max_24h"] == 1.234
+
+    def test_solve_time_sensor_none_when_missing(self, mock_coordinator):
+        from custom_components.house_battery_control.sensor import HBCSolveTimeSensor
+
+        mock_coordinator.data = {}
+        sensor = HBCSolveTimeSensor(mock_coordinator)
+        assert sensor.native_value is None
+        assert sensor.extra_state_attributes == {}

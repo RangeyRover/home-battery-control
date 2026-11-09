@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfPower
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfPower, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -29,6 +33,7 @@ async def async_setup_entry(
         HBCLimitKwSensor(coordinator),
         HBCDpTargetSocSensor(coordinator),
         HBCSyntheticRatesDiagnosticSensor(coordinator),
+        HBCSolveTimeSensor(coordinator),
     ]
 
     async_add_entities(entities)
@@ -58,8 +63,6 @@ class HBCStateSensor(HBCSensorBase):
     @property
     def native_value(self) -> str | None:
         """Return the state of the sensor."""
-        # This will come from the FSM result stored in the coordinator data
-        # For now, it might be None if FSM isn't run yet
         return self.coordinator.data.get("state", "SELF_CONSUMPTION")
 
 
@@ -129,3 +132,44 @@ class HBCSyntheticRatesDiagnosticSensor(HBCSensorBase):
             attrs["analog_days"] = self.coordinator.data["synthetic_analog_days"]
             attrs["pricing_curve"] = self.coordinator.data.get("synthetic_pricing_curve", [])
         return attrs
+
+
+class HBCSolveTimeSensor(HBCSensorBase):
+    """Diagnostic sensor exposing LP/MIP solver execution duration and stats."""
+
+    _attr_translation_key = "hbc_solve_time"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.SECONDS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: HBCDataUpdateCoordinator) -> None:
+        """Initialize the solve time diagnostic sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry_id}_hbc_solve_time"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the last solve duration in seconds."""
+        stats = (self.coordinator.data or {}).get("solver_stats")
+        if isinstance(stats, dict) and stats.get("solve_seconds") is not None:
+            return float(stats["solve_seconds"])
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return solver diagnostic attributes."""
+        data = self.coordinator.data or {}
+        stats = data.get("solver_stats")
+        if not isinstance(stats, dict):
+            return {}
+        return {
+            "budget_seconds": stats.get("budget_seconds"),
+            "passes": stats.get("passes"),
+            "integer_used": stats.get("integer_used"),
+            "reference_solve": stats.get("reference_solve"),
+            "outcome": stats.get("outcome"),
+            "detail": stats.get("detail"),
+            "horizon_steps": stats.get("horizon_steps"),
+            "solve_seconds_max_24h": data.get("solve_seconds_max_24h"),
+        }
