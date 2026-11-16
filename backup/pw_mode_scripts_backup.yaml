@@ -1,0 +1,163 @@
+# Backup of original Home Assistant Powerwall Mode scripts (2026-11-16)
+# Saved prior to replacing cloud mode/reserve workarounds with local teslemetry.dispatch_battery_power
+
+pw_mode_charge_battery:
+  alias: PW Mode – Charge Battery
+  mode: queued
+  sequence:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.powerwall_mode
+      data:
+        option: Charge Start
+    - action: select.select_option
+      target:
+        entity_id: select.powerwall_2_operation_mode
+      data:
+        option: backup
+    - action: select.select_option
+      target:
+        entity_id: select.powerwall_2_allow_export
+      data:
+        option: never
+    - action: switch.turn_on
+      target:
+        entity_id: switch.powerwall_2_allow_charging_from_grid
+    - action: persistent_notification.create
+      data:
+        title: 'Charge Start Battery: command sent'
+        message: >-
+          🔋⚡ Charge Battery mode sent at {{ now().strftime('%H:%M:%S') }}.
+
+          powerwall_mode = Charge Battery   operation_mode = {{
+          states('select.powerwall_2_operation_mode') }}   allow_export   = {{
+          states('select.powerwall_2_allow_export') }}   reserve        = {{
+          states('number.powerwall_2_backup_reserve') }}%   grid_charge    = {{
+          states('switch.powerwall_2_allow_charging_from_grid') }}  
+          SOC            = {{ states('sensor.powerwall_2_percentage_charged')
+          }}%   balance        = {{ states('sensor.power_balance') }} kW
+  description: ''
+
+pw_mode_charge_stop:
+  alias: PW Mode – Charge Stop Battery
+  mode: single
+  sequence:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.powerwall_mode
+      data:
+        option: Charge Stop
+    - action: switch.turn_off
+      target:
+        entity_id: switch.powerwall_2_allow_charging_from_grid
+    - action: select.select_option
+      target:
+        entity_id: select.powerwall_2_allow_export
+      data:
+        option: never
+    - action: number.set_value
+      target:
+        entity_id: number.powerwall_2_backup_reserve
+      data:
+        value: 5
+    - action: select.select_option
+      target:
+        entity_id: select.powerwall_2_operation_mode
+      data:
+        option: self_consumption
+    - action: persistent_notification.create
+      data:
+        title: 'Charge Stop: command sent'
+        message: >-
+          🛑🔋 Charge Stop sent at {{ now().strftime('%H:%M:%S') }}.
+
+          Set: • operation_mode = {{ states('select.powerwall_2_operation_mode')
+          }} • allow_export   = {{ states('select.powerwall_2_allow_export') }} •
+          reserve        = {{ states('number.powerwall_2_backup_reserve') }}% •
+          grid_charge    = {{
+          states('switch.powerwall_2_allow_charging_from_grid') }}
+
+          Status: • SOC            = {{
+          states('sensor.powerwall_2_percentage_charged') }}% • balance        =
+          {{ states('sensor.power_balance') }} kW
+  description: ''
+
+pw_mode_export_battery:
+  alias: PW Mode – Export Battery
+  mode: single
+  sequence:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.powerwall_mode
+      data:
+        option: Discharge Start
+    - action: select.select_option
+      target:
+        entity_id: select.powerwall_2_allow_export
+      data:
+        option: battery_ok
+    - action: select.select_option
+      target:
+        entity_id: select.powerwall_2_operation_mode
+      data:
+        option: autonomous
+    - action: number.set_value
+      target:
+        entity_id: number.powerwall_2_backup_reserve
+      data:
+        value: 5
+    - action: switch.turn_off
+      target:
+        entity_id: switch.powerwall_2_allow_charging_from_grid
+    - action: persistent_notification.create
+      data:
+        title: 'Discharge Start: command sent'
+        message: >-
+          allow_export={{ states('select.powerwall_2_allow_export') }},
+          operation_mode={{ states('select.powerwall_2_operation_mode') }},
+          reserve={{ states('number.powerwall_2_backup_reserve') }}%,
+          grid_charge={{ states('switch.powerwall_2_allow_charging_from_grid') }},
+          SOC={{ states('sensor.powerwall_2_percentage_charged') }}%, balance={{
+          states('sensor.power_balance') }} kW.
+    - action: notify.notify
+      data:
+        title: Powerwall Control
+        message: ✅ Export Battery mode sent at {{ now().strftime('%H:%M:%S') }}
+  description: ''
+
+pw_mode_export_stop:
+  alias: PW Mode – Export Stop
+  mode: single
+  sequence:
+    - action: input_select.select_option
+      target:
+        entity_id: input_select.powerwall_mode
+      data:
+        option: Discharge Stop
+    - action: select.select_option
+      target:
+        entity_id: select.powerwall_2_allow_export
+      data:
+        option: never
+    - action: select.select_option
+      target:
+        entity_id: select.powerwall_2_operation_mode
+      data:
+        option: self_consumption
+    - action: switch.turn_off
+      target:
+        entity_id: switch.powerwall_2_allow_charging_from_grid
+    - action: persistent_notification.create
+      data:
+        title: 'PW Discharge Stop: command sent'
+        message: >-
+          allow_export={{ states('select.powerwall_2_allow_export') }},
+          operation_mode={{ states('select.powerwall_2_operation_mode') }},
+          reserve={{ states('number.powerwall_2_backup_reserve') }}%,
+          grid_charge={{ states('switch.powerwall_2_allow_charging_from_grid') }},
+          SOC={{ states('sensor.powerwall_2_percentage_charged') }}%, balance={{
+          states('sensor.power_balance') }} kW.
+    - action: notify.notify
+      data:
+        title: Powerwall Control
+        message: ✅ Discharge stop sent at {{ now().strftime('%H:%M:%S') }}

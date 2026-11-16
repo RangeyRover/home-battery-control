@@ -7,8 +7,8 @@ from collections import deque
 from datetime import timedelta
 from typing import Any
 
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -63,6 +63,7 @@ from .const import (
     DEFAULT_LOAD_CACHE_TTL,
     DEFAULT_ROUND_TRIP_EFFICIENCY,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SETTLEMENT_SECOND,
     DEFAULT_SOLCAST_TODAY,
     DEFAULT_SOLCAST_TOMORROW,
     DEFAULT_SOLVER_TIME_BUDGET,
@@ -179,14 +180,24 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             self.config.get(CONF_SOLAR_ENTITY),
             self.config.get(CONF_GRID_ENTITY),
             self.config.get(CONF_LOAD_TODAY_ENTITY),
+            self.config.get(CONF_CURRENT_IMPORT_PRICE_ENTITY),
+            self.config.get(CONF_CURRENT_EXPORT_PRICE_ENTITY),
+            self.config.get(CONF_IMPORT_PRICE_ENTITY),
+            self.config.get(CONF_EXPORT_PRICE_ENTITY),
         ]
 
-        self._tracked_entities = [entity for entity in telemetry_entities if entity]
+        self._unsub_listeners: list[Any] = []
+        self._tracked_entities = list(dict.fromkeys(entity for entity in telemetry_entities if entity))
 
         if self._tracked_entities:
-            async_track_state_change_event(
-                hass, self._tracked_entities, self._async_on_state_change
-            )
+            try:
+                self._unsub_listeners.append(
+                    async_track_state_change_event(
+                        hass, self._tracked_entities, self._async_on_state_change
+                    )
+                )
+            except AttributeError:
+                _LOGGER.debug("Skipping state listener registration on incomplete HomeAssistant mock")
 
     @property
     def cumulative_cost(self) -> float:
@@ -234,6 +245,29 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_on_state_change(self, event) -> None:
         """Trigger an immediate plan update when a vital telemetry entity changes state."""
         await self.async_request_refresh()
+
+    @callback
+    def async_start_settlement_clock(self) -> None:
+        """Subscribe to 5-minute NEM settlement boundaries (:00:15, :05:15, ..., :55:15)."""
+        unsub = async_track_time_change(
+            self.hass,
+            self._async_on_settlement_tick,
+            minute=range(0, 60, 5),
+            second=DEFAULT_SETTLEMENT_SECOND,
+        )
+        self._unsub_listeners.append(unsub)
+
+    async def _async_on_settlement_tick(self, _now: Any) -> None:
+        """Trigger evaluation and active dispatch keepalive on each 5-minute settlement window."""
+        await self.async_request_refresh()
+
+    @callback
+    def async_unload(self) -> None:
+        """Unsubscribe all state-change and settlement-clock listeners."""
+        while self._unsub_listeners:
+            unsub = self._unsub_listeners.pop()
+            if callable(unsub):
+                unsub()
 
     def _get_sensor_value(self, entity_id: str) -> float:
         """Get float value from a sensor entity."""

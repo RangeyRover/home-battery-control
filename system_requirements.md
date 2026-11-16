@@ -114,10 +114,10 @@ All sensor inputs are selectable via the Home Assistant UI (Config Flow).
 
 #### 3.6. Control Entities (Writable — Optional)
 The integration maps logical FSM states to four explicit Home Assistant script entities. All are optional. If not configured, the system runs in observation mode.
-- **Charge Battery Script**: Called to initiate forced charging from the grid.
-- **Charge Stop Script**: Called to stop forced charging.
-- **Discharge Battery Script**: Called to initiate forced discharging.
-- **Discharge Stop Script**: Called to stop forced discharging.
+- **Charge Battery Script**: Called to initiate forced charging from the grid, and re-invoked once per 5-minute NEM settlement block (`:00, :05, ..., :55`, triggered on Amber tariff arrival and guaranteed by a `:XX:15` settlement clock tick) while `CHARGE_GRID` remains active so timed local battery dispatches (e.g. `600s` duration) never expire mid-session, while suppressing intra-block duplicate calls from rapid telemetry updates.
+- **Charge Stop Script**: Called once (transition-aware) when exiting `CHARGE_GRID` into `SELF_CONSUMPTION`, `ERROR`, or `DISCHARGE_GRID` (awaited with a bounded timeout before starting `DISCHARGE_GRID`). Never repeated across idle settlement blocks.
+- **Discharge Battery Script**: Called to initiate forced discharging/export, and re-invoked once per 5-minute NEM settlement block (`:00, :05, ..., :55`) while `DISCHARGE_GRID` remains active to renew timed local dispatches.
+- **Discharge Stop Script**: Called once (transition-aware) when exiting `DISCHARGE_GRID` into `SELF_CONSUMPTION`, `ERROR`, or `CHARGE_GRID` (awaited with a bounded timeout before starting `CHARGE_GRID`). Never repeated across idle settlement blocks.
 - **No-Import Periods**: Users can string-define restricted periods (e.g., `15:00-21:00`). During these times, the LP solver is mathematically forced (by bounding `grid_import_kw = 0.0`) to avoid grid imports, bypassing all arbitrage charging logic.
 
 #### 3.7. System Constants (Calibration)

@@ -62,6 +62,12 @@ CONF_SCRIPT_CHARGE_STOP = "script_charge_stop"
 CONF_SCRIPT_DISCHARGE = "script_discharge"
 CONF_SCRIPT_DISCHARGE_STOP = "script_discharge_stop"
 
+# Executor Settlement Keepalive (Feature 064)
+CONF_EXECUTOR_KEEPALIVE_ENABLED = "executor_keepalive_enabled"
+DEFAULT_EXECUTOR_KEEPALIVE_ENABLED = True
+DEFAULT_SETTLEMENT_SECOND = 15
+DEFAULT_STOP_SCRIPT_TIMEOUT = 15.0
+
 # Observation Mode
 CONF_OBSERVATION_MODE = "observation_mode"
 

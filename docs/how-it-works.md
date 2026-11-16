@@ -19,7 +19,7 @@ Every 5 minutes:
   5. Report   → Update dashboard + sensors + API
 ```
 
-The coordinator also listens for state changes on vital telemetry entities and can trigger an immediate re-evaluation outside the 5-minute cycle.
+The coordinator listens for state changes on vital telemetry and tariff price entities (triggering immediate re-evaluation when Amber Express publishes a new 5-minute settlement price) and aligns a guaranteed settlement clock tick at `:00:15, :05:15, ..., :55:15`.
 
 ---
 
@@ -387,13 +387,9 @@ The `PowerwallExecutor` (`execute.py`) translates the FSM state into physical Po
 | `SELF_CONSUMPTION` | `script_charge_stop` or `script_discharge_stop` (transition-aware) | Self-Consumption, inverter manages autonomously |
 | `ERROR` | Stop active script (transition-aware) | Safety stop |
 
-### Deduplication
+### Deduplication & 5-Minute Settlement Keepalive
 
-The executor tracks the last applied state and power limit. If the solver returns the same state with the same limit as last time, **no command is sent**. This prevents unnecessary API calls and reduces Powerwall wear.
-
-```
-if new_state == last_state AND new_limit == last_limit:
-    skip (no action)
-else:
-    apply new state → call configured script
-```
+The executor tracks the last applied state and the discrete 5-minute NEM settlement slot (`:00, :05, ..., :55`).
+- **Active states (`CHARGE_GRID`, `DISCHARGE_GRID`)**: Execute immediately on state entry and re-execute **once per new 5-minute settlement slot** so timed local Powerwall dispatches (e.g. `600s` duration) are continuously renewed without mid-session expiry, while all sub-interval telemetry refreshes and fractional `limit_kw` changes within the same 5-minute slot are suppressed.
+- **Passive states (`SELF_CONSUMPTION`, `ERROR`)**: Remain strictly one-and-done—stop scripts are called once on state exit and never repeated across idle slots.
+- **Direct reversals (`CHARGE_GRID ↔ DISCHARGE_GRID`)**: Await completion of the previous stop script (`blocking=True`, bounded by a `15s` timeout) before invoking the opposite start script.

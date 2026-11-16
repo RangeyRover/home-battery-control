@@ -1958,3 +1958,77 @@ async def test_coordinator_solver_stats_telemetry_and_slow_solve_warning(caplog)
     assert "renewables_avg" in telemetry
     assert "guard_triggers" in telemetry
     assert coordinator._solver_snapshot["result"]["solver_stats"]["solve_seconds"] == 25.5
+
+
+@pytest.mark.asyncio
+async def test_coordinator_tracks_tariff_entities_and_settlement_clock(mock_hass):
+    """Feature 064 (US1): Coordinator tracks tariff entities, ticks at :XX:15, and unloads cleanly."""
+    from unittest.mock import patch
+
+    from custom_components.house_battery_control.const import (
+        CONF_CURRENT_EXPORT_PRICE_ENTITY,
+        CONF_CURRENT_IMPORT_PRICE_ENTITY,
+        CONF_EXPORT_PRICE_ENTITY,
+        CONF_IMPORT_PRICE_ENTITY,
+    )
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
+    config = {
+        CONF_BATTERY_SOC_ENTITY: "sensor.battery_soc",
+        CONF_BATTERY_POWER_ENTITY: "sensor.battery_power",
+        CONF_SOLAR_ENTITY: "sensor.solar_power",
+        CONF_GRID_ENTITY: "sensor.grid_power",
+        CONF_LOAD_TODAY_ENTITY: "sensor.load_today",
+        CONF_CURRENT_IMPORT_PRICE_ENTITY: "sensor.amber_general_detailed",
+        CONF_CURRENT_EXPORT_PRICE_ENTITY: "sensor.amber_feed_in_detailed",
+        CONF_IMPORT_PRICE_ENTITY: "sensor.amber_general_forecast",
+        CONF_EXPORT_PRICE_ENTITY: "sensor.amber_feed_in_forecast",
+    }
+
+    unsub_state = MagicMock()
+    unsub_clock = MagicMock()
+
+    with (
+        patch(
+            "custom_components.house_battery_control.coordinator.async_track_state_change_event",
+            return_value=unsub_state,
+        ) as mock_track_state,
+        patch(
+            "custom_components.house_battery_control.coordinator.async_track_time_change",
+            return_value=unsub_clock,
+        ) as mock_track_time,
+        patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None),
+        patch("custom_components.house_battery_control.coordinator.Store"),
+    ):
+        mock_tracker = MagicMock()
+        mock_tracker.cumulative_cost = 0.0
+        coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config, mock_tracker)
+        coordinator.hass = mock_hass
+        coordinator.async_request_refresh = AsyncMock()
+
+        mock_track_state.assert_called_once()
+        tracked = mock_track_state.call_args[0][1]
+        assert "sensor.amber_general_detailed" in tracked
+        assert "sensor.amber_feed_in_detailed" in tracked
+        assert "sensor.amber_general_forecast" in tracked
+        assert "sensor.amber_feed_in_forecast" in tracked
+        assert len(tracked) == len(set(tracked))
+
+        coordinator.async_start_settlement_clock()
+        mock_track_time.assert_called_once()
+        t_args, t_kwargs = mock_track_time.call_args
+        assert list(t_kwargs["minute"]) == list(range(0, 60, 5))
+        assert t_kwargs["second"] == 15
+
+        # Firing the settlement tick triggers coordinator refresh
+        tick_cb = t_args[1]
+        await tick_cb(None)
+        coordinator.async_request_refresh.assert_awaited_once()
+
+        # Unload cleans up both listeners and is idempotent
+        coordinator.async_unload()
+        unsub_state.assert_called_once()
+        unsub_clock.assert_called_once()
+        coordinator.async_unload()
+        assert unsub_state.call_count == 1
+        assert unsub_clock.call_count == 1

@@ -48,6 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Perform first refresh
     await coordinator.async_config_entry_first_refresh()
+    coordinator.async_start_settlement_clock()
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
@@ -129,9 +130,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    tracker = hass.data[DOMAIN].get(entry.entry_id, {}).get("tracker")
+    entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+    tracker = entry_data.get("tracker")
     if tracker:
         tracker.async_unload()
+    coordinator = entry_data.get("coordinator")
+    if coordinator and hasattr(coordinator, "async_unload"):
+        coordinator.async_unload()
 
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
