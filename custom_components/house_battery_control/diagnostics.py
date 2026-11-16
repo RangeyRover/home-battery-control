@@ -108,7 +108,7 @@ def build_diagnostic_plan_table(
         start = rate["start"]
         end = rate.get("end", start)
 
-        duration_mins = max(1, int((end - start).total_seconds() / 60.0))
+        duration_mins = max(1, round((end - start).total_seconds() / 60.0))
         duration_hours = duration_mins / 60.0
 
         # --- 3. Weather Interpolation (Nearest Neighbor) ---

@@ -320,7 +320,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             def parse_num(s):
                 if isinstance(s, (int, float)):
                     return float(s)
-                m = re.search(r"[-+]?\d*\.\d+|\d+", str(s))
+                m = re.search(r"[-+]?\d*\.\d+|\d+", str(s).replace("$", ""))
                 return float(m.group()) if m else 0.0
 
             def avg_key(chunk, k):

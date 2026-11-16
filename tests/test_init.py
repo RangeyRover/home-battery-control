@@ -98,13 +98,13 @@ def test_panel_admin_only_constant_exists():
 
 
 
-def test_panel_cache_bust_v57_and_dashboard_solver_card():
-    """T025/US4: Verify ?v=57 cache-bust on panel registrations and Solver card in hbc-dashboard.js."""
+def test_panel_cache_bust_v58_and_dashboard_solver_card():
+    """Verify ?v=58 cache-bust on panel registrations and Solver card in hbc-dashboard.js."""
     from custom_components.house_battery_control import FRONTEND_DIR, __file__
 
     init_content = Path(__file__).read_text(encoding="utf-8")
-    assert "/hbc/frontend/hbc-panel.js?v=57" in init_content
-    assert "/hbc/frontend/hbc-panel-lite.js?v=57" in init_content
+    assert "/hbc/frontend/hbc-panel.js?v=58" in init_content
+    assert "/hbc/frontend/hbc-panel-lite.js?v=58" in init_content
 
     dash_content = (FRONTEND_DIR / "hbc-dashboard.js").read_text(encoding="utf-8")
     assert "solver_stats" in dash_content

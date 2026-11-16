@@ -1,4 +1,4 @@
-"""Test the Telemetry Cost Tracker module (Feature 031)."""
+"""Test the Telemetry Cost Tracker module (Feature 031 & Feature 065)."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -9,8 +9,6 @@ from custom_components.house_battery_control.const import (
     CONF_TRACKER_EXPORT_PRICE,
     CONF_TRACKER_IMPORT_PRICE,
 )
-
-# This import will intentionally fail until the class is implemented (TDD step)
 from custom_components.house_battery_control.telemetry_tracker import (
     TelemetryCostTracker,
 )
@@ -27,11 +25,11 @@ def mock_config():
         CONF_TRACKER_EXPORT_PRICE: "sensor.amber_export",
     }
 
+
 @pytest.mark.asyncio
 @patch("custom_components.house_battery_control.telemetry_tracker.Store")
 async def test_tick_standard_accumulation(mock_store_class, mock_config):
-    """Test standard accumulation with positive deltas."""
-    # Setup mock store instance
+    """Positive feed-in export tariff reduces cumulative cost while positive import tariff increases it."""
     mock_store_instance = AsyncMock()
     mock_store_instance.async_load.return_value = None
     mock_store_class.return_value = mock_store_instance
@@ -42,7 +40,6 @@ async def test_tick_standard_accumulation(mock_store_class, mock_config):
 
     tracker = TelemetryCostTracker(hass, mock_config)
 
-    # Mocking initial load
     tracker._last_import = 10.0
     tracker._last_export = 5.0
     tracker.cumulative_cost = 100.0
@@ -50,37 +47,72 @@ async def test_tick_standard_accumulation(mock_store_class, mock_config):
     def mock_get_state(entity_id):
         state = MagicMock()
         if entity_id == "sensor.import_kwh":
-            state.state = "10.5" # 0.5 kWh used
+            state.state = "10.5"  # 0.5 kWh imported
         elif entity_id == "sensor.export_kwh":
             state.state = "5.2"  # 0.2 kWh exported
         elif entity_id == "sensor.amber_import":
-            state.state = "0.20" # 20c per kWh
+            state.state = "0.20"  # +$0.20/kWh import expense
         elif entity_id == "sensor.amber_export":
-            state.state = "0.10" # 10c per kWh (feed-in)
+            state.state = "0.10"  # +$0.10/kWh feed-in credit
         else:
             return None
         return state
 
     hass.states.get.side_effect = mock_get_state
 
-    # Execute tick
     await tracker._on_tick("dummy_time")
 
-    # Expected cost: 100.0 + (0.5 * 0.20) - (0.2 * 0.10) ?
-    # Wait, usually export is negative cost (revenue). If price is positive 0.10, earning money reduces cost.
-    # The specification says: `import_delta * import_price + export_delta * export_price`. Amber provides negative values for earning, or we subtract? Let's check existing coordinator math:
-    # Actually, Amber prices are positive for importing, negative for feed-in (usually). Wait, the spec example had `state: "-0.02"` which means Amber Express returns negative prices for earning feed-in or negative wholesale.
-    # 0.5 kWh import @ 0.20 = 0.10
-    # 0.2 kWh export @ 0.10 = 0.02
-    # Total = 100.12
-    assert tracker.cumulative_cost == pytest.approx(100.12)
+    # 100.0 + (0.5 * 0.20) - (0.2 * 0.10) = 100.08
+    assert tracker.cumulative_cost == pytest.approx(100.08)
     assert tracker._last_import == 10.5
     assert tracker._last_export == 5.2
+
+
+@pytest.mark.asyncio
+@patch("custom_components.house_battery_control.telemetry_tracker.Store")
+async def test_tick_negative_export_tariff_increases_cost(mock_store_class, mock_config):
+    """Feature 065 (US3): Exporting into a negative feed-in tariff (-$0.06/kWh solar sponge) increases cumulative cost."""
+    mock_store_instance = AsyncMock()
+    mock_store_instance.async_load.return_value = None
+    mock_store_class.return_value = mock_store_instance
+
+    hass = MagicMock(spec=HomeAssistant)
+    hass.states = MagicMock()
+    hass.states.get = MagicMock()
+
+    tracker = TelemetryCostTracker(hass, mock_config)
+    tracker._last_import = 10.0
+    tracker._last_export = 5.0
+    tracker.cumulative_cost = 100.0
+
+    def mock_get_state(entity_id):
+        state = MagicMock()
+        if entity_id == "sensor.import_kwh":
+            state.state = "10.0"  # 0.0 kWh imported
+        elif entity_id == "sensor.export_kwh":
+            state.state = "6.0"  # 1.0 kWh exported
+        elif entity_id == "sensor.amber_import":
+            state.state = "0.02"
+        elif entity_id == "sensor.amber_export":
+            state.state = "-0.06"  # -$0.06/kWh solar sponge export penalty
+        else:
+            return None
+        return state
+
+    hass.states.get.side_effect = mock_get_state
+
+    await tracker._on_tick("dummy_time")
+
+    # 100.0 + (0.0 * 0.02) - (1.0 * -0.06) = 100.06
+    assert tracker.cumulative_cost == pytest.approx(100.06)
+    assert tracker._last_import == 10.0
+    assert tracker._last_export == 6.0
+
 
 @pytest.mark.asyncio
 @patch("custom_components.house_battery_control.telemetry_tracker.Store")
 async def test_midnight_reset_interpolation(mock_store_class, mock_config):
-    """Test exactly handling a midnight kWh reset where current < last."""
+    """Test handling a midnight kWh reset where current < last."""
     mock_store_instance = AsyncMock()
     mock_store_instance.async_load.return_value = None
     mock_store_class.return_value = mock_store_instance
@@ -96,9 +128,9 @@ async def test_midnight_reset_interpolation(mock_store_class, mock_config):
     def mock_get_state(entity_id):
         state = MagicMock()
         if entity_id == "sensor.import_kwh":
-            state.state = "0.3" # Reset happened, now at 0.3
+            state.state = "0.3"  # Reset happened, now at 0.3
         elif entity_id == "sensor.export_kwh":
-            state.state = "0.0" # Reset happened, now at 0.0
+            state.state = "0.0"  # Reset happened, now at 0.0
         elif entity_id == "sensor.amber_import":
             state.state = "0.50"
         elif entity_id == "sensor.amber_export":
@@ -109,9 +141,6 @@ async def test_midnight_reset_interpolation(mock_store_class, mock_config):
 
     await tracker._on_tick("dummy_time")
 
-    # Import delta should be explicitly set to 0.3, not (0.3 - 15.0) -> negative
-    # Export delta should be explicitly set to 0.0, not (0.0 - 8.0) -> negative
-    # 0.3 * 0.50 = 0.15
     assert tracker.cumulative_cost == pytest.approx(200.15)
     assert tracker._last_import == 0.3
     assert tracker._last_export == 0.0

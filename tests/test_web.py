@@ -714,3 +714,69 @@ async def test_api_plan_passes_resolution(mock_hass):
 
     await view.get(mock_request)
     mock_coord._build_plan_matrix.assert_called_once_with(resolution="5min")
+
+
+def test_plan_table_299s_boundary_duration_not_truncated():
+    """Feature 065 (US2): 299s Amber :25/:55 boundary intervals must round to 5 min, not truncate to 4 min."""
+    rates = [
+        {
+            "start": datetime(2026, 11, 16, 8, 55, 1, tzinfo=timezone.utc),
+            "end": datetime(2026, 11, 16, 9, 0, 0, tzinfo=timezone.utc),  # 299 seconds
+            "import_price": 0.58,
+            "export_price": 0.26,
+            "type": "FORECAST",
+        }
+    ]
+    future_plan = [
+        {
+            "state": "DISCHARGE_GRID",
+            "target_soc": 79.6,
+            "net_grid": -9.44,
+            "pv": 0.13,
+            "load": 0.69,
+            "import_price": 0.58,
+            "export_price": 0.26,
+            "acquisition_cost": 0.049,
+            "cumulative_cost": 1051.0,
+        }
+    ]
+
+    table = _build_test_table(_make_plan_data(rates=rates, future_plan=future_plan))
+    # -9.44 kW * (5 / 60 h) * 0.26 $/kWh = -0.204533... -> "$-0.2045" (NOT "$-0.1636" from 4/60 h)
+    assert table[0]["Interval Cost"] == "$-0.2045"
+
+
+def test_plan_matrix_30min_preserves_negative_interval_cost_sign():
+    """Feature 065 (US2): 30min plan matrix summation must preserve negative credit signs regardless of $ placement."""
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
+    coord = HBCDataUpdateCoordinator.__new__(HBCDataUpdateCoordinator)
+    coord.data = {
+        "plan": [
+            {
+                "Time": f"19:{m:02d}",
+                "Local Time": f"19:{m:02d}",
+                "Import Rate": "0.58",
+                "Export Rate": "0.26",
+                "FSM State": "DISCHARGE_GRID",
+                "Inverter Limit": "100%",
+                "Net Grid": "-9.20",
+                "PV Forecast": "0.10",
+                "Load Forecast": "0.80",
+                "Air Temp Forecast": "16.0°C",
+                "Temp Delta": "-1.8°C",
+                "Load Adj.": "0.00",
+                "SoC Forecast": "80.0%",
+                "Interval Cost": "-$0.2000" if m == 0 else "$-0.2000",
+                "Cumul. Cost": "$1051.0000",
+                "Acq. Cost": "0.0490",
+                "Synthetic": False,
+            }
+            for m in (0, 5, 10, 15, 20, 25)
+        ]
+    }
+
+    matrix = coord._build_plan_matrix(resolution="30min")
+    assert len(matrix["rows"]) == 1
+    cost_idx = matrix["columns"].index("Interval Cost")
+    assert matrix["rows"][0][cost_idx] == "-$1.2000"

@@ -151,7 +151,7 @@ class TelemetryCostTracker:
 
         if self._last_import is not None and self._last_export is not None:
             # Multiply and accumulate
-            self.cumulative_cost += (import_delta * current_price_imp) + (export_delta * current_price_exp)
+            self.cumulative_cost += (import_delta * current_price_imp) - (export_delta * current_price_exp)
 
             # Persist if changed
             if import_delta > 0 or export_delta > 0:

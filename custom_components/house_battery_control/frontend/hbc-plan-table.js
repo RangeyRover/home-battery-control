@@ -35,6 +35,32 @@ export class HBCPlanTable extends LitElement {
     localStorage.setItem("hbc_hidden_cols", JSON.stringify(hidden));
   }
 
+  _colTooltip(col) {
+    if (col === "Import") return "Grid import rate ($/kWh): + costs money, - pays credit to import";
+    if (col === "Export") return "Grid feed-in rate ($/kWh): + earns credit, - costs money to export";
+    if (col === "Cost") return "Net interval bill impact: -$ green = credit earned, +$ red = cost incurred";
+    return "";
+  }
+
+  _cellClass(col, row) {
+    if (col === "Cost") {
+      if (row.costNum < -0.0005) return "val-credit";
+      if (row.costNum > 0.0005) return "val-cost";
+      return "val-neutral";
+    }
+    if (col === "Export") {
+      if (row.expNum < -0.005) return "val-cost";
+      if (row.expNum > 0.005) return "val-credit";
+      return "val-neutral";
+    }
+    if (col === "Import") {
+      if (row.impNum < -0.005) return "val-credit";
+      if (Math.abs(row.impNum) <= 0.005) return "val-neutral";
+      return "";
+    }
+    return "";
+  }
+
   _calculateSummaryStats() {
     const plan = this.data.plan || [];
     if (plan.length === 0) {
@@ -130,12 +156,17 @@ export class HBCPlanTable extends LitElement {
 
     if (this._planResolution === "5min") {
       rows = plan.map((r) => {
+        const impNum = parseNum(r["Import Rate"]);
+        const expNum = parseNum(r["Export Rate"]);
+        const costNum = parseNum(r["Interval Cost"]);
         return {
           time: r["Time"] || "—",
           localTime: r["Local Time"] || "—",
           synthetic: r["Synthetic"] || false,
           imp: r["Import Rate"] || "0.0",
           exp: r["Export Rate"] || "0.0",
+          impNum,
+          expNum,
           state: r["FSM State"] || "—",
           limit: r["Inverter Limit"] || "0%",
           grid: r["Net Grid"] || "0.00",
@@ -146,6 +177,7 @@ export class HBCPlanTable extends LitElement {
           loadAdj: r["Load Adj."] || "0.00",
           soc: r["SoC Forecast"] || "—",
           cost: formatCostStr(r["Interval Cost"]),
+          costNum,
           cumul: formatCostStr(r["Cumul. Cost"]),
           acq: formatCostStr(r["Acq. Cost"]),
         };
@@ -168,7 +200,7 @@ export class HBCPlanTable extends LitElement {
           const time = chunk[0]["Time"] || "—";
           const localTime = chunk[0]["Local Time"] || "—";
 
-           let state = "SELF_CONSUMPTION";
+          let state = "SELF_CONSUMPTION";
           let limit = "0%";
           const chargeReq = chunk.find(row => row["FSM State"] === "CHARGE_GRID");
           const dischargeReq = chunk.find(row => row["FSM State"] === "DISCHARGE_GRID");
@@ -181,8 +213,10 @@ export class HBCPlanTable extends LitElement {
             limit = dischargeReq["Inverter Limit"] || "100%";
           }
 
-          const imp = (chunk.reduce((s, row) => s + parseNum(row["Import Rate"]), 0) / chunk.length).toFixed(2);
-          const exp = (chunk.reduce((s, row) => s + parseNum(row["Export Rate"]), 0) / chunk.length).toFixed(2);
+          const impNum = chunk.reduce((s, row) => s + parseNum(row["Import Rate"]), 0) / chunk.length;
+          const expNum = chunk.reduce((s, row) => s + parseNum(row["Export Rate"]), 0) / chunk.length;
+          const imp = impNum.toFixed(2);
+          const exp = expNum.toFixed(2);
           const grid = (chunk.reduce((s, row) => s + parseNum(row["Net Grid"]), 0) / chunk.length).toFixed(2);
           const pv = (chunk.reduce((s, row) => s + parseNum(row["PV Forecast"]), 0) / chunk.length).toFixed(2);
           const ld = (chunk.reduce((s, row) => s + parseNum(row["Load Forecast"]), 0) / chunk.length).toFixed(2);
@@ -201,7 +235,10 @@ export class HBCPlanTable extends LitElement {
           const loadAdj = (chunk.reduce((s, row) => s + parseNum(row["Load Adj."]), 0) / chunk.length).toFixed(2);
           const synthetic = chunk[0]["Synthetic"] || false;
 
-           rows.push({ time, localTime, synthetic, imp, exp, state, limit, grid, pv, ld, temp, tempDelta, loadAdj, soc, cost, cumul, acq });
+          rows.push({
+            time, localTime, synthetic, imp, exp, impNum, expNum, state, limit,
+            grid, pv, ld, temp, tempDelta, loadAdj, soc, cost, costNum: costRaw, cumul, acq
+          });
         }
       }
     }
@@ -237,7 +274,7 @@ export class HBCPlanTable extends LitElement {
         <div class="table-wrap">
           <table>
             <thead>
-              <tr>${cols.filter(c => !this._hiddenCols.includes(c)).map((c) => html`<th>${c}</th>`)}</tr>
+              <tr>${cols.filter(c => !this._hiddenCols.includes(c)).map((c) => html`<th title="${this._colTooltip(c)}">${c}</th>`)}</tr>
             </thead>
             <tbody>
               ${rows.map((r) => {
@@ -249,7 +286,7 @@ export class HBCPlanTable extends LitElement {
                 };
                 return html`
                   <tr class="${r.state === 'SELF_CONSUMPTION' ? 'state-self' : r.state === 'CHARGE_GRID' ? 'state-charge' : r.state === 'DISCHARGE_GRID' ? 'state-discharge' : ''} ${r.synthetic ? 'state-synthetic' : ''}">
-                    ${cols.filter(c => !this._hiddenCols.includes(c)).map(c => html`<td>${colKeys[c]}</td>`)}
+                    ${cols.filter(c => !this._hiddenCols.includes(c)).map(c => html`<td class="${this._cellClass(c, r)}">${colKeys[c]}</td>`)}
                   </tr>
                 `;
               })}
@@ -261,8 +298,12 @@ export class HBCPlanTable extends LitElement {
             </tfoot>
           </table>
         </div>
-        <div style="font-size: 0.8em; opacity: 0.7; margin-top: 12px; font-style: italic;">
-          * Synthetic Forecast Period (Historical Analog Fallback)
+        <div class="table-legend">
+          <span><strong class="val-credit">-$ Green</strong> = bill credit / feed-in earnings</span>
+          <span>·</span>
+          <span><strong class="val-cost">+$ Red</strong> = bill cost / negative-FiT export penalty</span>
+          <span>·</span>
+          <span>* Synthetic Forecast Period (Historical Analog Fallback)</span>
         </div>
       </div>
     `;
@@ -347,6 +388,26 @@ export class HBCPlanTable extends LitElement {
       td {
         padding: 8px;
         border-bottom: 1px solid #2a2a5e;
+      }
+      td.val-credit, .val-credit {
+        color: #00ff88;
+        font-weight: 600;
+      }
+      td.val-cost, .val-cost {
+        color: #ff6b6b;
+        font-weight: 600;
+      }
+      td.val-neutral {
+        color: #8888aa;
+      }
+      .table-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 0.8em;
+        opacity: 0.8;
+        margin-top: 12px;
+        font-style: italic;
       }
       tr:nth-child(even) {
         background: #15153a;
