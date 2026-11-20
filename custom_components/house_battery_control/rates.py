@@ -92,6 +92,8 @@ class RatesManager:
             key = r["start"]
             if key in merged:
                 merged[key]["export_price"] = r["price"]
+                if merged[key].get("renewables") is None and r.get("renewables") is not None:
+                    merged[key]["renewables"] = r.get("renewables")
                 merged[key]["spike"] = bool(
                     merged[key].get("spike", False) or r.get("spike", False)
                 )
@@ -144,7 +146,12 @@ class RatesManager:
                 start_ts = dt_util.as_utc(start_ts)
                 end_ts = dt_util.as_utc(end_ts)
 
-                price = float(interval.get("per_kwh") or interval.get("perKwh", 0))
+                raw_price = interval.get("per_kwh")
+                if raw_price is None:
+                    raw_price = interval.get("perKwh", 0.0)
+                price = float(raw_price or 0.0)
+                raw_ren = interval.get("renewables")
+                renewables = float(raw_ren) if raw_ren is not None else None
                 is_spike = bool(
                     interval.get("spike_status") in ("potential_spike", "spike")
                     or interval.get("descriptor") == "spike"
@@ -164,7 +171,7 @@ class RatesManager:
                             "start": current_ts,
                             "end": next_ts,
                             "price": price,
-                            "renewables": None,
+                            "renewables": renewables,
                             "type": interval.get("type") or interval.get("periodType", "UNKNOWN"),
                             "spike": is_spike,
                         }
@@ -203,7 +210,11 @@ class RatesManager:
         parsed = []
         for interval in raw_data:
             try:
-                start_str = interval.get("start_time") or interval.get("periodStart", "")
+                start_str = (
+                    interval.get("start_time")
+                    or interval.get("periodStart")
+                    or interval.get("time", "")
+                )
                 end_str = interval.get("end_time") or interval.get("periodEnd", "")
 
                 start_ts = dt_util.parse_datetime(start_str) if start_str else None
@@ -225,21 +236,15 @@ class RatesManager:
                 end_ts = dt_util.as_utc(end_ts)
 
                 renewables = float(interval.get("renewables", 100.0))
-                advanced = interval.get("advanced_price_predicted", {})
+                advanced = interval.get("advanced_price_predicted") or {}
 
-                fallback_price = float(interval.get("per_kwh") or interval.get("perKwh") or interval.get("value") or 0.0)
-                predicted_price = float(advanced.get("predicted", fallback_price))
-                high_price = float(advanced.get("high", predicted_price))
-
-                if renewables >= 35.0:
-                    price = predicted_price
-                elif renewables <= 25.0:
-                    price = high_price
-                else:
-                    # Linear interpolation between 35% and 25% (a 10% band)
-                    ratio_predicted = (renewables - 25.0) / 10.0
-                    ratio_high = 1.0 - ratio_predicted
-                    price = (ratio_predicted * predicted_price) + (ratio_high * high_price)
+                raw_fallback = interval.get("per_kwh")
+                if raw_fallback is None:
+                    raw_fallback = interval.get("perKwh")
+                if raw_fallback is None:
+                    raw_fallback = interval.get("value", 0.0)
+                fallback_price = float(raw_fallback if raw_fallback is not None else 0.0)
+                price = float(advanced.get("predicted", fallback_price))
 
                 is_spike = bool(
                     interval.get("spike_status") in ("potential_spike", "spike")

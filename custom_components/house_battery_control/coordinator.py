@@ -51,6 +51,7 @@ from .const import (
     CONF_SOLCAST_TODAY_ENTITY,
     CONF_SOLCAST_TOMORROW_ENTITY,
     CONF_SOLVER_TIME_BUDGET,
+    CONF_SPIKE_RENEWABLES_THRESHOLD,
     CONF_USE_AMBER_EXPRESS,
     CONF_WEATHER_ENTITY,
     DEFAULT_EXPORT_MARGIN,
@@ -67,6 +68,7 @@ from .const import (
     DEFAULT_SOLCAST_TODAY,
     DEFAULT_SOLCAST_TOMORROW,
     DEFAULT_SOLVER_TIME_BUDGET,
+    DEFAULT_SPIKE_RENEWABLES_THRESHOLD,
     DOMAIN,
     PRICING_MODE_AMBER,
 )
@@ -82,6 +84,7 @@ from .rates import RatesManager
 from .rates_predictor import SyntheticRatesPredictor
 from .renewables_guard import RenewablesGuard
 from .solar.solcast import SolcastSolar
+from .spike_credibility import pretreat_rates_timeline
 from .telemetry_tracker import TelemetryCostTracker
 from .weather import WeatherManager
 
@@ -547,10 +550,17 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             except Exception as e:
                 _LOGGER.warning("Weather plugin not ready on boot: %s", e)
 
+            # Feature 066: Pre-treat raw forecast timeline for spike credibility
+            rates_timeline = pretreat_rates_timeline(
+                self.rates.get_rates(),
+                now=dt_util.utcnow(),
+                config=self.config,
+            )
+
             # Feature 055: Evaluate Low Renewables Guard
             guard_deadline_steps: list[int] | None = None
             try:
-                rates_timeline = self.rates.get_rates()
+                # Uses pre-treated rates_timeline computed above
                 # Read Solcast tomorrow value for solar condition
                 solcast_tomorrow = self._get_sensor_value(
                     self.config.get(CONF_SOLCAST_TOMORROW_ENTITY, DEFAULT_SOLCAST_TOMORROW)
@@ -567,6 +577,12 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                     solcast_threshold=float(self.config.get(CONF_GUARD_LOW_SOLAR_THRESHOLD, DEFAULT_GUARD_LOW_SOLAR_THRESHOLD)),
                     peak_solar=float(self.config.get(CONF_GUARD_PEAK_SOLAR, DEFAULT_GUARD_PEAK_SOLAR)),
                     solcast_today=solcast_today,
+                    spike_renewables_threshold=float(
+                        self.config.get(
+                            CONF_SPIKE_RENEWABLES_THRESHOLD,
+                            DEFAULT_SPIKE_RENEWABLES_THRESHOLD,
+                        )
+                    ),
                 )
                 if guard_active and rates_timeline:
                     spike_only = bool(
@@ -644,7 +660,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Failed to generate synthetic outlook: %s", e)
 
             # Predict Load
-            start_time = self.rates.get_rates()[0]["start"] if self.rates.get_rates() else None
+            start_time = rates_timeline[0]["start"] if rates_timeline else None
             if not start_time:
                 start_time = dt_util.now()
 
@@ -663,7 +679,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Align Solar Forecast to Rates Timeline
             from .context_builder import align_forecasts
-            rates_timeline = self.rates.get_rates()
+            # Reuse pre-treated rates_timeline (Feature 066)
             extended_rates_timeline = list(rates_timeline)
 
             if synthetic_pricing_curve and extended_rates_timeline:
@@ -815,7 +831,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
             self._last_update_time = now
             self._last_grid_power = grid_p
 
-            rates_list = self.rates.get_rates()
+            rates_list = rates_timeline
             if rates_list:
                 price = rates_list[0].get("import_price", rates_list[0].get("price", 0.0))
                 export_price = rates_list[0].get("export_price", price * 0.8)
@@ -855,7 +871,7 @@ class HBCDataUpdateCoordinator(DataUpdateCoordinator):
                 "import_today": round(import_today, 2),
                 "export_today": round(export_today, 2),
                 "current_price": current_price,
-                "rates": self.rates.get_rates(),
+                "rates": rates_timeline,
                 "weather": self.weather.get_forecast(),
                 "solar_forecast": solar_forecast,
                 "load_forecast": load_forecast,

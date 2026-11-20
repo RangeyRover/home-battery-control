@@ -149,7 +149,14 @@ The system calculates the required charging mathematics by computing optimizatio
 - Solcast provides energy-accumulated summaries by half-hour. The `SolcastSolar` manager forces linear interpolation over these spans, dividing total kWh into granular kW rates mapped purely to exact 5-minute `periodEnd` boundaries.
 
 ### 4.4. Amber Tariff Interpolation
-- Amber Electric provides prices primarily in 30-minute blocks (but occasionally 5-minute blocks). The `RatesManager` splits the forecast arrays, guarantees discrete lists for `import` and `export` rates, and aligns any 30-minute rate block repetitively across the six matching 5-minute spans in the FSM array to guarantee temporal sync.
+- Amber Electric provides prices primarily in 30-minute blocks (but occasionally 5-minute blocks). The `RatesManager` splits the forecast arrays, guarantees discrete lists for `import` and `export` rates (using unbiased `advanced_price_predicted.predicted` without `.high` tail-risk inflation), preserves per-interval `renewables` %, and aligns any 30-minute rate block repetitively across the six matching 5-minute spans in the FSM array to guarantee temporal sync. Historical 24h–48h analog price curves (`SyntheticRatesPredictor`) aggregate via `median` to suppress single-day spike outliers.
+
+### 4.5. Upstream Spike Credibility Pre-Treatment & Renewables Guard
+- Before constructing `SolverInputs` or evaluating `RenewablesGuard` (leaving `lin_fsm.py` completely unmodified), `spike_credibility.pretreat_rates_timeline` classifies each 5-minute interval into three deterministic states:
+  1. **`NEAR_REALTIME` (`lead_mins <= 30` or `renewables is None`)**: Passes raw `import_price`, `export_price`, and `spike` uncapped (`AEMO P5MIN` dispatch window).
+  2. **`MIRAGE_CLAMPED` (`lead_mins > 30` and `renewables > spike_renewables_threshold`, default `25.0%`)**: Clamps speculative spikes to `min(import_price, mirage_import_cap)` (`$0.60/kWh` default) and `min(export_price, mirage_export_cap)` (`$0.35/kWh` default) and clears `spike = False`.
+  3. **`CREDIBLE_SCARCITY` (`lead_mins > 30` and `renewables <= spike_renewables_threshold`)**: Weights spike excess above the mirage caps by empirical realization probability (`0.70` for `<= 6h`, `0.40` for `> 6h`, saturation-capped at `$1.50` import / `$1.20` export) and preserves `spike = True`.
+- `RenewablesGuard` enforces `100%` SoC deadlines when either low-energy conditions (`12h` mean renewables `<= 30%` / low Solcast Today or Tomorrow per `OR`/`AND` mode) OR a credible scarcity `spike` (`renewables <= spike_renewables_threshold` or `renewables is None`) occurs within the upcoming `12h` window.
 
 ## 5. Technical Constraints
 -   **Platform**: Python 3.12+ (Home Assistant environment).

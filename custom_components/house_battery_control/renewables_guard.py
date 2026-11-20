@@ -35,6 +35,7 @@ class RenewablesGuard:
         solcast_threshold: float,
         peak_solar: float,
         solcast_today: float = 100.0,
+        spike_renewables_threshold: float = 25.0,
     ) -> bool:
         """
         Evaluate if the low renewables / spike guard should be active.
@@ -89,8 +90,12 @@ class RenewablesGuard:
             solcast_today_triggered = True
             self.trigger_reasons.append(f"Solcast Today ({solcast_today:.1f} <= {solcast_target_kwh:.1f} kWh)")
 
-        # 4. Evaluate 12-hour Amber spike forecast (Feature 063 US5)
-        self.spike_triggered = any(bool(r.get("spike")) for r in rates[:144])
+        # 4. Evaluate 12-hour credible Amber spike forecast (Feature 063 US5 / Feature 066)
+        self.spike_triggered = any(
+            bool(r.get("spike"))
+            and (r.get("renewables") is None or float(r["renewables"]) <= spike_renewables_threshold)
+            for r in rates[:144]
+        )
         if self.spike_triggered:
             self.trigger_reasons.append("Amber Spike Forecast")
 
@@ -106,7 +111,7 @@ class RenewablesGuard:
             )
 
         self.is_active = self.low_energy_triggered or self.spike_triggered
-        self.target_soc = 80.0 if (self.spike_triggered and not self.low_energy_triggered) else 100.0
+        self.target_soc = 100.0
 
         if self.is_active:
             _LOGGER.info(

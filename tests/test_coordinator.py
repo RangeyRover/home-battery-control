@@ -1777,9 +1777,9 @@ async def test_coordinator_spike_only_guard_passes_daytime_deadline_and_80pct_ta
             rates_with_spike.append({
                 "start": now + timedelta(minutes=5 * i),
                 "end": now + timedelta(minutes=5 * (i + 1)),
-                "import_price": 0.15,
-                "export_price": 0.05,
-                "renewables": 88.0,
+                "import_price": 2.60 if i == 70 else 0.15,
+                "export_price": 1.35 if i == 70 else 0.05,
+                "renewables": 18.0 if i == 70 else 88.0,
                 "spike": i == 70,
             })
 
@@ -1836,10 +1836,123 @@ async def test_coordinator_spike_only_guard_passes_daytime_deadline_and_80pct_ta
     assert called_deadlines == ["16:00"]
 
     fsm_context = coordinator.fsm.calculate_next_state.call_args[0][0]
-    assert fsm_context.config["guard_target_soc"] == 80.0
+    assert fsm_context.config["guard_target_soc"] == 100.0
     assert fsm_context.config["solver_time_budget"] == 30.0
+    # i==70 (+350m <= 6h) credible scarcity: export = min(0.35 + 0.70*(1.35-0.35), 1.20) = 1.05
+    assert fsm_context.solver_inputs.price_sell[70] == pytest.approx(1.05)
     assert result["solver_stats"]["outcome"] == "optimal"
     assert result["solve_seconds_max_24h"] == 0.25
+
+
+@pytest.mark.asyncio
+async def test_coordinator_clamps_high_renewables_distant_mirage_and_suppresses_guard():
+    """Feature 066: >30m spike with high renewables (68% > 25%) is clamped to $0.60/$0.35 and suppresses RenewablesGuard, while <=30m spike stays uncapped."""
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from custom_components.house_battery_control.const import (
+        CONF_USE_AMBER_EXPRESS,
+    )
+    from custom_components.house_battery_control.coordinator import HBCDataUpdateCoordinator
+
+    mock_hass = MagicMock()
+
+    async def mock_async_add_executor_job(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    mock_hass.async_add_executor_job = mock_async_add_executor_job
+    mock_hass.states.get.return_value = _make_state("50.0")
+
+    config = {
+        CONF_BATTERY_SOC_ENTITY: "sensor.soc",
+        CONF_BATTERY_POWER_ENTITY: "sensor.battery",
+        CONF_SOLAR_ENTITY: "sensor.solar",
+        CONF_GRID_ENTITY: "sensor.grid",
+        CONF_LOAD_TODAY_ENTITY: "sensor.load",
+        CONF_IMPORT_TODAY_ENTITY: "sensor.import",
+        CONF_EXPORT_TODAY_ENTITY: "sensor.export",
+        CONF_USE_AMBER_EXPRESS: True,
+    }
+
+    with (
+        patch("custom_components.house_battery_control.coordinator.async_track_state_change_event"),
+        patch("custom_components.house_battery_control.coordinator.DataUpdateCoordinator.__init__", return_value=None),
+        patch("custom_components.house_battery_control.coordinator.Store"),
+    ):
+        mock_tracker = MagicMock()
+        mock_tracker.cumulative_cost = 0.0
+        coordinator = HBCDataUpdateCoordinator(mock_hass, "entry123", config, mock_tracker)
+        coordinator.hass = mock_hass
+        coordinator._update_count = 0
+        coordinator._costs_loaded = True
+        coordinator._last_saved_acquisition = 0.10
+        coordinator.acquisition_cost = 0.10
+        coordinator._previous_state = None
+        coordinator._solver_snapshot = None
+        coordinator._state_transitions = []
+        coordinator.store = MagicMock()
+
+        now = datetime(2026, 11, 11, 2, 0, tzinfo=timezone.utc)
+        rates_timeline = []
+        for i in range(144):
+            if i == 2:
+                # +10m (<=30m P5 window): uncapped even at 90% renewables!
+                imp, exp, ren, sp = 3.94, 3.50, 90.0, True
+            elif i == 70:
+                # +350m (>30m mirage): $12.17 imp / $4.10 exp @ 68% renewables!
+                imp, exp, ren, sp = 12.17, 4.10, 68.0, True
+            else:
+                imp, exp, ren, sp = 0.15, 0.05, 68.0, False
+            rates_timeline.append({
+                "start": now + timedelta(minutes=5 * i),
+                "end": now + timedelta(minutes=5 * (i + 1)),
+                "import_price": imp,
+                "export_price": exp,
+                "renewables": ren,
+                "spike": sp,
+            })
+
+        coordinator.rates = MagicMock()
+        coordinator.rates.get_rates.return_value = rates_timeline
+        coordinator.rates.get_import_price_at.return_value = 0.15
+        coordinator.rates.get_export_price_at = MagicMock(return_value=0.05)
+        coordinator.weather = MagicMock()
+        coordinator.weather.async_update = AsyncMock()
+        coordinator.weather.get_forecast.return_value = []
+        coordinator.solar = MagicMock()
+        coordinator.solar.async_get_forecast = AsyncMock(return_value=[])
+        coordinator.load_predictor = MagicMock()
+        coordinator.load_predictor.async_predict = AsyncMock(return_value=[])
+        coordinator.load_predictor.cache_date = None
+        coordinator.load_predictor.cache_refreshed_at = None
+        coordinator.load_predictor.history_start = None
+        coordinator.load_predictor.history_end = None
+        coordinator.load_predictor.CACHE_TTL_MINUTES = 60
+        coordinator.load_predictor.last_history = []
+        coordinator.fsm = MagicMock()
+        coordinator.fsm.calculate_next_state.return_value = SimpleNamespace(
+            state="SELF_CONSUMPTION", reason="test", limit_kw=0.0, future_plan=[]
+        )
+        coordinator.executor = MagicMock()
+        coordinator.executor.apply_state = AsyncMock()
+        coordinator.executor.get_command_summary.return_value = ""
+        coordinator.synthetic_predictor = MagicMock()
+        coordinator.synthetic_predictor.async_get_synthetic_outlook = AsyncMock(
+            return_value=([], [], [], [])
+        )
+        coordinator._get_sensor_value = MagicMock(return_value=35.0)
+
+        result = await coordinator._async_update_data()
+
+    assert result["renewables_guard_active"] is False
+    fsm_context = coordinator.fsm.calculate_next_state.call_args[0][0]
+    # i==2 (+10m): uncapped
+    assert fsm_context.solver_inputs.price_buy[2] == pytest.approx(3.94)
+    assert fsm_context.solver_inputs.price_sell[2] == pytest.approx(3.50)
+    # i==70 (+350m @ 68% ren): clamped to $0.60 / $0.35!
+    assert fsm_context.solver_inputs.price_buy[70] == pytest.approx(0.60)
+    assert fsm_context.solver_inputs.price_sell[70] == pytest.approx(0.35)
 
 
 @pytest.mark.asyncio

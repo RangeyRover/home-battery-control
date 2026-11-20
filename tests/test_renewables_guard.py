@@ -288,11 +288,31 @@ def test_guard_or_mode_today_only():
     assert not any("Solcast Tomorrow" in r for r in guard.trigger_reasons)
 
 
-def test_guard_spike_forecast_triggers_in_and_mode_with_80pct_target():
-    """T021/US5: A spike in rates[:144] activates guard even in AND mode when renewables and solar are high, setting target_soc=80.0."""
+def test_guard_high_renewables_spike_mirage_suppressed():
+    """Feature 066 (US3): A spike interval with high renewables (e.g. 68% > 25%) is suppressed as a mirage."""
     guard = RenewablesGuard()
-    rates = [{"renewables": 88.0, "spike": False} for _ in range(144)]
-    rates[70] = {"renewables": 88.0, "spike": True}
+    rates = [{"renewables": 68.0, "spike": False} for _ in range(144)]
+    rates[70] = {"renewables": 68.0, "spike": True}
+
+    active = guard.evaluate(
+        rates,
+        solcast_tomorrow=35.0,
+        solcast_today=35.0,
+        trigger_mode="OR",
+        renewables_threshold=30.0,
+        solcast_threshold=50.0,
+        peak_solar=40.0,
+    )
+    assert active is False
+    assert guard.spike_triggered is False
+    assert guard.low_energy_triggered is False
+
+
+def test_guard_credible_low_renewables_spike_triggers_in_and_mode_with_100pct_target():
+    """Feature 066 (US3): A spike interval with low renewables (<= 25%) activates guard even in AND mode with high 12h mean renewables, targeting 100% SoC."""
+    guard = RenewablesGuard()
+    rates = [{"renewables": 80.0, "spike": False} for _ in range(144)]
+    rates[70] = {"renewables": 18.0, "spike": True}
 
     active = guard.evaluate(
         rates,
@@ -306,7 +326,7 @@ def test_guard_spike_forecast_triggers_in_and_mode_with_80pct_target():
     assert active is True
     assert guard.spike_triggered is True
     assert guard.low_energy_triggered is False
-    assert guard.target_soc == 80.0
+    assert guard.target_soc == 100.0
     assert any("Amber Spike Forecast" in r for r in guard.trigger_reasons)
 
 

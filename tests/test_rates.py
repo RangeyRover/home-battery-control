@@ -501,3 +501,63 @@ def test_standard_amber_spike_status_parsed(mock_hass):
     assert len(rates) == 2
     assert rates[0]["spike"] is True
     assert rates[1]["spike"] is False
+
+
+def test_amber_express_uses_unbiased_predicted_without_high_inflation(mock_hass):
+    """Feature 066 (US1): Amber Express must use predicted price directly even at low renewables, never inflating to .high."""
+    export_prices = [
+        {
+            "start_time": "2026-04-12T20:30:01+00:00",
+            "end_time": "2026-04-12T21:00:00+00:00",
+            "per_kwh": 0.32,
+            "renewables": 11.2,
+            "advanced_price_predicted": {
+                "low": 0.09,
+                "predicted": 0.32,
+                "high": 2.04,
+            },
+        }
+    ]
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state([], key="forecasts"),
+        "sensor.amber_export": _make_amber_state(export_prices, key="forecasts"),
+    }.get(eid)
+
+    manager = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=True)
+    manager.update()
+    rates = manager.get_rates()
+
+    assert len(rates) == 6
+    assert rates[0]["export_price"] == pytest.approx(0.32)
+    assert rates[0]["renewables"] == pytest.approx(11.2)
+
+
+def test_amber_express_time_and_value_schema_and_standard_renewables(mock_hass):
+    """Feature 066: Support {'time', 'value'} Amber Express items and extract renewables in standard Amber when present."""
+    ae_prices = [
+        {"time": "2026-11-20T12:20:00+10:30", "value": 0.0895},
+    ]
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(ae_prices, key="forecast"),
+        "sensor.amber_export": _make_amber_state([], key="forecast"),
+    }.get(eid)
+    ae_mgr = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=True)
+    ae_mgr.update()
+    assert len(ae_mgr.get_rates()) == 1
+    assert ae_mgr.get_rates()[0]["import_price"] == pytest.approx(0.0895)
+
+    std_prices = [
+        {
+            "start_time": "2026-11-20T06:30:01+00:00",
+            "end_time": "2026-11-20T07:00:00+00:00",
+            "per_kwh": 0.57,
+            "renewables": 131,
+        }
+    ]
+    mock_hass.states.get.side_effect = lambda eid: {
+        "sensor.amber_import": _make_amber_state(std_prices, key="forecasts"),
+        "sensor.amber_export": _make_amber_state([], key="forecasts"),
+    }.get(eid)
+    std_mgr = RatesManager(mock_hass, "sensor.amber_import", "sensor.amber_export", use_amber_express=False)
+    std_mgr.update()
+    assert std_mgr.get_rates()[0]["renewables"] == pytest.approx(131.0)

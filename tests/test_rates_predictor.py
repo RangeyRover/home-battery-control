@@ -129,3 +129,23 @@ class TestSyntheticRatesPredictor:
             yields = [d.pv_yield for d in analog_days]
             assert 10.0 not in yields # Furthest away should be dropped
             assert 20.0 in yields # Closest should be included
+
+    def test_synthetic_curves_use_median_to_reject_single_day_spike_outlier(self, mock_hass):
+        """Feature 066 (US3): Single historical $20/kWh spike day in 5-day analog pool must not distort pricing/export curves."""
+        predictor = SyntheticRatesPredictor(mock_hass)
+        analog_days = [
+            AnalogDay(
+                date=datetime(2026, 6, i),
+                pv_yield=20.0,
+                pricing_curve=[20.0 if i == 5 else 0.25] * 288,
+                export_curve=[19.0 if i == 5 else 0.12] * 288,
+                load_curve=[1.5] * 288,
+            )
+            for i in range(1, 6)
+        ]
+
+        imp_curve = predictor._average_curves(analog_days, "pricing_curve")
+        exp_curve = predictor._average_curves(analog_days, "export_curve")
+
+        assert imp_curve[0] == pytest.approx(0.25)
+        assert exp_curve[0] == pytest.approx(0.12)

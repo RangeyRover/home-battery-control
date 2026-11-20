@@ -41,7 +41,8 @@ archive/
 .mypy_cache/
 
 node_modules/
-*.db 
+*.db
+*.db-*
  
 renewable forecast/
 scratch/

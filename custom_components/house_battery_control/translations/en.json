@@ -85,7 +85,10 @@
                     "guard_peak_solar": "Guard: Peak Solar Reference (kWh)",
                     "guard_trigger_mode": "Guard: Trigger Mode (OR/AND)",
                     "guard_overnight_deadline": "Guard: Overnight Deadline",
-                    "guard_daytime_deadline": "Guard: Daytime Deadline"
+                    "guard_daytime_deadline": "Guard: Daytime Deadline",
+                    "spike_renewables_threshold": "Spike Guard: Max Credible Renewables (%)",
+                    "mirage_import_cap": "Spike Mirage: Import Price Cap ($/kWh)",
+                    "mirage_export_cap": "Spike Mirage: Export Price Cap ($/kWh)"
                 }
             },
             "pricing_mode": {
@@ -206,7 +209,10 @@
                     "guard_peak_solar": "Guard: Peak Solar Reference (kWh)",
                     "guard_trigger_mode": "Guard: Trigger Mode (OR/AND)",
                     "guard_overnight_deadline": "Guard: Overnight Deadline",
-                    "guard_daytime_deadline": "Guard: Daytime Deadline"
+                    "guard_daytime_deadline": "Guard: Daytime Deadline",
+                    "spike_renewables_threshold": "Spike Guard: Max Credible Renewables (%)",
+                    "mirage_import_cap": "Spike Mirage: Import Price Cap ($/kWh)",
+                    "mirage_export_cap": "Spike Mirage: Export Price Cap ($/kWh)"
                 }
             },
             "pricing_mode": {

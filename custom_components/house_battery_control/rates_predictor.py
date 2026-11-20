@@ -302,6 +302,14 @@ class SyntheticRatesPredictor:
         if curve_length == 0:
             return []
 
+        if attr_name in ("pricing_curve", "export_curve"):
+            import statistics
+
+            return [
+                float(statistics.median(getattr(day, attr_name)[i] for day in analog_days))
+                for i in range(curve_length)
+            ]
+
         averaged = [0.0] * curve_length
         for day in analog_days:
             curve = getattr(day, attr_name)

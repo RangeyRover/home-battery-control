@@ -65,6 +65,8 @@ from .const import (
     CONF_LOAD_SENSITIVITY_HIGH_TEMP,
     CONF_LOAD_SENSITIVITY_LOW_TEMP,
     CONF_LOAD_TODAY_ENTITY,
+    CONF_MIRAGE_EXPORT_CAP,
+    CONF_MIRAGE_IMPORT_CAP,
     CONF_NO_IMPORT_PERIODS,
     CONF_OBSERVATION_MODE,
     CONF_PANEL_ADMIN_ONLY,
@@ -79,6 +81,7 @@ from .const import (
     CONF_SOLCAST_TODAY_ENTITY,
     CONF_SOLCAST_TOMORROW_ENTITY,
     CONF_SOLVER_TIME_BUDGET,
+    CONF_SPIKE_RENEWABLES_THRESHOLD,
     CONF_TRACKER_EXPORT_PRICE,
     CONF_TRACKER_IMPORT_PRICE,
     CONF_USE_AMBER_EXPRESS,
@@ -94,12 +97,15 @@ from .const import (
     DEFAULT_GUARD_TRIGGER_MODE,
     DEFAULT_INVERTER_LIMIT,
     DEFAULT_LOAD_CACHE_TTL,
+    DEFAULT_MIRAGE_EXPORT_CAP,
+    DEFAULT_MIRAGE_IMPORT_CAP,
     DEFAULT_PANEL_ADMIN_ONLY,
     DEFAULT_RESERVE_SOC,
     DEFAULT_ROUND_TRIP_EFFICIENCY,
     DEFAULT_SOLCAST_TODAY,
     DEFAULT_SOLCAST_TOMORROW,
     DEFAULT_SOLVER_TIME_BUDGET,
+    DEFAULT_SPIKE_RENEWABLES_THRESHOLD,
     DEFAULT_USE_AMBER_EXPRESS,
     DOMAIN,
     PRICING_MODE_AMBER,
@@ -505,6 +511,51 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_NO_IMPORT_PERIODS,
                         default="",
                     ): TextSelector(TextSelectorConfig(type="text")),
+                    vol.Optional(
+                        CONF_SPIKE_RENEWABLES_THRESHOLD,
+                        default=self._data.get(
+                            CONF_SPIKE_RENEWABLES_THRESHOLD,
+                            DEFAULT_SPIKE_RENEWABLES_THRESHOLD,
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0.0,
+                            max=100.0,
+                            step=0.5,
+                            mode=NumberSelectorMode.BOX,
+                            unit_of_measurement="%",
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_MIRAGE_IMPORT_CAP,
+                        default=self._data.get(
+                            CONF_MIRAGE_IMPORT_CAP,
+                            DEFAULT_MIRAGE_IMPORT_CAP,
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0.0,
+                            max=5.0,
+                            step=0.01,
+                            mode=NumberSelectorMode.BOX,
+                            unit_of_measurement="$/kWh",
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_MIRAGE_EXPORT_CAP,
+                        default=self._data.get(
+                            CONF_MIRAGE_EXPORT_CAP,
+                            DEFAULT_MIRAGE_EXPORT_CAP,
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0.0,
+                            max=5.0,
+                            step=0.01,
+                            mode=NumberSelectorMode.BOX,
+                            unit_of_measurement="$/kWh",
+                        )
+                    ),
                     vol.Optional(
                         CONF_GUARD_RENEWABLES_THRESHOLD,
                         default=self._data.get(CONF_GUARD_RENEWABLES_THRESHOLD, DEFAULT_GUARD_RENEWABLES_THRESHOLD),
@@ -925,6 +976,9 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
                 CONF_GUARD_TRIGGER_MODE,
                 CONF_GUARD_OVERNIGHT_DEADLINE,
                 CONF_GUARD_DAYTIME_DEADLINE,
+                CONF_SPIKE_RENEWABLES_THRESHOLD,
+                CONF_MIRAGE_IMPORT_CAP,
+                CONF_MIRAGE_EXPORT_CAP,
             ):
                 if key in user_input:
                     self._data[key] = user_input[key]
@@ -980,6 +1034,51 @@ class HBCOptionsFlowHandler(config_entries.OptionsFlow):
                             "suggested_value": self._data.get(CONF_NO_IMPORT_PERIODS, "")
                         },
                     ): TextSelector(TextSelectorConfig(type="text")),
+                    vol.Optional(
+                        CONF_SPIKE_RENEWABLES_THRESHOLD,
+                        default=self._data.get(
+                            CONF_SPIKE_RENEWABLES_THRESHOLD,
+                            DEFAULT_SPIKE_RENEWABLES_THRESHOLD,
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0.0,
+                            max=100.0,
+                            step=0.5,
+                            mode=NumberSelectorMode.BOX,
+                            unit_of_measurement="%",
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_MIRAGE_IMPORT_CAP,
+                        default=self._data.get(
+                            CONF_MIRAGE_IMPORT_CAP,
+                            DEFAULT_MIRAGE_IMPORT_CAP,
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0.0,
+                            max=5.0,
+                            step=0.01,
+                            mode=NumberSelectorMode.BOX,
+                            unit_of_measurement="$/kWh",
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_MIRAGE_EXPORT_CAP,
+                        default=self._data.get(
+                            CONF_MIRAGE_EXPORT_CAP,
+                            DEFAULT_MIRAGE_EXPORT_CAP,
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0.0,
+                            max=5.0,
+                            step=0.01,
+                            mode=NumberSelectorMode.BOX,
+                            unit_of_measurement="$/kWh",
+                        )
+                    ),
                     vol.Optional(
                         CONF_GUARD_RENEWABLES_THRESHOLD,
                         default=self._data.get(CONF_GUARD_RENEWABLES_THRESHOLD, DEFAULT_GUARD_RENEWABLES_THRESHOLD),

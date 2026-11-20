@@ -404,3 +404,34 @@ def test_solver_time_budget_constants_and_translations():
             assert "round_trip_efficiency" in energy_data
             assert "export_margin" in energy_data
         assert data["entity"]["sensor"]["hbc_solve_time"]["name"] == "Solver Duration"
+
+
+def test_spike_pretreatment_constants_and_translations():
+    """Feature 066 (FR-006): Verify spike credibility config keys, defaults, and translation strings."""
+    import json
+    from pathlib import Path
+
+    from custom_components.house_battery_control.const import (
+        CONF_MIRAGE_EXPORT_CAP,
+        CONF_MIRAGE_IMPORT_CAP,
+        CONF_SPIKE_RENEWABLES_THRESHOLD,
+        DEFAULT_MIRAGE_EXPORT_CAP,
+        DEFAULT_MIRAGE_IMPORT_CAP,
+        DEFAULT_SPIKE_RENEWABLES_THRESHOLD,
+    )
+
+    assert CONF_SPIKE_RENEWABLES_THRESHOLD == "spike_renewables_threshold"
+    assert CONF_MIRAGE_IMPORT_CAP == "mirage_import_cap"
+    assert CONF_MIRAGE_EXPORT_CAP == "mirage_export_cap"
+    assert DEFAULT_SPIKE_RENEWABLES_THRESHOLD == 25.0
+    assert DEFAULT_MIRAGE_IMPORT_CAP == 0.60
+    assert DEFAULT_MIRAGE_EXPORT_CAP == 0.35
+
+    base = Path(__file__).parent.parent / "custom_components" / "house_battery_control"
+    for rel in ("strings.json", "translations/en.json"):
+        data = json.loads((base / rel).read_text(encoding="utf-8"))
+        for section in ("config", "options"):
+            ctrl_data = data[section]["step"]["control"]["data"]
+            assert "spike_renewables_threshold" in ctrl_data
+            assert "mirage_import_cap" in ctrl_data
+            assert "mirage_export_cap" in ctrl_data
